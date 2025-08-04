@@ -1,197 +1,531 @@
-"use client";
-import React, { useEffect, useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import GridComponent from "./components/GridComponent";
-import PlasticMadeProducts from "./components/PlasticMadeProducts";
-import Opposite from "./components/Opposite";
-import Opposite2 from "./components/Opposite2";
-import Footer from "./components/Footer";
-import CallToAction from "./components/CallToAction";
-import FaqSection from "./faqs/page";
-import BlogCarousel from "./components/BlogCarousel";
+'use client';
 
-const Page = () => {
-  const textRef = useRef<HTMLHeadingElement>(null);
-  const [backgroundImage, setBackgroundImage] = useState("/Hero.png");
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import AdminLayout from './components/AdminLayout';
+import StatsCard from './components/StatsCard';
+import {
+  People as UsersIcon,
+  ShoppingCart as ProductsIcon,
+  Receipt as OrdersIcon,
+  TrendingUp as SalesIcon,
+  AttachMoney as RevenueIcon,
+  Star as ReviewsIcon,
+  NotificationsActive as NotificationsIcon,
+  Analytics as AnalyticsIcon,
+  Settings as SettingsIcon,
+  Add as AddIcon,
+  Visibility as ViewIcon,
+  Edit as EditIcon,
+  Send as SendIcon
+} from '@mui/icons-material';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { analyticsAPI } from '../lib/api';
+import RealTimeUpdater from './components/RealTimeUpdater';
+
+interface DashboardStats {
+  totalUsers: number;
+  totalProducts: number;
+  pendingOrders: number;
+  totalRevenue: number;
+  averageRating: number;
+  monthlyStats?: {
+    newUsers: number;
+    monthlyRevenue: number;
+  };
+}
+
+interface SalesData {
+  month: string;
+  revenue: number;
+  orders: number;
+}
+
+interface CategoryData {
+  name: string;
+  value: number;
+  count: number;
+  color: string;
+}
+
+interface TopProduct {
+  name: string;
+  sales: number;
+  revenue: number;
+  rating: number;
+}
+
+interface RecentActivity {
+  id: string;
+  type: string;
+  message: string;
+  time: string;
+}
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const fetchDashboardData = async (isRefresh = false) => {
+    try {
+      if (!isRefresh) setLoading(true);
+      setError('');
+
+      const [stats, sales, categories, products, activity] = await Promise.all([
+        analyticsAPI.getDashboardStats(),
+        analyticsAPI.getSalesData(),
+        analyticsAPI.getCategoryAnalytics(),
+        analyticsAPI.getTopProducts(),
+        analyticsAPI.getRecentActivity()
+      ]);
+
+      setDashboardStats(stats);
+      setSalesData(sales);
+      setCategoryData(categories);
+      setTopProducts(products);
+      setRecentActivity(activity);
+    } catch (err: any) {
+      console.error('Dashboard fetch error:', err);
+      if (!isRefresh) setError('Failed to load dashboard data');
+    } finally {
+      if (!isRefresh) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Check screen size to determine which background image to use
-    const handleResize = () => {
-      if (window.innerWidth <= 768) {
-        setBackgroundImage("/Hero2.png"); // For mobile devices
-      } else {
-        setBackgroundImage("/Hero.png"); // For larger screens
-      }
-    };
-
-    // Initial check
-    handleResize();
-
-    // Listen for window resize
-    window.addEventListener("resize", handleResize);
-
-    // Clean up event listener on unmount
-    return () => window.removeEventListener("resize", handleResize);
+    fetchDashboardData();
   }, []);
 
-  useEffect(() => {
-    const mainText = "Erase Waste By Shopping Quality Recycled";
-    const synonyms = [
-      "Products",
-      "Items",
-      "Materials",
-      "Goods",
-      "Supplies",
-      "Resources",
-      "Commodities",
-      "Merchandise",
-      "Essentials",
-      "Assets",
-    ];
-    let currentText = "";
-    let index = 0;
-    let synonymIndex = 0;
+  // Quick Action Handlers
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'users':
+        router.push('/users');
+        break;
+      case 'products':
+        router.push('/products');
+        break;
+      case 'orders':
+        router.push('/orders');
+        break;
+      case 'analytics':
+        router.push('/analytics');
+        break;
+      case 'notifications':
+        router.push('/notifications');
+        break;
+      case 'settings':
+        router.push('/settings');
+        break;
+      case 'add-product':
+        router.push('/products?action=add');
+        break;
+      case 'send-notification':
+        router.push('/notifications?action=create');
+        break;
+      case 'view-reports':
+        router.push('/analytics');
+        break;
+      case 'manage-reviews':
+        router.push('/reviews');
+        break;
+      default:
+        console.log('Quick action:', action);
+    }
+  };
 
-    const typeWriterAnimation = () => {
-      if (index < mainText.length) {
-        currentText += mainText[index];
-        if (textRef.current) textRef.current.innerText = currentText;
-        index++;
-        setTimeout(typeWriterAnimation, 30);
-      } else {
-        changeSynonym();
-      }
-    };
+  if (loading) {
+  return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
-    const changeSynonym = () => {
-      if (textRef.current) {
-        textRef.current.innerHTML = `${mainText} <span class="text-[#008C00] font-bold">${synonyms[synonymIndex]}</span>.`;
-      }
-      synonymIndex = (synonymIndex + 1) % synonyms.length;
-      setTimeout(changeSynonym, 1000);
-    };
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </AdminLayout>
+    );
+  }
 
-    typeWriterAnimation();
-  }, []);
+  if (!dashboardStats) {
+    return (
+      <AdminLayout>
+        <div className="text-center p-8">
+          <p className="text-gray-600">No data available</p>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
-    <>
-      <div
-        className="h-screen bg-no-repeat bg-top bg-contain"
-        style={{ backgroundImage: `url('${backgroundImage}')` }}
-      >
-        <div className="flex justify-center">
-          <Image
-            src="/oneone.png"
-            width={300}
-            height={2}
-            alt="oneone"
-            className="mt-32 sm:mt-32"
-            draggable={false}
+    <AdminLayout>
+      <RealTimeUpdater 
+        onUpdate={() => fetchDashboardData(true)} 
+        interval={30000} 
+        enabled={!loading && !error} 
+      />
+      <div className="space-y-8">
+        {/* Simplified Header */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-600 mt-1">Welcome back! Here's what's happening with your platform.</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Live</span>
+              </div>
+              <div className="text-sm text-gray-500">
+                Last updated: {new Date().toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Modern Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <StatsCard
+            title="Total Users"
+            value={dashboardStats.totalUsers.toLocaleString()}
+            change={dashboardStats.monthlyStats ? `+${dashboardStats.monthlyStats.newUsers} this month` : 'Growing steadily'}
+            changeType="positive"
+            icon={<UsersIcon className="w-8 h-8" />}
+          />
+          <StatsCard
+            title="Products"
+            value={dashboardStats.totalProducts}
+            change="Active products"
+            changeType="positive"
+            icon={<ProductsIcon className="w-8 h-8" />}
+          />
+          <StatsCard
+            title="Pending Orders"
+            value={dashboardStats.pendingOrders}
+            change={dashboardStats.pendingOrders > 10 ? "Needs attention" : "Normal"}
+            changeType={dashboardStats.pendingOrders > 10 ? "negative" : "positive"}
+            icon={<OrdersIcon className="w-8 h-8" />}
+          />
+          <StatsCard
+            title="Total Revenue"
+            value={`$${dashboardStats.totalRevenue.toLocaleString()}`}
+            change={dashboardStats.monthlyStats ? `$${dashboardStats.monthlyStats.monthlyRevenue.toLocaleString()} this month` : 'Growing'}
+            changeType="positive"
+            icon={<RevenueIcon className="w-8 h-8" />}
+          />
+          <StatsCard
+            title="Avg. Rating"
+            value={dashboardStats.averageRating}
+            change={parseFloat(dashboardStats.averageRating.toString()) >= 4.5 ? "Excellent" : "Good"}
+            changeType="positive"
+            icon={<ReviewsIcon className="w-8 h-8" />}
+          />
+          <StatsCard
+            title="Platform Health"
+            value="99.9%"
+            change="All systems operational"
+            changeType="positive"
+            icon={<SalesIcon className="w-8 h-8" />}
           />
         </div>
-        <div className="h-full w-full flex flex-col justify-center text-center -mt-36 sm:-mt-[250px] px-4 sm:px-6">
-          <h1
-            ref={textRef}
-            className="text-black text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-medium mt-10 sm:mt-4 md:mt-6 leading-snug md:leading-relaxed text-center"
-          ></h1>
 
-          <p className="text-gray-500 text-center font-light mt-2 sm:mt-4 mb-10">
-            Shop sustainably with Eraiiz and discover how waste can be
-            transformed to wealth <br className="hidden sm:block" />
-            while keeping the planet safe.
-          </p>
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Sales Chart */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Sales Overview</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={salesData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip formatter={(value, name) => [`$${value}`, name === 'revenue' ? 'Revenue' : 'Orders']} />
+                <Line 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#2563eb" 
+                  strokeWidth={2}
+                  dot={{ fill: '#2563eb' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4 sm:mt-6 sm:space-x-4 px-6">
-            <Link href="/joinWaitlistPage">
-              <button className="bg-[#008C00] text-white py-3 px-8 rounded-lg w-full sm:w-auto transition-transform duration-300 hover:scale-105">
-                Create your account
-              </button>
-            </Link>
-            <Link href="/joinWaitlistPage">
-              <button className="bg-[#FFFFFF] text-black py-3 px-8 rounded-lg w-full sm:w-auto border border-[#D1D1D1] transition-transform duration-300 hover:scale-105">
-                Start shopping
-              </button>
-            </Link>
+          {/* Category Distribution */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Categories</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={categoryData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent, cx, cy, midAngle, innerRadius, outerRadius }: any) => {
+                    const percentage = ((percent || 0) * 100).toFixed(0);
+                    const threshold = 5;
+                    if (parseFloat(percentage) < threshold) {
+                      return null;
+                    }
+                    
+                    const displayName = name.length > 8 ? name.substring(0, 8) + '...' : name;
+                    
+                    const RADIAN = Math.PI / 180;
+                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    
+                    return (
+                      <text 
+                        x={x} 
+                        y={y} 
+                        fill="white" 
+                        textAnchor={x > cx ? 'start' : 'end'} 
+                        dominantBaseline="central"
+                        fontSize="12px"
+                        fontWeight="bold"
+                        style={{
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        {`${displayName} ${percentage}%`}
+                      </text>
+                    );
+                  }}
+                  outerRadius="80%"
+                  innerRadius="40%"
+                  fill="#8884d8"
+                  dataKey="value"
+                  stroke="#fff"
+                  strokeWidth={2}
+                  paddingAngle={2}
+                >
+                  {categoryData.map((entry, index) => {
+                    // Define a unique color palette to prevent color repetition
+                    const colors = [
+                      '#3B82F6', // Blue
+                      '#10B981', // Green
+                      '#F59E0B', // Yellow
+                      '#EF4444', // Red
+                      '#8B5CF6', // Purple
+                      '#06B6D4', // Cyan
+                      '#F97316', // Orange
+                      '#EC4899', // Pink
+                      '#84CC16', // Lime
+                      '#6366F1', // Indigo
+                    ];
+                    return (
+                      <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                    );
+                  })}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    fontSize: '14px',
+                    padding: '8px 12px'
+                  }}
+                  formatter={(value: any, name: any) => {
+                    const percentage = ((value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100).toFixed(1);
+                    const item = categoryData.find(cat => cat.name === name);
+                    return [
+                      <div key="tooltip-content">
+                        <div className="font-semibold">{name}</div>
+                        <div className="text-sm">{percentage}% of total</div>
+                        <div className="text-xs text-gray-500">{item?.count || 0} products</div>
+                      </div>,
+                      'Category'
+                    ];
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        <GridComponent />
-        <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-          <div>
-            <h2 className="text-[45px] font-medium text-gray-900 leading-snug mt-10">
-              Connecting Consumers with Sustainable Brands to Reduce{" "}
-              <span className="text-[#008C00]">Carbon</span> Footprint
-            </h2>
+        {/* Recent Activity & Orders */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Activity */}
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+                <div className="text-sm text-gray-500">Live updates</div>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                {recentActivity.map((activity) => (
+                  <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${
+                      activity.type === 'order' ? 'bg-green-500' :
+                      activity.type === 'user' ? 'bg-blue-500' :
+                      activity.type === 'product' ? 'bg-yellow-500' :
+                      'bg-red-500'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 font-medium">{activity.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                    </div>
+                  </div>
+                ))}
+                {recentActivity.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="text-gray-400 text-sm">No recent activity</div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-16 md:mt-80">
-            <p className="text-gray-700 mb-6">
-              With a small team of passionate individuals, Eraiiz is focused on
-              redefining climate action to include earthwise shopping models.
-              Our mission is to bridge the gap between sustainable brands and
-              global consumers thereby reducing the level of carbon footprint in
-              the whole supply chain.
-            </p>
-            <button className="px-6 py-2 bg-[#008C00] text-white rounded-md hover:bg-black hover:text-white transition-transform duration-300 hover:scale-105">
-              Start Shopping
-            </button>
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
+                <div className="text-sm text-gray-500">Common tasks</div>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* User Management */}
+                <button 
+                  onClick={() => handleQuickAction('users')}
+                  className="group p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-center transition-colors"
+                >
+                  <div className="bg-blue-600 p-3 rounded-lg w-fit mx-auto mb-3">
+                    <UsersIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">Manage Users</div>
+                  <div className="text-xs text-gray-600">View and manage all users</div>
+                </button>
+
+                {/* Product Management */}
+                <button 
+                  onClick={() => handleQuickAction('products')}
+                  className="group p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-center transition-colors"
+                >
+                  <div className="bg-green-600 p-3 rounded-lg w-fit mx-auto mb-3">
+                    <ProductsIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">Review Products</div>
+                  <div className="text-xs text-gray-600">Approve and manage products</div>
+                </button>
+
+                {/* Order Management */}
+                <button 
+                  onClick={() => handleQuickAction('orders')}
+                  className="group p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-center transition-colors"
+                >
+                  <div className="bg-purple-600 p-3 rounded-lg w-fit mx-auto mb-3">
+                    <OrdersIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">Process Orders</div>
+                  <div className="text-xs text-gray-600">Manage and track orders</div>
+                </button>
+
+                {/* Analytics */}
+                <button 
+                  onClick={() => handleQuickAction('analytics')}
+                  className="group p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-center transition-colors"
+                >
+                  <div className="bg-indigo-600 p-3 rounded-lg w-fit mx-auto mb-3">
+                    <AnalyticsIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">View Analytics</div>
+                  <div className="text-xs text-gray-600">Detailed platform insights</div>
+                </button>
+
+                {/* Notifications */}
+                <button 
+                  onClick={() => handleQuickAction('notifications')}
+                  className="group p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-center transition-colors"
+                >
+                  <div className="bg-orange-600 p-3 rounded-lg w-fit mx-auto mb-3">
+                    <NotificationsIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">Send Notifications</div>
+                  <div className="text-xs text-gray-600">Notify users and sellers</div>
+                </button>
+
+                {/* Settings */}
+                <button 
+                  onClick={() => handleQuickAction('settings')}
+                  className="group p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-center transition-colors"
+                >
+                  <div className="bg-gray-600 p-3 rounded-lg w-fit mx-auto mb-3">
+                    <SettingsIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">Platform Settings</div>
+                  <div className="text-xs text-gray-600">Configure system settings</div>
+                </button>
+              </div>
+
+              {/* Additional Quick Actions Row */}
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <h4 className="text-sm font-medium text-gray-700 mb-4">Additional Actions</h4>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <button 
+                    onClick={() => handleQuickAction('add-product')}
+                    className="flex items-center space-x-2 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    <AddIcon className="w-4 h-4 text-green-600" />
+                    <span>Add Product</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickAction('send-notification')}
+                    className="flex items-center space-x-2 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    <SendIcon className="w-4 h-4 text-blue-600" />
+                    <span>Send Alert</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickAction('view-reports')}
+                    className="flex items-center space-x-2 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    <ViewIcon className="w-4 h-4 text-purple-600" />
+                    <span>View Reports</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickAction('manage-reviews')}
+                    className="flex items-center space-x-2 p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    <ReviewsIcon className="w-4 h-4 text-orange-600" />
+                    <span>Moderate Reviews</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="w-full flex flex-col items-center mt-20 mb-20">
-          <h1 className="text-3xl font-medium text-center mb-6 text-black">
-            Why Eraiiz?
-          </h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-[950px] p-5">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-[250px] transition-transform duration-300 hover:scale-105">
-              <h2 className="font-light text-xl mb-10 text-black">
-                Access to a network of top-picked sustainable choices
-              </h2>
-              <p className="text-gray-500">
-                We pre-vet all products available on Eraiiz to ensure that they
-                are sustainably sourced and made.
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-[250px] transition-transform duration-300 hover:scale-105">
-              <h2 className="font-light text-black text-xl mb-10">
-                Easy navigation process
-              </h2>
-              <p className="text-gray-500">
-                Our platform is organized with you in mind, hence, you don&apos;t
-                have to go through any hassle, from product sorting to checking
-                out, we&apos;ve got you covered.
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-[250px] transition-transform duration-300 hover:scale-105">
-              <h2 className="font-light text-black text-xl mb-10">
-                Data-driven approach
-              </h2>
-              <p className="text-gray-500">
-                We leverage data that are meticulously researched and work with
-                experts to connect you with the best sustainable brand you need.
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-[250px] flex flex-col justify-between transition-transform duration-300 hover:scale-105">
-              <p className="text-gray-500 mt-10">
-                Sign Up &amp; Take your first step with Eraiiz to erase waste
-              </p>
-              <button className="bg-[#008C00] text-white font-semibold py-2 px-4 rounded-lg mt-4">
-                Create your account
-              </button>
-            </div>
-          </div>
-          <Opposite />
-          <PlasticMadeProducts />
-          <Opposite2 />
-          <BlogCarousel />
-          <FaqSection />
-          <CallToAction />
-          <Footer />
-        </div>
-      </div>
-    </>
+    </div>
+    </AdminLayout>
   );
-};
-
-export default Page;
+}

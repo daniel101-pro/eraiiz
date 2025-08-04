@@ -1,66 +1,27 @@
 import type { Metadata } from "next";
-import { Onest } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "./components/Navbar";
+import SessionManager from "./components/SessionManager";
+import NotificationManager from "./components/NotificationManager";
+import { MobileMenuProvider } from "./components/MobileMenuContext";
+import { SearchProvider } from "./components/SearchContext";
 
-// Import Onest font with appropriate subsets
-const onest = Onest({
-  variable: "--font-onest",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Eraiiz - Shop Sustainable, Live Responsible",
-  description:
-    "Eraiiz is the ultimate global platform for eco-friendly shopping. Discover ethically-made products that promote sustainable living. Join the Eraiiz movement to make a positive impact on the planet, one responsible purchase at a time.",
-  keywords: [
-    "Eraiiz",
-    "Sustainable Shopping",
-    "Eco-Friendly Products",
-    "Ethical Marketplace",
-    "Sustainability Platform",
-    "Green Products",
-    "Eco-Conscious Shopping",
-    "Global Sustainability",
-    "Sustainable Living",
-    "Zero Waste",
-    "Fair Trade Products",
-    "Green Living",
-    "Climate Conscious Shopping",
-    "Sustainable Lifestyle",
-  ],
-  openGraph: {
-    title: "Eraiiz - Shop Sustainable, Live Responsible",
-    description:
-      "Join Eraiiz, the global platform for eco-conscious shopping. Discover sustainable, ethically-made products designed to protect our planet. Shop responsibly and create a greener future.",
-    url: "https://www.eraiiz.com",
-    type: "website",
-    images: [
-      {
-        url: "/logo.png",
-        width: 1200,
-        height: 630,
-        alt: "Eraiiz - Global Sustainable Shopping Platform",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Eraiiz - Shop Sustainable, Live Responsible",
-    description:
-      "Discover eco-friendly, ethically-made products from around the world. Eraiiz is your destination for sustainable shopping.",
-    images: ["/images/eraiiz-banner.jpg"],
-  },
+  title: "Admin Panel - Eraiiz",
+  description: "Administrative control panel for the Eraiiz platform",
   icons: {
-    icon: "/favicon.ico",
+    icon: '/favicon.ico',
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
-  themeColor: "#0D9488",
 };
 
 export default function RootLayout({
@@ -70,14 +31,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-      </head>
-      <body className={`${onest.variable} antialiased`}>
-        <div className="relative z-10">
-          <Navbar />
-        </div>
-        {children}
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <MobileMenuProvider>
+          <SearchProvider>
+            <SessionManager>
+              {children}
+            </SessionManager>
+            <NotificationManager />
+          </SearchProvider>
+        </MobileMenuProvider>
       </body>
     </html>
   );
