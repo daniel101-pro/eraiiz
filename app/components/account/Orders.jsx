@@ -6,8 +6,6 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newOrder, setNewOrder] = useState({ product: '', price: '' });
-  const [showAddForm, setShowAddForm] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
@@ -153,10 +151,11 @@ export default function Orders() {
 
       const data = await res.json();
       console.log('Orders data received:', data);
-      setOrders(data);
+      setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Orders fetch error:', err);
       setError(err.message);
+      setOrders([]); // Set empty array on error instead of showing fake data
     } finally {
       setIsLoading(false);
     }
@@ -173,32 +172,7 @@ export default function Orders() {
     };
   }, []);
 
-  const handleAddOrder = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify(newOrder),
-      });
 
-      if (!res.ok) {
-        throw new Error('Failed to add order');
-      }
-
-      const data = await res.json();
-      setOrders([...orders, data]);
-      setNewOrder({ product: '', price: '' });
-      setShowAddForm(false);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -327,56 +301,17 @@ export default function Orders() {
             </div>
             
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
+              onClick={() => window.location.href = 'https://www.eraiiz.com/for-you'}
               className="inline-flex items-center px-3 py-2 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {showAddForm ? 'Cancel' : 'Add Order'}
+              Shop Now
             </button>
           </div>
         </div>
       </div>
 
-      {/* Add New Order Form */}
-      {showAddForm && (
-        <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-4 md:p-6">
-          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Add New Order</h2>
-          <form onSubmit={handleAddOrder} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
-                <input
-                  type="text"
-                  value={newOrder.product}
-                  onChange={(e) => setNewOrder({ ...newOrder, product: e.target.value })}
-                  className="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                  placeholder="Enter product name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Price (NGN)</label>
-                <input
-                  type="number"
-                  value={newOrder.price}
-                  onChange={(e) => setNewOrder({ ...newOrder, price: e.target.value })}
-                  className="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="px-4 md:px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-              >
-                Add Order
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+
 
       {/* Controls */}
       <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-4 md:p-6">
@@ -419,11 +354,11 @@ export default function Orders() {
               }
             </p>
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => window.location.href = 'https://www.eraiiz.com/for-you'}
               className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Place Your First Order
+              Start Shopping
             </button>
           </div>
         </div>
