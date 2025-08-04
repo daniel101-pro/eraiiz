@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AdminLayout } from '../components/AdminLayout';
+import AdminLayout from '../components/AdminLayout';
 import { Flag, Eye, CheckCircle, XCircle, Clock, Filter, Search, AlertTriangle } from 'lucide-react';
 
 interface Report {
