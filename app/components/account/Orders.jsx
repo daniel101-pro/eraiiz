@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { refreshAccessToken } from '../../utils/auth';
-import { Package, Clock, Truck, CheckCircle, XCircle, Plus, Filter } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { refreshAccessToken, decodeToken } from '../../utils/auth';
+import { Package, Clock, Truck, CheckCircle, XCircle, Plus, Filter, Wifi, WifiOff } from 'lucide-react';
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
@@ -9,6 +9,92 @@ export default function Orders() {
   const [newOrder, setNewOrder] = useState({ product: '', price: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const wsRef = useRef(null);
+
+  const connectWebSocket = () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      // Get user ID from token
+      const userId = decodeToken(token);
+      if (!userId) {
+        console.error('Could not decode user ID from token');
+        return;
+      }
+      
+      const wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://') + `?userId=${userId}`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+        setConnectionStatus('connected');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+          
+          if (data.type === 'order_update') {
+            // Handle order status updates
+            setOrders(prevOrders => 
+              prevOrders.map(order => 
+                order._id === data.orderId 
+                  ? { ...order, status: data.status }
+                  : order
+              )
+            );
+            setLastUpdate(new Date());
+          } else if (data.type === 'new_order') {
+            // Handle new order creation
+            setOrders(prevOrders => [data.order, ...prevOrders]);
+            setLastUpdate(new Date());
+          } else if (data.type === 'order_cancelled') {
+            // Handle order cancellation
+            setOrders(prevOrders => 
+              prevOrders.map(order => 
+                order._id === data.orderId 
+                  ? { ...order, status: 'Cancelled' }
+                  : order
+              )
+            );
+            setLastUpdate(new Date());
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setIsConnected(false);
+        setConnectionStatus('disconnected');
+        // Attempt to reconnect after 5 seconds
+        setTimeout(() => {
+          if (connectionStatus !== 'connected') {
+            connectWebSocket();
+          }
+        }, 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+        setConnectionStatus('error');
+      };
+
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Error connecting to WebSocket:', error);
+      setIsConnected(false);
+      setConnectionStatus('error');
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -78,6 +164,13 @@ export default function Orders() {
 
   useEffect(() => {
     fetchOrders();
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   }, []);
 
   const handleAddOrder = async (e) => {
@@ -137,6 +230,35 @@ export default function Orders() {
     }
   };
 
+  const getConnectionStatusIcon = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return <Wifi className="w-4 h-4 text-green-500" />;
+      case 'connecting':
+        return <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />;
+      case 'disconnected':
+      case 'error':
+        return <WifiOff className="w-4 h-4 text-red-500" />;
+      default:
+        return <WifiOff className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const getConnectionStatusText = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return 'Live updates enabled';
+      case 'connecting':
+        return 'Connecting...';
+      case 'disconnected':
+        return 'Connection lost';
+      case 'error':
+        return 'Connection error';
+      default:
+        return 'Offline';
+    }
+  };
+
   const filteredOrders = selectedFilter === 'all' 
     ? orders 
     : orders.filter(order => order.status === selectedFilter);
@@ -192,13 +314,26 @@ export default function Orders() {
             </div>
           </div>
           
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="inline-flex items-center px-3 py-2 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {showAddForm ? 'Cancel' : 'Add Order'}
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Real-time Status Indicator */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg">
+              {getConnectionStatusIcon()}
+              <span className="text-xs text-gray-600">{getConnectionStatusText()}</span>
+              {lastUpdate && (
+                <span className="text-xs text-green-600">
+                  Last update: {lastUpdate.toLocaleTimeString()}
+                </span>
+              )}
+            </div>
+            
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="inline-flex items-center px-3 py-2 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {showAddForm ? 'Cancel' : 'Add Order'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -326,6 +461,12 @@ export default function Orders() {
                     {getStatusIcon(order.status)}
                     <span className="ml-2">{order.status}</span>
                   </span>
+                  {isConnected && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <Wifi className="w-3 h-3 mr-1" />
+                      Live
+                    </span>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-3">

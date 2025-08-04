@@ -21,3 +21,16 @@ export const refreshAccessToken = async () => {
     throw error;
   }
 };
+
+// Function to decode JWT token and extract user ID
+export function decodeToken(token) {
+  try {
+    // JWT tokens are in format: header.payload.signature
+    const payload = token.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payload));
+    return decodedPayload.id || decodedPayload.userId;
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return null;
+  }
+}
