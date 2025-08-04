@@ -20,9 +20,17 @@
     ],
     "paths": {
       "@/*": ["./*"]
-    },
-    "baseUrl": "."
+    }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "app/dashboard/seller/upload/page.js",
+    "pages/signup.js",
+    "pages/login.js",
+    "pages/categories.js"
+, "next.config.ts", "app/components/ProductList.jsx"  ],
   "exclude": ["node_modules"]
 }
