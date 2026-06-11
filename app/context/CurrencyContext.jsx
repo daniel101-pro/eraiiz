@@ -65,6 +65,10 @@ export function CurrencyProvider({ children }) {
     // If same currency, return as is
     if (fromCurrency === selectedCurrency) return price;
 
+    if (!exchangeRates[fromCurrency] || !exchangeRates[selectedCurrency]) {
+      return price;
+    }
+
     // Convert from source currency to USD first
     const priceInUSD = fromCurrency === 'USD' ? price : price / exchangeRates[fromCurrency];
     
@@ -84,11 +88,12 @@ export function CurrencyProvider({ children }) {
     // If same currency, return as is
     if (fromCurrency === toCurrency) return price;
 
+    if (!exchangeRates[fromCurrency] || !exchangeRates[toCurrency]) {
+      return price;
+    }
+
     // Convert from source currency to USD first
     const priceInUSD = fromCurrency === 'USD' ? price : price / exchangeRates[fromCurrency];
-    
-    // If target is USD, return USD price
-    if (toCurrency === 'USD') return Number(priceInUSD.toFixed(2));
     
     // Convert from USD to target currency
     const convertedPrice = priceInUSD * exchangeRates[toCurrency];

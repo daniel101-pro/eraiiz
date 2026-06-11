@@ -7,6 +7,7 @@ import Link from 'next/link';
 import axios from 'axios';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import ProductCard from '../../components/ProductCard';
+import { useCurrency } from '../../context/CurrencyContext';
 
 const validCategories = {
   plastic: 'Plastic Made Products',
@@ -33,6 +34,7 @@ const categoryColors = {
 };
 
 export default function CategoryPage({ params }) {
+  const { convertPrice, formatPrice } = useCurrency();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -203,7 +205,10 @@ export default function CategoryPage({ params }) {
                 <div>
                   <p className="text-gray-500">Price Range</p>
                   <p className="font-semibold text-gray-900">
-                    ₦{Math.min(...products.map(p => p.price)).toLocaleString()} - ₦{Math.max(...products.map(p => p.price)).toLocaleString()}
+                    {(() => {
+                      const converted = products.map(p => convertPrice(p.price, p.currency || 'NGN'));
+                      return `${formatPrice(Math.min(...converted))} - ${formatPrice(Math.max(...converted))}`;
+                    })()}
                   </p>
                 </div>
                 <div>

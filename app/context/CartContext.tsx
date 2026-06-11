@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CartItem } from '../cart/types';
 import axios from 'axios';
+import { useCurrency } from './CurrencyContext';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -18,6 +19,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { convertPrice } = useCurrency();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [enrichedCartItems, setEnrichedCartItems] = useState<CartItem[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -94,9 +96,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               material: fullProduct.material,
               details: fullProduct.details,
               bonus: fullProduct.bonus,
-              // Update other fields in case they changed
               name: fullProduct.name || item.name,
               price: fullProduct.price || item.price,
+              currency: fullProduct.currency || item.currency || 'NGN',
               images: fullProduct.images || item.images,
             };
             
@@ -164,12 +166,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existingItem) {
         return prevItems.map(i =>
           i._id === item._id && i.selectedSize === item.selectedSize
-            ? { ...i, quantity: i.quantity + (item.quantity || 1) }
+            ? { ...i, quantity: i.quantity + (item.quantity || 1), currency: item.currency || i.currency || 'NGN' }
             : i
         );
       }
 
-      return [...prevItems, item];
+      return [...prevItems, { ...item, currency: item.currency || 'NGN' }];
     });
   };
 
@@ -191,9 +193,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const getCartTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * (item.quantity || 1)), 0);
-  };
+  const getCartTotal = useCallback(() => {
+    const items = enrichedCartItems.length > 0 ? enrichedCartItems : cartItems;
+    return items.reduce((total, item) => {
+      const convertedPrice = convertPrice(item.price, item.currency || 'NGN');
+      return total + convertedPrice * (item.quantity || 1);
+    }, 0);
+  }, [cartItems, enrichedCartItems, convertPrice]);
 
   const clearCart = () => {
     setCartItems([]);

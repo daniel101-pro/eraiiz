@@ -2,6 +2,7 @@ export interface CartItem {
     _id: string;
     name: string;
     price: number;
+    currency?: string;
     quantity: number;
     selectedSize: string;
     images: string[];

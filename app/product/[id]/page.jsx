@@ -17,7 +17,7 @@ export default function ProductDetail() {
   const { id } = useParams();
   const router = useRouter();
   const { addToCart, cartItems } = useCart();
-  const { convertPrice, formatPrice } = useCurrency();
+  const { convertPrice, formatPrice, getCurrencyInfo } = useCurrency();
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -326,6 +326,7 @@ export default function ProductDetail() {
         _id: product._id,
         name: product.name,
         price: product.price,
+        currency: product.currency || 'NGN',
         quantity: quantity,
         selectedSize: selectedSize,
         images: product.images
@@ -424,6 +425,8 @@ export default function ProductDetail() {
     );
   }
 
+  const productCurrency = product.currency || 'NGN';
+
   return (
     <>
       <DualNavbarSell />
@@ -431,7 +434,7 @@ export default function ProductDetail() {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <Link href="/products" className="inline-flex items-center text-gray-600 hover:text-gray-900">
+          <Link href="/for-you" className="inline-flex items-center text-gray-600 hover:text-gray-900">
             <span className="mr-2">←</span>
             Back to products section
           </Link>
@@ -446,7 +449,7 @@ export default function ProductDetail() {
               <div className="absolute top-4 left-4 z-10 bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold">
                 {product.bonus.type === 'percentage' 
                   ? `-${product.bonus.value}% OFF`
-                  : `-₦${product.bonus.value.toLocaleString()} OFF`
+                  : `-${getCurrencyInfo(productCurrency).symbol}${product.bonus.value.toLocaleString()} OFF`
                 }
               </div>
             )}
@@ -474,22 +477,22 @@ export default function ProductDetail() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-medium text-gray-400 line-through">
-                      {formatPrice(convertPrice(product.price))}
+                      {formatPrice(convertPrice(product.price, productCurrency))}
                     </span>
                     <span className="bg-red-100 text-red-600 text-sm px-2 py-1 rounded">
                       {product.bonus.type === 'percentage' 
                         ? `${product.bonus.value}% OFF`
-                        : `₦${product.bonus.value.toLocaleString()} OFF`
+                        : `${getCurrencyInfo(productCurrency).symbol}${product.bonus.value.toLocaleString()} OFF`
                       }
                     </span>
                   </div>
                   <div className="text-3xl font-bold text-red-600">
-                    {formatPrice(convertPrice(calculateDiscountedPrice()))}
+                    {formatPrice(convertPrice(calculateDiscountedPrice(), productCurrency))}
                   </div>
                 </div>
               ) : (
                 <div className="text-2xl font-medium text-gray-900">
-                  {formatPrice(convertPrice(product.price))}
+                  {formatPrice(convertPrice(product.price, productCurrency))}
                 </div>
               )}
             </div>

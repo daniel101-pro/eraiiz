@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import DualNavbarSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
 import axios from 'axios';
+import { useCurrency } from '../context/CurrencyContext';
 
 export default function CategoriesPage() {
   const router = useRouter();
+  const { convertPrice, formatPrice } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [products, setProducts] = useState([]);
@@ -379,7 +381,10 @@ export default function CategoriesPage() {
                 <div>
                   <p className="text-gray-500">Price Range</p>
                   <p className="font-semibold text-gray-900">
-                    ₦{Math.min(...products.map(p => p.price)).toLocaleString()} - ₦{Math.max(...products.map(p => p.price)).toLocaleString()}
+                    {(() => {
+                      const converted = products.map(p => convertPrice(p.price, p.currency || 'NGN'));
+                      return `${formatPrice(Math.min(...converted))} - ${formatPrice(Math.max(...converted))}`;
+                    })()}
                   </p>
                 </div>
                 <div>

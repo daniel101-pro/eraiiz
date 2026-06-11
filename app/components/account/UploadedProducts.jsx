@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Image from 'next/image';
 import { Edit2, Trash2, Eye, DollarSign, Package, Calendar, MoreVertical, Search } from 'lucide-react';
+import { useCurrency } from '../../context/CurrencyContext';
 
 export default function UploadedProducts({ onTokenError }) {
+  const { getCurrencyInfo } = useCurrency();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -265,7 +267,7 @@ export default function UploadedProducts({ onTokenError }) {
                     <div className="flex items-center text-green-600">
                       <DollarSign className="w-4 h-4" />
                       <span className="font-bold text-lg">
-                        {product.price.toLocaleString()}
+                        {getCurrencyInfo(product.currency || 'NGN').symbol}{product.price.toLocaleString()}
                       </span>
                     </div>
                     <div className="text-gray-500 text-xs">
@@ -359,7 +361,9 @@ export default function UploadedProducts({ onTokenError }) {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Price (₦)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Price ({getCurrencyInfo(editingProduct.currency || 'NGN').symbol} {editingProduct.currency || 'NGN'})
+                </label>
                 <input
                   type="number"
                   name="price"

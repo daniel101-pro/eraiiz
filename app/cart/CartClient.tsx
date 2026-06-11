@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DualNavbarSell from '../components/DualNavbarSell';
 import { useCart } from '../context/CartContext';
+import { useCurrency } from '../context/CurrencyContext';
 
 import { showCartToast } from '../utils/toast';
 import { CartItem } from './types';
@@ -67,6 +68,7 @@ const ProgressBar = () => {
 
 export default function CartClient() {
     const router = useRouter();
+    const { convertPrice, formatPrice } = useCurrency();
     const { cartItems = [], enrichedCartItems = [], isEnriching = false, removeFromCart, updateQuantity, getCartTotal, clearCart } = useCart() || {};
     
     // Use enriched cart items if available, otherwise fall back to basic cart items
@@ -93,6 +95,10 @@ export default function CartClient() {
         }, 0);
     };
 
+    const formatItemTotal = (item: CartItem) =>
+        formatPrice(convertPrice(item.price || 0, item.currency || 'NGN') * (item.quantity || 1));
+
+    const formattedCartTotal = formatPrice(getCartTotal?.() || 0);
     const totalCarbonFootprint = getTotalCarbonFootprint();
     const hasCarbonFootprintData = displayCartItems.some(item => item.carbonFootprint);
 
@@ -211,7 +217,7 @@ export default function CartClient() {
                                     </div>
                                 </div>
                                 <div className="text-lg font-medium">
-                                    ₦{((item.price || 0) * (item.quantity || 1)).toLocaleString()}
+                                    {formatItemTotal(item)}
                                 </div>
                             </div>
 
@@ -233,7 +239,7 @@ export default function CartClient() {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <span className="text-gray-600">Subtotal</span>
-                            <span className="text-gray-900 font-medium">₦{(getCartTotal?.() || 0).toLocaleString()}</span>
+                            <span className="text-gray-900 font-medium">{formattedCartTotal}</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-gray-600">Shipping</span>
@@ -248,7 +254,7 @@ export default function CartClient() {
                         <div className="border-t border-gray-200 pt-4">
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-900 font-semibold">Total</span>
-                                <span className="text-gray-900 font-semibold">₦{(getCartTotal?.() || 0).toLocaleString()}</span>
+                                <span className="text-gray-900 font-semibold">{formattedCartTotal}</span>
                             </div>
                         </div>
                     </div>
@@ -353,7 +359,7 @@ export default function CartClient() {
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-600">Subtotal</span>
-                                        <span className="text-gray-900 font-medium">₦{(getCartTotal?.() || 0).toLocaleString()}</span>
+                                        <span className="text-gray-900 font-medium">{formattedCartTotal}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-600">Shipping</span>
@@ -368,7 +374,7 @@ export default function CartClient() {
                                     <div className="pt-4 mt-4 border-t border-gray-100">
                                         <div className="flex justify-between items-center">
                                             <span className="text-gray-900 font-semibold">Total</span>
-                                            <span className="text-gray-900 font-semibold">₦{(getCartTotal?.() || 0).toLocaleString()}</span>
+                                            <span className="text-gray-900 font-semibold">{formattedCartTotal}</span>
                                         </div>
                                     </div>
                                     <Link 
