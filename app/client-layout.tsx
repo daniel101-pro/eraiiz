@@ -27,8 +27,8 @@ export default function ClientLayout({
       </head>
       <body className="font-onest antialiased">
         <GoogleOAuthProvider clientId={googleClientId}>
-          <CartProvider>
-            <CurrencyProvider>
+          <CurrencyProvider>
+            <CartProvider>
               <FavoritesProvider>
                 {children}
                 <Toaster
@@ -55,8 +55,8 @@ export default function ClientLayout({
                 />
                 <AIAssistant />
               </FavoritesProvider>
-            </CurrencyProvider>
-          </CartProvider>
+            </CartProvider>
+          </CurrencyProvider>
         </GoogleOAuthProvider>
       </body>
     </html>
