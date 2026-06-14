@@ -7,7 +7,7 @@ import DualNavbarSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
 import axios from 'axios';
 import { useCurrency } from '../context/CurrencyContext';
-import { enrichProductsWithCurrency, getProductCurrency } from '../../lib/productCurrency';
+import { enrichProductsWithCurrency, getProductCurrency } from '@/lib/productCurrency';
 
 export default function CategoriesPage() {
   const router = useRouter();

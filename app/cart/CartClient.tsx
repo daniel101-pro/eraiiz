@@ -11,7 +11,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { showCartToast } from '../utils/toast';
 import { CartItem } from './types';
 import CarbonFootprintDisplay from '../components/CarbonFootprintDisplay';
-import { getProductCurrency } from '../../lib/productCurrency';
+import { getProductCurrency } from '@/lib/productCurrency';
 
 const BackButton = () => {
     return (

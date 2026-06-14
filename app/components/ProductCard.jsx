@@ -8,7 +8,7 @@ import { useFavorites } from '../context/FavoritesContext';
 import { useState, useEffect } from 'react';
 
 import { showCartToast, showError, showSuccess } from '../utils/toast';
-import { getProductCurrency } from '../../lib/productCurrency';
+import { getProductCurrency } from '@/lib/productCurrency';
 
 export default function ProductCard({ product }) {
   const { convertPrice, formatPrice } = useCurrency();

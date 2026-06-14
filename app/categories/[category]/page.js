@@ -8,7 +8,7 @@ import axios from 'axios';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import ProductCard from '../../components/ProductCard';
 import { useCurrency } from '../../context/CurrencyContext';
-import { enrichProductsWithCurrency, getProductCurrency } from '../../lib/productCurrency';
+import { enrichProductsWithCurrency, getProductCurrency } from '@/lib/productCurrency';
 
 const validCategories = {
   plastic: 'Plastic Made Products',

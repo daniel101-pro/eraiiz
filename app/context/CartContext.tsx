@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { CartItem } from '../cart/types';
 import axios from 'axios';
 import { useCurrency } from './CurrencyContext';
-import { getProductCurrency } from '../../lib/productCurrency';
+import { getProductCurrency } from '@/lib/productCurrency';
 
 interface CartContextType {
   cartItems: CartItem[];

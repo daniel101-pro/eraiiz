@@ -4,7 +4,7 @@ import axios from 'axios';
 import Link from 'next/link';
 import DualNavbarSell from '../components/DualNavbarSell';
 import { Heart, ShoppingCart, Star, Eye, Truck, Shield } from 'lucide-react';
-import { enrichProductsWithCurrency } from '../../lib/productCurrency';
+import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 import { useCurrency } from '../context/CurrencyContext';
 
 export default function ForYouPage() {

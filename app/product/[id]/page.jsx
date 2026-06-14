@@ -12,7 +12,7 @@ import { showCartToast, showError } from '../../utils/toast';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import ImageGallery from '../../components/ImageGallery';
 import ReportModal from '../../components/ReportModal';
-import { getProductCurrency } from '../../lib/productCurrency';
+import { getProductCurrency } from '@/lib/productCurrency';
 
 export default function ProductDetail() {
   const { id } = useParams();

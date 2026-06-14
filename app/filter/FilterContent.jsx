@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Link from 'next/link';
 import ProductCard from '../components/ProductCard';
-import { enrichProductsWithCurrency } from '../../lib/productCurrency';
+import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 
 export default function FilterContent() {
   const router = useRouter();

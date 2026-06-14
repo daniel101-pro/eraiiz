@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { normalizeCurrencyCode } from '../../lib/productCurrency';
+import { normalizeCurrencyCode } from '@/lib/productCurrency';
 
 const CurrencyContext = createContext();
 
