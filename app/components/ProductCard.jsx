@@ -8,6 +8,7 @@ import { useFavorites } from '../context/FavoritesContext';
 import { useState, useEffect } from 'react';
 
 import { showCartToast, showError, showSuccess } from '../utils/toast';
+import { getProductCurrency } from '../../lib/productCurrency';
 
 export default function ProductCard({ product }) {
   const { convertPrice, formatPrice } = useCurrency();
@@ -22,6 +23,8 @@ export default function ProductCard({ product }) {
     setQuantity(cartItem ? cartItem.quantity : 0);
   }, [cartItems, product._id]);
 
+  const productCurrency = getProductCurrency(product);
+
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -29,7 +32,7 @@ export default function ProductCard({ product }) {
       _id: product._id,
       name: product.name,
       price: product.price,
-      currency: product.currency || 'NGN',
+      currency: productCurrency,
       quantity: 1,
       selectedSize: 'S',
       images: product.images
@@ -45,7 +48,7 @@ export default function ProductCard({ product }) {
       _id: product._id,
       name: product.name,
       price: product.price,
-      currency: product.currency || 'NGN',
+      currency: productCurrency,
       quantity: 1,
       selectedSize: 'S',
       images: product.images
@@ -154,7 +157,7 @@ export default function ProductCard({ product }) {
             {/* Price and Reviews in same line */}
             <div className="flex items-center justify-between mt-2">
               <div className="text-xs sm:text-xs md:text-xs text-[#1A1A1A] font-semibold">
-                {formatPrice(convertPrice(product.price, product.currency || 'NGN'))}
+                {formatPrice(convertPrice(product.price, productCurrency))}
               </div>
               <div className="text-[#666666] text-[8px] sm:text-xs">
                 {product.totalReviews || '0'} reviews

@@ -11,6 +11,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { showCartToast } from '../utils/toast';
 import { CartItem } from './types';
 import CarbonFootprintDisplay from '../components/CarbonFootprintDisplay';
+import { getProductCurrency } from '../../lib/productCurrency';
 
 const BackButton = () => {
     return (
@@ -96,7 +97,7 @@ export default function CartClient() {
     };
 
     const formatItemTotal = (item: CartItem) =>
-        formatPrice(convertPrice(item.price || 0, item.currency || 'NGN') * (item.quantity || 1));
+        formatPrice(convertPrice(item.price || 0, getProductCurrency(item)) * (item.quantity || 1));
 
     const formattedCartTotal = formatPrice(getCartTotal?.() || 0);
     const totalCarbonFootprint = getTotalCarbonFootprint();

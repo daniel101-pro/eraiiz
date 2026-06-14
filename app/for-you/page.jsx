@@ -4,6 +4,7 @@ import axios from 'axios';
 import Link from 'next/link';
 import DualNavbarSell from '../components/DualNavbarSell';
 import { Heart, ShoppingCart, Star, Eye, Truck, Shield } from 'lucide-react';
+import { enrichProductsWithCurrency } from '../../lib/productCurrency';
 import { useCurrency } from '../context/CurrencyContext';
 
 export default function ForYouPage() {
@@ -20,7 +21,7 @@ export default function ForYouPage() {
         if (!Array.isArray(res.data)) {
           throw new Error('Invalid product data received');
         }
-        setProducts(res.data);
+        setProducts(await enrichProductsWithCurrency(res.data));
       } catch (err) {
         setError(err.message || 'Failed to fetch products');
       } finally {
@@ -215,11 +216,11 @@ export default function ForYouPage() {
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <span className="text-2xl font-bold text-green-600">
-                            {formatPrice(convertPrice(product.price, product.currency || 'NGN'))}
+                            {formatPrice(convertPrice(product.price, product.currency))}
                           </span>
                           {product.originalPrice && product.originalPrice > product.price && (
                             <span className="text-sm text-gray-500 line-through ml-2">
-                              {formatPrice(convertPrice(product.originalPrice, product.currency || 'NGN'))}
+                              {formatPrice(convertPrice(product.originalPrice, product.currency))}
                             </span>
                           )}
                         </div>

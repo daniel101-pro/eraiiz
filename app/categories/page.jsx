@@ -7,6 +7,7 @@ import DualNavbarSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
 import axios from 'axios';
 import { useCurrency } from '../context/CurrencyContext';
+import { enrichProductsWithCurrency, getProductCurrency } from '../../lib/productCurrency';
 
 export default function CategoriesPage() {
   const router = useRouter();
@@ -163,7 +164,7 @@ export default function CategoriesPage() {
       }
       
       console.log('Products data:', productData);
-      setProducts(productData);
+      setProducts(await enrichProductsWithCurrency(productData));
     } catch (error) {
       console.error('Error fetching products:', error);
       setError('Failed to load products');
@@ -382,7 +383,7 @@ export default function CategoriesPage() {
                   <p className="text-gray-500">Price Range</p>
                   <p className="font-semibold text-gray-900">
                     {(() => {
-                      const converted = products.map(p => convertPrice(p.price, p.currency || 'NGN'));
+                      const converted = products.map(p => convertPrice(p.price, getProductCurrency(p)));
                       return `${formatPrice(Math.min(...converted))} - ${formatPrice(Math.max(...converted))}`;
                     })()}
                   </p>

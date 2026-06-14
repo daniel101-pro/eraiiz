@@ -488,15 +488,23 @@ const ProductUploadForm = () => {
       const formData = new FormData();
 
       // Add product data
-      Object.keys(product).forEach((key) => {
+      const productPayload = {
+        ...product,
+        sustainability: {
+          ...product.sustainability,
+          listingCurrency: product.currency,
+        },
+      };
+
+      Object.keys(productPayload).forEach((key) => {
         if (key === 'images') {
-          product.images.forEach((image) => formData.append('images', image));
+          productPayload.images.forEach((image) => formData.append('images', image));
         } else if (key === 'sizes' || key === 'bonus' || key === 'sustainability') {
-          formData.append(key, JSON.stringify(product[key]));
-        } else if (Array.isArray(product[key])) {
-          formData.append(key, JSON.stringify(product[key]));
+          formData.append(key, JSON.stringify(productPayload[key]));
+        } else if (Array.isArray(productPayload[key])) {
+          formData.append(key, JSON.stringify(productPayload[key]));
         } else {
-          formData.append(key, product[key]);
+          formData.append(key, productPayload[key]);
         }
       });
 

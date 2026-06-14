@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { CartItem } from '../cart/types';
 import axios from 'axios';
 import { useCurrency } from './CurrencyContext';
+import { getProductCurrency } from '../../lib/productCurrency';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -98,7 +99,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               bonus: fullProduct.bonus,
               name: fullProduct.name || item.name,
               price: fullProduct.price || item.price,
-              currency: fullProduct.currency || item.currency || 'NGN',
+              currency: getProductCurrency(fullProduct) || item.currency || 'NGN',
               images: fullProduct.images || item.images,
             };
             
@@ -166,12 +167,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existingItem) {
         return prevItems.map(i =>
           i._id === item._id && i.selectedSize === item.selectedSize
-            ? { ...i, quantity: i.quantity + (item.quantity || 1), currency: item.currency || i.currency || 'NGN' }
+            ? { ...i, quantity: i.quantity + (item.quantity || 1), currency: getProductCurrency(item) || i.currency || 'NGN' }
             : i
         );
       }
 
-      return [...prevItems, { ...item, currency: item.currency || 'NGN' }];
+      return [...prevItems, { ...item, currency: getProductCurrency(item) }];
     });
   };
 
@@ -196,7 +197,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const getCartTotal = useCallback(() => {
     const items = enrichedCartItems.length > 0 ? enrichedCartItems : cartItems;
     return items.reduce((total, item) => {
-      const convertedPrice = convertPrice(item.price, item.currency || 'NGN');
+      const convertedPrice = convertPrice(item.price, getProductCurrency(item));
       return total + convertedPrice * (item.quantity || 1);
     }, 0);
   }, [cartItems, enrichedCartItems, convertPrice]);

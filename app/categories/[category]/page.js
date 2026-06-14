@@ -8,6 +8,7 @@ import axios from 'axios';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import ProductCard from '../../components/ProductCard';
 import { useCurrency } from '../../context/CurrencyContext';
+import { enrichProductsWithCurrency, getProductCurrency } from '../../lib/productCurrency';
 
 const validCategories = {
   plastic: 'Plastic Made Products',
@@ -71,7 +72,7 @@ export default function CategoryPage({ params }) {
           throw new Error(`Unexpected API response format: ${JSON.stringify(response.data)}`);
         }
 
-        setProducts(productData);
+        setProducts(await enrichProductsWithCurrency(productData));
       } catch (err) {
         console.error(`Client: ${categoryName} Fetch Error:`, err.response?.data || err.message, err.config?.url);
         setError('Failed to load products');
@@ -206,7 +207,7 @@ export default function CategoryPage({ params }) {
                   <p className="text-gray-500">Price Range</p>
                   <p className="font-semibold text-gray-900">
                     {(() => {
-                      const converted = products.map(p => convertPrice(p.price, p.currency || 'NGN'));
+                      const converted = products.map(p => convertPrice(p.price, getProductCurrency(p)));
                       return `${formatPrice(Math.min(...converted))} - ${formatPrice(Math.max(...converted))}`;
                     })()}
                   </p>

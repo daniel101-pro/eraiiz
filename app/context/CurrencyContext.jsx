@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { normalizeCurrencyCode } from '../../lib/productCurrency';
 
 const CurrencyContext = createContext();
 
@@ -59,47 +60,50 @@ export function CurrencyProvider({ children }) {
   }, []);
 
   // Convert price from any currency to selected currency
-  const convertPrice = (price, fromCurrency = 'NGN') => {
-    if (!exchangeRates || !price) return price;
+  const convertPrice = useCallback((price, fromCurrency = 'NGN') => {
+    const numericPrice = Number(price);
+    if (!exchangeRates || !numericPrice || Number.isNaN(numericPrice)) return numericPrice || 0;
 
-    // If same currency, return as is
-    if (fromCurrency === selectedCurrency) return price;
+    const sourceCurrency = normalizeCurrencyCode(fromCurrency) || 'NGN';
+    const targetCurrency = normalizeCurrencyCode(selectedCurrency) || 'NGN';
 
-    if (!exchangeRates[fromCurrency] || !exchangeRates[selectedCurrency]) {
-      return price;
+    if (sourceCurrency === targetCurrency) return numericPrice;
+
+    if (!exchangeRates[sourceCurrency] || !exchangeRates[targetCurrency]) {
+      return numericPrice;
     }
 
-    // Convert from source currency to USD first
-    const priceInUSD = fromCurrency === 'USD' ? price : price / exchangeRates[fromCurrency];
-    
-    // If target is USD, return USD price
-    if (selectedCurrency === 'USD') return Number(priceInUSD.toFixed(2));
-    
-    // Convert from USD to target currency
-    const convertedPrice = priceInUSD * exchangeRates[selectedCurrency];
-    
+    const priceInUSD = sourceCurrency === 'USD'
+      ? numericPrice
+      : numericPrice / exchangeRates[sourceCurrency];
+
+    if (targetCurrency === 'USD') return Number(priceInUSD.toFixed(2));
+
+    const convertedPrice = priceInUSD * exchangeRates[targetCurrency];
     return Number(convertedPrice.toFixed(2));
-  };
+  }, [exchangeRates, selectedCurrency]);
 
   // Convert price with explicit from/to currencies
-  const convertPriceExplicit = (price, fromCurrency, toCurrency) => {
-    if (!exchangeRates || !price) return price;
-    
-    // If same currency, return as is
-    if (fromCurrency === toCurrency) return price;
+  const convertPriceExplicit = useCallback((price, fromCurrency, toCurrency) => {
+    const numericPrice = Number(price);
+    if (!exchangeRates || !numericPrice || Number.isNaN(numericPrice)) return numericPrice || 0;
 
-    if (!exchangeRates[fromCurrency] || !exchangeRates[toCurrency]) {
-      return price;
+    const sourceCurrency = normalizeCurrencyCode(fromCurrency) || 'NGN';
+    const targetCurrency = normalizeCurrencyCode(toCurrency) || 'NGN';
+
+    if (sourceCurrency === targetCurrency) return numericPrice;
+
+    if (!exchangeRates[sourceCurrency] || !exchangeRates[targetCurrency]) {
+      return numericPrice;
     }
 
-    // Convert from source currency to USD first
-    const priceInUSD = fromCurrency === 'USD' ? price : price / exchangeRates[fromCurrency];
-    
-    // Convert from USD to target currency
-    const convertedPrice = priceInUSD * exchangeRates[toCurrency];
-    
+    const priceInUSD = sourceCurrency === 'USD'
+      ? numericPrice
+      : numericPrice / exchangeRates[sourceCurrency];
+
+    const convertedPrice = priceInUSD * exchangeRates[targetCurrency];
     return Number(convertedPrice.toFixed(2));
-  };
+  }, [exchangeRates]);
 
   // Get currency info
   const getCurrencyInfo = (currencyCode = selectedCurrency) => {
