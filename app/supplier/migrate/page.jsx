@@ -375,7 +375,10 @@ export default function MigratePage() {
                 <div>
                   <h4 className="text-lg font-semibold text-green-900 mb-3">1. Welcome to Eraiiz Seller Program</h4>
                   <p className="mb-2">By joining Eraiiz as a seller, you become part of a sustainable commerce revolution. These terms govern your participation in our eco-conscious marketplace where environmental responsibility meets profitable business.</p>
-                  <p>You acknowledge that you have read, understood, and agree to be bound by these Terms, our Privacy Policy, Community Guidelines, and Sustainability Standards.</p>
+                  <p>You acknowledge that you have read, understood, and agree to be bound by these Terms, our Privacy Policy, Community Guidelines, Sustainability Standards,{' '}
+                    <Link href="/policies/acceptable-use" className="text-green-700 underline hover:text-green-800">Acceptable Use Policy</Link>, and{' '}
+                    <Link href="/policies/refund" className="text-green-700 underline hover:text-green-800">Refund Policy</Link>.
+                  </p>
                 </div>
 
                 <div>
@@ -414,7 +417,8 @@ export default function MigratePage() {
                   <h4 className="text-lg font-semibold text-green-900 mb-3">6. Customer Service Excellence</h4>
                   <p className="mb-2"><strong>Response Time:</strong> Respond to customer inquiries within 24 hours, preferably within 12 hours.</p>
                   <p className="mb-2"><strong>Professional Communication:</strong> Maintain courteous, helpful, and professional communication at all times.</p>
-                  <p className="mb-2"><strong>Return Policy:</strong> Honor reasonable return requests within 30 days. Clearly state your return policy on product listings.</p>
+                  <p className="mb-2"><strong>Return Policy:</strong> Honor reasonable return requests within 30 days. Clearly state your return policy on product listings. See our{' '}
+                    <Link href="/policies/refund" className="text-green-700 underline hover:text-green-800">Refund Policy</Link> for platform-wide guidelines.</p>
                   <p><strong>Issue Resolution:</strong> Work collaboratively with Eraiiz support to resolve customer disputes promptly and fairly.</p>
                 </div>
 

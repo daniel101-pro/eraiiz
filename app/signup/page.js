@@ -1,5 +1,6 @@
 'use client';
 import Navbar from '../components/Navbar';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -117,7 +118,10 @@ export default function SignupPage() {
                 <div className="mb-4 p-4 bg-gray-50 rounded">
                   {role === 'buyer' ? (
                     <p className="text-sm text-gray-600">
-                      As a buyer, you agree to purchase items in good faith and follow our payment and return policies.
+                      As a buyer, you agree to purchase items in good faith and follow our{' '}
+                      <Link href="/policies/refund" className="text-green-600 hover:underline">Refund Policy</Link>{' '}
+                      and{' '}
+                      <Link href="/policies/acceptable-use" className="text-green-600 hover:underline">Acceptable Use Policy</Link>.
                     </p>
                   ) : (
                     <p className="text-sm text-gray-600">
@@ -186,7 +190,8 @@ export default function SignupPage() {
                     className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                   />
                   <label className="text-sm text-gray-600">
-                    I agree to Eraiiz's terms and conditions
+                    I agree to Eraiiz&apos;s{' '}
+                    <Link href="/policies" className="text-green-600 hover:underline">terms and policies</Link>
                   </label>
                 </div>
                 <button

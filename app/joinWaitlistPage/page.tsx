@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 
 export default function JoinWaitlistPage() {
   return (
@@ -78,10 +79,10 @@ export default function JoinWaitlistPage() {
               className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
             />
             <label htmlFor="terms" className="ml-2 text-sm text-gray-700">
-              I agree to Eraiiz’s{" "}
-              <a href="#" className="text-green-600 underline">
-                terms and conditions
-              </a>
+              I agree to Eraiiz&apos;s{" "}
+              <Link href="/policies" className="text-green-600 underline">
+                terms and policies
+              </Link>
             </label>
           </div>
 

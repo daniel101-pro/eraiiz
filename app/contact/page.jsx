@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import DualNavbarSell from '../components/DualNavbarSell';
 import { MessageCircle, Mail, Phone, MapPin, Clock, Send, ArrowRight } from 'lucide-react';
 import axios from 'axios';
@@ -248,8 +249,14 @@ export default function ContactSupport() {
               <p className="text-gray-600">Once your order ships, you'll receive a tracking number via email. You can use this to monitor your delivery status.</p>
             </div>
             <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="font-medium mb-2">What's your return policy?</h3>
-              <p className="text-gray-600">We offer a 30-day return policy for most items. Products must be unused and in original packaging.</p>
+              <h3 className="font-medium mb-2">What&apos;s your return policy?</h3>
+              <p className="text-gray-600">
+                We offer a 30-day return policy for most items. Products must be unused and in original packaging.{' '}
+                <Link href="/policies/refund" className="text-green-600 hover:underline">
+                  Read our full Refund Policy
+                </Link>
+                .
+              </p>
             </div>
             <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
               <h3 className="font-medium mb-2">Do you ship internationally?</h3>

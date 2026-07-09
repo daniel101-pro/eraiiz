@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import Noise from "../Animations/Noise/Noise";
 
 const Footer = () => {
@@ -18,17 +19,24 @@ const Footer = () => {
             <div className="mb-6 md:mb-0 text-center md:text-left">
               <h3 className="text-lg font-medium text-black mb-3 md:mb-5">Company</h3>
               <ul className="text-gray-600 space-y-2 text-sm md:text-base">
-                <li>About Us</li>
-                <li>Services</li>
-                <li>Pricing</li>
+                <li><Link href="/about" className="hover:text-green-600">About Us</Link></li>
+                <li><Link href="/categories" className="hover:text-green-600">Products</Link></li>
+                <li><Link href="/account" className="hover:text-green-600">Account</Link></li>
               </ul>
             </div>
             <div className="mb-6 md:mb-0 text-center md:text-left">
               <h3 className="text-lg font-medium text-black mb-3 md:mb-5">Information</h3>
               <ul className="text-gray-600 space-y-2 text-sm md:text-base">
-                <li>Reviews</li>
-                <li>FAQs</li>
-                <li>Reach Out to Us</li>
+                <li><Link href="/faqs" className="hover:text-green-600">FAQs</Link></li>
+                <li><Link href="/contact" className="hover:text-green-600">Reach Out to Us</Link></li>
+                <li><Link href="/policies" className="hover:text-green-600">Policies</Link></li>
+              </ul>
+            </div>
+            <div className="mb-6 md:mb-0 text-center md:text-left">
+              <h3 className="text-lg font-medium text-black mb-3 md:mb-5">Policies</h3>
+              <ul className="text-gray-600 space-y-2 text-sm md:text-base">
+                <li><Link href="/policies/acceptable-use" className="hover:text-green-600">Acceptable Use Policy</Link></li>
+                <li><Link href="/policies/refund" className="hover:text-green-600">Refund Policy</Link></li>
               </ul>
             </div>
             <div className="text-center md:text-left">

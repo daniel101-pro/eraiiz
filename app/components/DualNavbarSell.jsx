@@ -566,6 +566,10 @@ export default function DualNavbarSell({ handleLogout }) {
                     <span className="group-hover:animate-float">Contact Support</span>
                     <span className="nav-link-effect"></span>
                   </Link>
+                  <Link href="/policies" className="nav-link hover:text-green-600 relative group" onClick={toggleSidebar}>
+                    <span className="group-hover:animate-float">Policies</span>
+                    <span className="nav-link-effect"></span>
+                  </Link>
                   {userRole === 'buyer' && (
                     <Link href="/supplier/migrate" className="nav-link hover:text-green-600 relative group" onClick={toggleSidebar}>
                       <span className="group-hover:animate-float">Become a Supplier</span>
@@ -712,6 +716,10 @@ export default function DualNavbarSell({ handleLogout }) {
                   </Link>
                   <Link href="/contact" className="nav-link hover:text-green-600 relative group">
                     <span className="group-hover:animate-float">Contact Support</span>
+                    <span className="nav-link-effect"></span>
+                  </Link>
+                  <Link href="/policies" className="nav-link hover:text-green-600 relative group">
+                    <span className="group-hover:animate-float">Policies</span>
                     <span className="nav-link-effect"></span>
                   </Link>
                   {userRole === 'buyer' && (
