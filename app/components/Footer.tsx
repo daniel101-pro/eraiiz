@@ -3,6 +3,7 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Noise from "../Animations/Noise/Noise";
+import { policies } from "@/lib/policies";
 
 const Footer = () => {
   return (
@@ -35,8 +36,11 @@ const Footer = () => {
             <div className="mb-6 md:mb-0 text-center md:text-left">
               <h3 className="text-lg font-medium text-black mb-3 md:mb-5">Policies</h3>
               <ul className="text-gray-600 space-y-2 text-sm md:text-base">
-                <li><Link href="/policies/acceptable-use" className="hover:text-green-600">Acceptable Use Policy</Link></li>
-                <li><Link href="/policies/refund" className="hover:text-green-600">Refund Policy</Link></li>
+                {policies.map((policy) => (
+                  <li key={policy.href}>
+                    <Link href={policy.href} className="hover:text-green-600">{policy.title}</Link>
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="text-center md:text-left">

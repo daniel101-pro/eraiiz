@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import PolicyPageLayout from '../../components/PolicyPageLayout';
+import { POLICY_LAST_UPDATED } from '@/lib/policies';
 
 export default function AcceptableUsePolicyPage() {
   useEffect(() => {
@@ -9,7 +10,7 @@ export default function AcceptableUsePolicyPage() {
   }, []);
 
   return (
-    <PolicyPageLayout title="Acceptable Use Policy" lastUpdated="December 15, 2024">
+    <PolicyPageLayout title="Acceptable Use Policy" lastUpdated={POLICY_LAST_UPDATED}>
       <section>
         <h2 className="text-lg font-semibold text-gray-900">1. Purpose</h2>
         <p>

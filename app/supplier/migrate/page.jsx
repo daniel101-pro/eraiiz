@@ -375,7 +375,10 @@ export default function MigratePage() {
                 <div>
                   <h4 className="text-lg font-semibold text-green-900 mb-3">1. Welcome to Eraiiz Seller Program</h4>
                   <p className="mb-2">By joining Eraiiz as a seller, you become part of a sustainable commerce revolution. These terms govern your participation in our eco-conscious marketplace where environmental responsibility meets profitable business.</p>
-                  <p>You acknowledge that you have read, understood, and agree to be bound by these Terms, our Privacy Policy, Community Guidelines, Sustainability Standards,{' '}
+                  <p>You acknowledge that you have read, understood, and agree to be bound by these Terms, our{' '}
+                    <Link href="/policies/privacy" className="text-green-700 underline hover:text-green-800">Privacy Policy</Link>,{' '}
+                    <Link href="/policies/community" className="text-green-700 underline hover:text-green-800">Community Guidelines</Link>,{' '}
+                    <Link href="/policies/sustainability" className="text-green-700 underline hover:text-green-800">Sustainability Standards</Link>,{' '}
                     <Link href="/policies/acceptable-use" className="text-green-700 underline hover:text-green-800">Acceptable Use Policy</Link>, and{' '}
                     <Link href="/policies/refund" className="text-green-700 underline hover:text-green-800">Refund Policy</Link>.
                   </p>
@@ -449,7 +452,8 @@ export default function MigratePage() {
                   <h4 className="text-lg font-semibold text-green-900 mb-3">10. Account Termination & Violations</h4>
                   <p className="mb-2"><strong>Violation Consequences:</strong> Account suspension or termination for repeated violations, fraudulent activity, or failure to meet sustainability standards.</p>
                   <p className="mb-2"><strong>Appeal Process:</strong> Fair appeal process available for disputed account actions. Submit appeals within 30 days.</p>
-                  <p><strong>Data Retention:</strong> Upon termination, seller data will be retained according to legal requirements and our Privacy Policy.</p>
+                  <p><strong>Data Retention:</strong> Upon termination, seller data will be retained according to legal requirements and our{' '}
+                    <Link href="/policies/privacy" className="text-green-700 underline hover:text-green-800">Privacy Policy</Link>.</p>
                 </div>
 
                 <div>

@@ -191,7 +191,9 @@ export default function SignupPage() {
                   />
                   <label className="text-sm text-gray-600">
                     I agree to Eraiiz&apos;s{' '}
-                    <Link href="/policies" className="text-green-600 hover:underline">terms and policies</Link>
+                    <Link href="/policies/terms" className="text-green-600 hover:underline">Terms of Service</Link>
+                    {' '}and{' '}
+                    <Link href="/policies" className="text-green-600 hover:underline">policies</Link>
                   </label>
                 </div>
                 <button

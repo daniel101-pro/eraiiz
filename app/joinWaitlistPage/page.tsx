@@ -80,8 +80,12 @@ export default function JoinWaitlistPage() {
             />
             <label htmlFor="terms" className="ml-2 text-sm text-gray-700">
               I agree to Eraiiz&apos;s{" "}
+              <Link href="/policies/terms" className="text-green-600 underline">
+                Terms of Service
+              </Link>
+              {" "}and{" "}
               <Link href="/policies" className="text-green-600 underline">
-                terms and policies
+                policies
               </Link>
             </label>
           </div>

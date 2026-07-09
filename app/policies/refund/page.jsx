@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import PolicyPageLayout from '../../components/PolicyPageLayout';
+import { POLICY_LAST_UPDATED } from '@/lib/policies';
 
 export default function RefundPolicyPage() {
   useEffect(() => {
@@ -10,7 +11,7 @@ export default function RefundPolicyPage() {
   }, []);
 
   return (
-    <PolicyPageLayout title="Refund Policy" lastUpdated="December 15, 2024">
+    <PolicyPageLayout title="Refund Policy" lastUpdated={POLICY_LAST_UPDATED}>
       <section>
         <h2 className="text-lg font-semibold text-gray-900">1. Overview</h2>
         <p>

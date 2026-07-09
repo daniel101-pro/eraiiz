@@ -4,22 +4,8 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { FileText, Shield, RotateCcw } from 'lucide-react';
-
-const policies = [
-  {
-    title: 'Acceptable Use Policy',
-    description: 'Rules for using the Eraiiz platform responsibly as a buyer or seller.',
-    href: '/policies/acceptable-use',
-    icon: Shield,
-  },
-  {
-    title: 'Refund Policy',
-    description: 'How returns, refunds, and order disputes are handled on Eraiiz.',
-    href: '/policies/refund',
-    icon: RotateCcw,
-  },
-];
+import { FileText } from 'lucide-react';
+import { policies } from '@/lib/policies';
 
 export default function PoliciesPage() {
   useEffect(() => {
@@ -33,7 +19,7 @@ export default function PoliciesPage() {
       </div>
 
       <div className="min-h-screen bg-white pt-28 pb-16">
-        <div className="max-w-4xl mx-auto px-6">
+        <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium mb-4">
               <FileText className="w-4 h-4" />
@@ -41,7 +27,7 @@ export default function PoliciesPage() {
             </div>
             <h1 className="text-2xl md:text-4xl font-semibold text-gray-900 mb-3">Eraiiz Policies</h1>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Review our platform policies covering acceptable use, refunds, and your rights as a buyer or seller.
+              Review our legal and platform policies covering terms, privacy, shipping, sustainability, and your rights as a buyer or seller.
             </p>
           </div>
 
