@@ -2,6 +2,7 @@
 
 import { DollarSign, CheckCircle, Rocket, LayoutGrid } from 'lucide-react';
 import { useState } from 'react';
+import PayoutSetup from '../seller/PayoutSetup';
 
 const plans = [
   {
@@ -42,13 +43,15 @@ const plans = [
   },
 ];
 
-export default function Billing() {
+export default function Billing({ user }) {
   const [selected, setSelected] = useState('commission');
 
   const handleSelect = (id) => setSelected(id);
 
   return (
     <div className="space-y-8">
+      <PayoutSetup user={user} />
+
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
         <h2 className="text-xs sm:text-sm md:text-base font-bold text-gray-900 mb-6 flex items-center gap-2">
           <DollarSign className="h-5 w-5 text-green-600" /> Billing & Plans

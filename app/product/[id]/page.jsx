@@ -12,7 +12,7 @@ import { showCartToast, showError } from '../../utils/toast';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import ImageGallery from '../../components/ImageGallery';
 import ReportModal from '../../components/ReportModal';
-import { getProductCurrency } from '@/lib/productCurrency';
+import { Const } from 'three/tsl';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -327,7 +327,7 @@ export default function ProductDetail() {
         _id: product._id,
         name: product.name,
         price: product.price,
-        currency: getProductCurrency(product),
+        currency: product.currency || 'NGN',
         quantity: quantity,
         selectedSize: selectedSize,
         images: product.images
@@ -426,7 +426,7 @@ export default function ProductDetail() {
     );
   }
 
-  const productCurrency = getProductCurrency(product);
+  const productCurrency = product.currency || 'NGN';
 
   return (
     <>

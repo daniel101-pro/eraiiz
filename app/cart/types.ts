@@ -6,6 +6,7 @@ export interface CartItem {
     quantity: number;
     selectedSize: string;
     images: string[];
+    sellerId?: string;
     carbonFootprint?: {
         total: string;
         impactScore: string;
@@ -22,4 +23,4 @@ export interface CartContextType {
     updateQuantity?: (id: string, size: string, quantity: number) => void;
     getCartTotal?: () => number;
     clearCart?: () => void;
-} 
+}

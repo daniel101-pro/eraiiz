@@ -1,157 +1,111 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { useCart } from '../../context/CartContext';
-import DualNavbarSell from '../../components/DualNavbarSell';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCart } from '../../context/CartContext';
+import { useCheckout } from '../../context/CheckoutContext';
+import { useCurrency } from '../../context/CurrencyContext';
+import DualNavbarSell from '../../components/DualNavbarSell';
+import { showError } from '../../utils/toast';
 
-const BackButton = () => {
-    return (
-        <Link 
-            href="/cart"
-            className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200 mb-4 md:mb-6"
-        >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Cart
-        </Link>
-    );
-};
-
-const ProgressBar = () => {
-    return (
-        <>
-            {/* Mobile Progress */}
-            <div className="md:hidden flex flex-col items-center px-4 mt-[120px] mb-8">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full border-2 border-green-600 bg-green-600 flex items-center justify-center text-white">
-                        ✓
-                    </div>
-                    <span className="text-green-600 text-lg">Cart review</span>
-                </div>
-                <div className="h-4 border-l-2 border-green-600"></div>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full border-2 border-green-600 bg-white flex items-center justify-center text-green-600">
-                        2
-                    </div>
-                    <span className="text-green-600 text-lg">Billing address</span>
-                </div>
-            </div>
-
-            {/* Desktop Progress */}
-            <div className="hidden md:flex items-center justify-center space-x-4 max-w-3xl mx-auto px-4 mt-[120px] mb-8">
-                <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full border border-green-500 bg-green-500 flex items-center justify-center text-white">
-                        ✓
-                    </div>
-                    <span className="ml-2 text-green-500">Cart review</span>
-                </div>
-                <div className="flex-1 h-[1px] bg-green-500"></div>
-                <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full border border-green-500 bg-white flex items-center justify-center text-green-500">
-                        2
-                    </div>
-                    <span className="ml-2 text-green-500">Billing address</span>
-                </div>
-                <div className="flex-1 h-[1px] bg-gray-200"></div>
-                <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full border border-gray-300 bg-white flex items-center justify-center text-gray-500">
-                        3
-                    </div>
-                    <span className="ml-2 text-gray-500">Payment</span>
-                </div>
-            </div>
-        </>
-    );
-};
+const fields = [
+  { name: 'fullName', label: 'Full Name', type: 'text', required: true },
+  { name: 'email', label: 'Email', type: 'email', required: true },
+  { name: 'phone', label: 'Phone Number', type: 'tel', required: true },
+  { name: 'address', label: 'Address', type: 'text', required: true, fullWidth: true },
+  { name: 'city', label: 'City', type: 'text', required: true },
+  { name: 'state', label: 'State', type: 'text', required: true },
+  { name: 'postalCode', label: 'Postal Code', type: 'text', required: true },
+];
 
 export default function BillingPage() {
-  const { cartItems, getCartTotal } = useCart();
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    state: '',
-    city: '',
-    address: '',
-    postalCode: '',
-    saveInfo: false
-  });
-  const [discountCode, setDiscountCode] = useState('');
+  const router = useRouter();
+  const { cartItems } = useCart();
+  const { billing, updateBilling } = useCheckout();
+  const { formatPrice, convertPrice } = useCurrency();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      router.push('/cart');
+    }
+  }, [cartItems.length, router]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    updateBilling({ [name]: value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Handle form submission
-    console.log('Form submitted:', formData);
-    // Navigate to payment page
-    window.location.href = '/checkout/payment';
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    const missingField = fields.find((field) => field.required && !billing[field.name]?.trim());
+    if (missingField) {
+      showError(`Please enter your ${missingField.label.toLowerCase()}`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    router.push('/checkout/payment');
   };
 
-  const shippingFee = 4000;
+  const orderTotal = cartItems.reduce((total, item) => {
+    return total + convertPrice(item.price, item.currency || 'NGN') * (item.quantity || 1);
+  }, 0);
 
   return (
     <>
       <DualNavbarSell />
-      <ProgressBar />
-      
-      <div className="container mx-auto px-4 py-8">
+
+      <div className="container mx-auto px-4 py-8 pt-32">
         <div className="max-w-3xl mx-auto">
-          <BackButton />
-          <h2 className="text-2xl font-semibold mb-6">Billing Address</h2>
-          
-          <form className="space-y-6">
+          <Link href="/cart" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6">
+            ← Back to Cart
+          </Link>
+
+          <h2 className="text-2xl font-semibold mb-2">Billing Address</h2>
+          <p className="text-gray-600 mb-6">
+            Order total: <span className="font-semibold text-green-700">{formatPrice(orderTotal)}</span>
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-                <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
-                <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                <input type="tel" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent" />
-              </div>
+              {fields.map((field) => (
+                <div key={field.name} className={field.fullWidth ? 'md:col-span-2' : ''}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {field.label}
+                  </label>
+                  <input
+                    type={field.type}
+                    name={field.name}
+                    value={billing[field.name] || ''}
+                    onChange={handleChange}
+                    required={field.required}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              ))}
             </div>
-            
+
             <div className="flex justify-end">
-              <Link 
-                href="/checkout/payment"
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex items-center px-6 py-3 rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-60"
               >
                 Continue to Payment
-              </Link>
+              </button>
             </div>
           </form>
         </div>
       </div>
     </>
   );
-} 
+}

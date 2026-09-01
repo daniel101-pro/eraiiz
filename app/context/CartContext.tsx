@@ -90,6 +90,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             console.log(`Sustainability for ${item._id}:`, fullProduct.sustainability);
             
             // Merge cart item data with full product data
+            const sellerId =
+              typeof fullProduct.sellerId === 'object'
+                ? fullProduct.sellerId?._id || fullProduct.sellerId?.id
+                : fullProduct.sellerId;
+
             const enrichedItem = {
               ...item,
               carbonFootprint: fullProduct.carbonFootprint,
@@ -101,6 +106,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               price: fullProduct.price || item.price,
               currency: getProductCurrency(fullProduct) || item.currency || 'NGN',
               images: fullProduct.images || item.images,
+              sellerId: sellerId ? String(sellerId) : item.sellerId,
             };
             
             console.log(`Enriched item for ${item._id}:`, {

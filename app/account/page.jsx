@@ -235,7 +235,7 @@ export default function AccountPage() {
           {activeSection === 'Notifications' && <Notifications onTokenError={handleTokenError} />}
           {activeSection === 'Settings' && <SettingsSection onTokenError={handleTokenError} />}
           {activeSection === 'Sales' && user.role === 'seller' && <Sales onTokenError={handleTokenError} />}
-          {activeSection === 'Billing' && user.role === 'seller' && <Billing />}  
+          {activeSection === 'Billing' && user.role === 'seller' && <Billing user={user} />}  
           {activeSection === 'Uploaded Products' && user.role === 'seller' && <UploadedProducts onTokenError={handleTokenError} />}
           {activeSection === 'Shipping' && user.role === 'seller' && (
             <ShippingProvider>

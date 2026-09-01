@@ -1,148 +1,170 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import DualNavbarSell from '../../components/DualNavbarSell';
-
-const BackButton = () => {
-    return (
-        <Link 
-            href="/checkout/billing"
-            className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200 mb-4 md:mb-6"
-        >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Billing
-        </Link>
-    );
-};
-
-const ProgressBar = () => {
-    return (
-        <>
-            {/* Mobile Progress */}
-            <div className="md:hidden flex flex-col items-center px-4 mt-[120px] mb-8">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full border-2 border-green-600 bg-green-600 flex items-center justify-center text-white">
-                        ✓
-                    </div>
-                    <span className="text-green-600 text-lg">Cart review</span>
-                </div>
-                <div className="h-4 border-l-2 border-green-600"></div>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full border-2 border-green-600 bg-green-600 flex items-center justify-center text-white">
-                        ✓
-                    </div>
-                    <span className="text-green-600 text-lg">Billing address</span>
-                </div>
-                <div className="h-4 border-l-2 border-green-600"></div>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full border-2 border-green-600 bg-white flex items-center justify-center text-green-600">
-                        3
-                    </div>
-                    <span className="text-green-600 text-lg">Payment</span>
-                </div>
-            </div>
-
-            {/* Desktop Progress */}
-            <div className="hidden md:flex items-center justify-center space-x-4 max-w-3xl mx-auto px-4 mt-[120px] mb-8">
-                <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full border border-green-500 bg-green-500 flex items-center justify-center text-white">
-                        ✓
-                    </div>
-                    <span className="ml-2 text-green-500">Cart review</span>
-                </div>
-                <div className="flex-1 h-[1px] bg-green-500"></div>
-                <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full border border-green-500 bg-green-500 flex items-center justify-center text-white">
-                        ✓
-                    </div>
-                    <span className="ml-2 text-green-500">Billing address</span>
-                </div>
-                <div className="flex-1 h-[1px] bg-green-500"></div>
-                <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full border border-green-500 bg-white flex items-center justify-center text-green-500">
-                        3
-                    </div>
-                    <span className="ml-2 text-green-500">Payment</span>
-                </div>
-            </div>
-        </>
-    );
-};
+import { useCart } from '../../context/CartContext';
+import { useCheckout } from '../../context/CheckoutContext';
+import { useCurrency } from '../../context/CurrencyContext';
+import {
+  initializeCheckout,
+  openPaystackCheckout,
+  verifyCheckout,
+} from '../../services/paymentService';
+import { showError, showSuccess } from '../../utils/toast';
+import { PLATFORM_COMMISSION_PERCENT } from '@/lib/paymentConfig';
 
 export default function PaymentPage() {
-    return (
-        <>
-            <DualNavbarSell />
-            <ProgressBar />
-            
-            <div className="container mx-auto px-4 py-8">
-                <div className="max-w-3xl mx-auto">
-                    <BackButton />
-                    <h2 className="text-2xl font-semibold mb-6">Payment Method</h2>
-                    
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="space-y-6">
-                            {/* Payment Options */}
-                            <div className="space-y-4">
-                                <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:border-green-500">
-                                    <input type="radio" name="payment" className="h-4 w-4 text-green-600" defaultChecked />
-                                    <span className="ml-3">
-                                        <span className="block text-gray-900 font-medium">Pay with Card</span>
-                                        <span className="block text-gray-500 text-sm">Pay securely with your credit/debit card</span>
-                                    </span>
-                                </label>
-                                
-                                <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:border-green-500">
-                                    <input type="radio" name="payment" className="h-4 w-4 text-green-600" />
-                                    <span className="ml-3">
-                                        <span className="block text-gray-900 font-medium">Bank Transfer</span>
-                                        <span className="block text-gray-500 text-sm">Make payment via bank transfer</span>
-                                    </span>
-                                </label>
-                            </div>
+  const router = useRouter();
+  const { cartItems, clearCart, enrichedCartItems } = useCart();
+  const { billing, clearCheckout } = useCheckout();
+  const { formatPrice, convertPrice } = useCurrency();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentInit, setPaymentInit] = useState(null);
 
-                            {/* Card Details Form */}
-                            <div className="mt-8 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Card Number</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="1234 5678 9012 3456"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                    />
-                                </div>
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="MM/YY"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="123"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+  const checkoutItems = enrichedCartItems.length > 0 ? enrichedCartItems : cartItems;
 
-                            <div className="mt-8">
-                                <button className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                    Complete Payment
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    if (checkoutItems.length === 0) {
+      router.push('/cart');
+      return;
+    }
+
+    if (!billing.email || !billing.fullName) {
+      router.push('/checkout/billing');
+    }
+  }, [billing.email, billing.fullName, checkoutItems.length, router]);
+
+  const orderTotal = useMemo(() => {
+    return checkoutItems.reduce((total, item) => {
+      return total + convertPrice(item.price, item.currency || 'NGN') * (item.quantity || 1);
+    }, 0);
+  }, [checkoutItems, convertPrice]);
+
+  const payloadItems = useMemo(
+    () =>
+      checkoutItems.map((item) => ({
+        _id: item._id,
+        name: item.name,
+        price: convertPrice(item.price, item.currency || 'NGN'),
+        currency: 'NGN',
+        quantity: item.quantity || 1,
+        selectedSize: item.selectedSize,
+        sellerId: item.sellerId,
+      })),
+    [checkoutItems, convertPrice]
+  );
+
+  const handlePay = async () => {
+    try {
+      setIsProcessing(true);
+
+      const initialized = await initializeCheckout({
+        items: payloadItems,
+        billing,
+        callbackUrl: `${window.location.origin}/checkout/success`,
+      });
+
+      setPaymentInit(initialized);
+      sessionStorage.setItem('eraiiz_last_checkout_items', JSON.stringify(payloadItems));
+
+      await openPaystackCheckout({
+        publicKey: initialized.publicKey,
+        email: initialized.email,
+        amountKobo: initialized.amountKobo,
+        reference: initialized.reference,
+        onSuccess: async (transaction) => {
+          try {
+            await verifyCheckout({
+              reference: transaction.reference || initialized.reference,
+              items: payloadItems,
+              billing,
+            });
+
+            clearCart();
+            clearCheckout();
+            showSuccess('Payment successful');
+            router.push(
+              `/checkout/success?reference=${transaction.reference || initialized.reference}&status=success`
+            );
+          } catch (error) {
+            showError(error.message || 'Payment verification failed');
+          } finally {
+            setIsProcessing(false);
+          }
+        },
+        onCancel: () => {
+          setIsProcessing(false);
+          showError('Payment cancelled');
+        },
+      });
+    } catch (error) {
+      setIsProcessing(false);
+      showError(error.message || 'Unable to start payment');
+    }
+  };
+
+  return (
+    <>
+      <DualNavbarSell />
+
+      <div className="container mx-auto px-4 py-8 pt-32">
+        <div className="max-w-3xl mx-auto">
+          <Link href="/checkout/billing" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6">
+            ← Back to Billing
+          </Link>
+
+          <h2 className="text-2xl font-semibold mb-6">Pay with Paystack</h2>
+
+          <div className="bg-white rounded-lg shadow p-6 space-y-6">
+            <div className="rounded-lg border border-green-100 bg-green-50 p-4">
+              <p className="text-sm text-green-800">
+                Payments are split automatically at checkout. Sellers receive their share directly,
+                and Eraiiz keeps a {PLATFORM_COMMISSION_PERCENT}% platform commission.
+              </p>
             </div>
-        </>
-    );
-} 
+
+            <div className="space-y-3">
+              <div className="flex justify-between text-gray-700">
+                <span>Items</span>
+                <span>{checkoutItems.length}</span>
+              </div>
+              <div className="flex justify-between text-gray-700">
+                <span>Delivery address</span>
+                <span className="text-right max-w-xs">
+                  {billing.fullName}, {billing.city}, {billing.state}
+                </span>
+              </div>
+              <div className="flex justify-between text-lg font-semibold text-gray-900 pt-3 border-t">
+                <span>Total due</span>
+                <span>{formatPrice(paymentInit?.amount || orderTotal)}</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <p className="font-medium text-gray-900 mb-1">Card, bank transfer, and USSD</p>
+              <p className="text-sm text-gray-600">
+                You&apos;ll complete payment securely on Paystack. We do not store card details on Eraiiz.
+              </p>
+            </div>
+
+            <button
+              onClick={handlePay}
+              disabled={isProcessing}
+              className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 disabled:opacity-60"
+            >
+              {isProcessing ? 'Opening Paystack...' : `Pay ${formatPrice(paymentInit?.amount || orderTotal)}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
