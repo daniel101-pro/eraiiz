@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CheckCircle, DollarSign, LayoutGrid, Loader2, Rocket } from 'lucide-react';
+import PayoutSetup from '../seller/PayoutSetup';
 import PlanPerks from '../seller/PlanPerks';
 import {
   cancelSellerPlan,
