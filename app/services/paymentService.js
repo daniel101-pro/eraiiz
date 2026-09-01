@@ -119,6 +119,46 @@ export async function initializeCheckout({ items, billing, callbackUrl }) {
   });
 }
 
+export async function initializePlanCheckout({ planId, email }) {
+  return paymentRequest('/api/payments/subscription', {
+    method: 'POST',
+    body: JSON.stringify({ planId, email }),
+  });
+}
+
+export async function fetchSellerPlan() {
+  try {
+    return await paymentRequest('/api/payments/subscription');
+  } catch (error) {
+    const cached = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('eraiiz_seller_plan') || 'null')
+      : null;
+    if (cached?.planId) return cached;
+    throw error;
+  }
+}
+
+export async function verifyPlanCheckout({ reference, planId }) {
+  const data = await paymentRequest('/api/payments/subscription/verify', {
+    method: 'POST',
+    body: JSON.stringify({ reference, planId }),
+  });
+  if (typeof window !== 'undefined' && data?.planId) {
+    localStorage.setItem('eraiiz_seller_plan', JSON.stringify(data));
+  }
+  return data;
+}
+
+export async function cancelSellerPlan() {
+  const data = await paymentRequest('/api/payments/subscription', {
+    method: 'PATCH',
+  });
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('eraiiz_seller_plan', JSON.stringify({ planId: 'commission' }));
+  }
+  return data;
+}
+
 export async function verifyCheckout({ reference, items, billing }) {
   return paymentRequest('/api/payments/verify', {
     method: 'POST',
@@ -160,11 +200,20 @@ export async function openPaystackCheckout({
   email,
   amountKobo,
   reference,
+  accessCode,
   onSuccess,
   onCancel,
 }) {
   const PaystackPop = await loadPaystackInline();
   const popup = new PaystackPop();
+
+  if (accessCode && typeof popup.resumeTransaction === 'function') {
+    popup.resumeTransaction(accessCode, {
+      onSuccess: (transaction) => onSuccess?.(transaction),
+      onCancel: () => onCancel?.(),
+    });
+    return;
+  }
 
   popup.newTransaction({
     key: publicKey,

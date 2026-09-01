@@ -1,11 +1,11 @@
 import axios from 'axios';
 import { getProductCurrency } from '@/lib/productCurrency';
 import { getSellerPayout, findPaystackSubaccountForSeller } from '@/lib/sellerPayoutStore';
+import { getSellerSubscription } from '@/lib/sellerSubscriptionStore';
+import { platformShareForPlan, sellerShareForPlan } from '@/lib/sellerPlans';
 import {
   fromKobo,
   generateReference,
-  platformCommissionAmount,
-  sellerShareAmount,
   toKobo,
 } from '@/lib/paymentConfig';
 
@@ -99,6 +99,7 @@ async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
   return {
     sellerId,
     name,
+    email,
     paystackSubaccountCode,
   };
 }
@@ -165,19 +166,23 @@ export async function validateCheckoutInput(input: {
     );
   }
 
-  const sellerSplits: SellerSplit[] = sellerAccounts.map((seller) => {
-    const subtotal = sellerTotals.get(seller.sellerId) || 0;
-    const sellerShare = sellerShareAmount(subtotal);
-    const platformShare = platformCommissionAmount(subtotal);
+  const sellerSplits: SellerSplit[] = await Promise.all(
+    sellerAccounts.map(async (seller) => {
+      const subtotal = sellerTotals.get(seller.sellerId) || 0;
+      const storedPlan = await getSellerSubscription(seller.sellerId);
+      const planId = storedPlan?.planId || 'commission';
+      const sellerShare = sellerShareForPlan(subtotal, planId);
+      const platformShare = platformShareForPlan(subtotal, planId);
 
-    return {
-      sellerId: seller.sellerId,
-      subaccountCode: seller.paystackSubaccountCode!,
-      subtotal,
-      sellerShare,
-      platformShare,
-    };
-  });
+      return {
+        sellerId: seller.sellerId,
+        subaccountCode: seller.paystackSubaccountCode!,
+        subtotal,
+        sellerShare,
+        platformShare,
+      };
+    })
+  );
 
   const amountNgn = sellerSplits.reduce((sum, split) => sum + split.subtotal, 0);
   const amountKobo = toKobo(amountNgn);

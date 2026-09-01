@@ -36,9 +36,8 @@ export async function POST(request: NextRequest) {
         itemCount: checkout.items.length,
         sellerCount: checkout.sellerSplits.length,
       },
-      subaccount: checkout.subaccount,
-      splitSubaccounts:
-        checkout.splitSubaccounts.length > 1 ? checkout.splitSubaccounts : undefined,
+      subaccount: checkout.splitSubaccounts.length === 1 ? checkout.subaccount : undefined,
+      splitSubaccounts: checkout.splitSubaccounts,
     });
 
     return NextResponse.json({

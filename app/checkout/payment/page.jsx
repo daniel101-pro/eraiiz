@@ -80,6 +80,7 @@ export default function PaymentPage() {
         email: initialized.email,
         amountKobo: initialized.amountKobo,
         reference: initialized.reference,
+        accessCode: initialized.accessCode,
         onSuccess: async (transaction) => {
           try {
             await verifyCheckout({

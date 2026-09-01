@@ -71,6 +71,7 @@ export interface InitializeTransactionInput {
   metadata?: Record<string, unknown>;
   subaccount?: string;
   splitSubaccounts?: PaystackSplitSubaccount[];
+  plan?: string;
 }
 
 export interface InitializedTransaction {
@@ -88,7 +89,9 @@ export interface VerifiedTransaction {
   metadata?: Record<string, unknown>;
   customer?: {
     email?: string;
+    customer_code?: string;
   };
+  plan?: string | { plan_code?: string; name?: string } | null;
 }
 
 export async function listBanks(): Promise<PaystackBank[]> {
@@ -247,6 +250,10 @@ export async function initializeTransaction(
     body.subaccount = input.subaccount;
   }
 
+  if (input.plan) {
+    body.plan = input.plan;
+  }
+
   return paystackRequest<InitializedTransaction>('/transaction/initialize', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -273,4 +280,85 @@ export function verifyWebhookSignature(
     .digest('hex');
 
   return hash === signature;
+}
+
+export interface PaystackPlan {
+  name: string;
+  plan_code: string;
+  amount: number;
+  interval: string;
+}
+
+export interface PaystackSubscription {
+  status: string;
+  subscription_code?: string;
+  email_token?: string;
+  next_payment_date?: string;
+  customer?: {
+    email?: string;
+    customer_code?: string;
+  };
+  plan?: PaystackPlan | string;
+}
+
+export async function listPlans(): Promise<PaystackPlan[]> {
+  const data = await paystackRequest<PaystackPlan[]>('/plan?perPage=50');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createPlan(input: {
+  name: string;
+  amountKobo: number;
+  interval?: string;
+}): Promise<PaystackPlan> {
+  return paystackRequest<PaystackPlan>('/plan', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: input.name,
+      amount: input.amountKobo,
+      interval: input.interval || 'monthly',
+      currency: 'NGN',
+    }),
+  });
+}
+
+export async function ensurePlan(name: string, amountKobo: number): Promise<PaystackPlan> {
+  const existing = (await listPlans()).find(
+    (plan) => plan.name === name && Number(plan.amount) === amountKobo
+  );
+  if (existing) return existing;
+
+  try {
+    return await createPlan({ name, amountKobo, interval: 'monthly' });
+  } catch (error) {
+    const fallback = (await listPlans()).find((plan) => plan.name === name);
+    if (fallback) return fallback;
+    throw error;
+  }
+}
+
+export async function listSubscriptions(email?: string): Promise<PaystackSubscription[]> {
+  const results: PaystackSubscription[] = [];
+
+  for (let page = 1; page <= 5; page += 1) {
+    const query = email
+      ? `/subscription?perPage=50&page=${page}&customer=${encodeURIComponent(email)}`
+      : `/subscription?perPage=50&page=${page}`;
+    const batch = await paystackRequest<PaystackSubscription[]>(query);
+    const items = Array.isArray(batch) ? batch : [];
+    results.push(...items);
+    if (items.length < 50) break;
+  }
+
+  return results;
+}
+
+export async function disableSubscription(code: string, emailToken: string) {
+  return paystackRequest('/subscription/disable', {
+    method: 'POST',
+    body: JSON.stringify({
+      code,
+      token: emailToken,
+    }),
+  });
 }

@@ -11,6 +11,13 @@ declare global {
         onSuccess?: (transaction: { reference?: string }) => void;
         onCancel?: () => void;
       }) => void;
+      resumeTransaction?: (
+        accessCode: string,
+        callbacks?: {
+          onSuccess?: (transaction: { reference?: string }) => void;
+          onCancel?: () => void;
+        }
+      ) => void;
     };
   }
 }
