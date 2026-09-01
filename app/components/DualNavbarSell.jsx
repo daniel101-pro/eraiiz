@@ -171,15 +171,17 @@ export default function DualNavbarSell({ handleLogout }) {
 
   // Handle logout
   const onLogout = () => {
+    clearCart();
+    localStorage.removeItem('user');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('role');
+
     if (handleLogout) {
-      // Clear cart first
-      clearCart();
-      
-      // Then handle logout
       handleLogout();
-      localStorage.removeItem('user');
-      router.push('/login');
     }
+
+    router.push('/login');
   };
 
   // Toggle sidebar visibility

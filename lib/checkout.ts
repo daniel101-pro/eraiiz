@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getProductCurrency } from '@/lib/productCurrency';
+import { getSellerPayout } from '@/lib/sellerPayoutStore';
 import {
   fromKobo,
   generateReference,
@@ -61,15 +62,34 @@ async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
   const headers: Record<string, string> = {};
   if (authHeader) headers.Authorization = authHeader;
 
-  const response = await axios.get(`${API_URL}/api/users/seller/${sellerId}`, {
-    headers,
-    timeout: 15000,
-  });
+  let paystackSubaccountCode: string | undefined;
+  let name: string | undefined;
+
+  try {
+    const response = await axios.get(`${API_URL}/api/users/seller/${sellerId}`, {
+      headers,
+      timeout: 15000,
+    });
+
+    name = response.data?.name as string | undefined;
+    paystackSubaccountCode = response.data?.paystackSubaccountCode as string | undefined;
+
+    const nested = response.data?.sellerPayout as { paystackSubaccountCode?: string } | undefined;
+    paystackSubaccountCode =
+      paystackSubaccountCode || nested?.paystackSubaccountCode;
+  } catch (error) {
+    console.error(`Failed to fetch seller profile for ${sellerId}`, error);
+  }
+
+  if (!paystackSubaccountCode) {
+    const localPayout = await getSellerPayout(sellerId);
+    paystackSubaccountCode = localPayout?.subaccountCode;
+  }
 
   return {
     sellerId,
-    name: response.data?.name as string | undefined,
-    paystackSubaccountCode: response.data?.paystackSubaccountCode as string | undefined,
+    name,
+    paystackSubaccountCode,
   };
 }
 

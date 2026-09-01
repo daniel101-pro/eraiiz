@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import axios from 'axios';
 import Image from 'next/image';
 import { Edit2, Trash2, Eye, DollarSign, Package, Calendar, MoreVertical, Search } from 'lucide-react';
@@ -32,6 +33,7 @@ export default function UploadedProducts({ onTokenError }) {
           timeout: 30000,
         });
         setProducts(res.data);
+        setError(null);
       } catch (err) {
         if (err.response?.status === 401 || err.message.includes('Invalid or expired token')) {
           onTokenError();
@@ -168,17 +170,22 @@ export default function UploadedProducts({ onTokenError }) {
     );
   }
 
-  if (error && products.length === 0) {
+  if (!loading && products.length === 0) {
     return (
       <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-8">
         <div className="text-center">
           <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Products Found</h3>
-          <p className="text-gray-500 mb-6">{error}</p>
-          <button className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Products Yet</h3>
+          <p className="text-gray-500 mb-6">
+            {error || 'Start uploading products to see them here.'}
+          </p>
+          <Link
+            href="/dashboard/seller/upload"
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
             <Package className="w-4 h-4 mr-2" />
             Upload Your First Product
-          </button>
+          </Link>
         </div>
       </div>
     );

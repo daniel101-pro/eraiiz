@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import Navbar from './Navbar';
+import AppNavbar from './AppNavbar';
 import Footer from './Footer';
 
 export default function PolicyPageLayout({ title, lastUpdated, children }) {
   return (
     <>
       <div className="relative z-10">
-        <Navbar />
+        <AppNavbar />
       </div>
 
       <div className="min-h-screen bg-white pt-28 pb-16">

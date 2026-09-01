@@ -21,6 +21,26 @@ export default function PayoutSetup({ user }) {
   });
 
   useEffect(() => {
+    const cached = typeof window !== 'undefined'
+      ? (() => {
+          try {
+            const user = localStorage.getItem('user');
+            if (!user) return null;
+            const parsedUser = JSON.parse(user);
+            const userId = parsedUser._id || parsedUser.id;
+            if (!userId) return null;
+            const raw = localStorage.getItem(`eraiiz_payout_${userId}`);
+            return raw ? JSON.parse(raw) : null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+
+    if (cached?.subaccountCode) {
+      setExisting(cached);
+    }
+
     const load = async () => {
       try {
         const [bankList, payoutDetails] = await Promise.all([

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import Navbar from '../components/Navbar';
+import AppNavbar from '../components/AppNavbar';
 import Footer from '../components/Footer';
 import { FileText } from 'lucide-react';
 import { policies } from '@/lib/policies';
@@ -15,7 +15,7 @@ export default function PoliciesPage() {
   return (
     <>
       <div className="relative z-10">
-        <Navbar />
+        <AppNavbar />
       </div>
 
       <div className="min-h-screen bg-white pt-28 pb-16">

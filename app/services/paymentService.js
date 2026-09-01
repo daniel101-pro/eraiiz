@@ -1,5 +1,41 @@
 const API_BASE = '';
 
+function getStoredPayout() {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const token = localStorage.getItem('accessToken');
+    const user = localStorage.getItem('user');
+    if (!token || !user) return null;
+
+    const parsedUser = JSON.parse(user);
+    const userId = parsedUser._id || parsedUser.id;
+    if (!userId) return null;
+
+    const raw = localStorage.getItem(`eraiiz_payout_${userId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function storePayoutLocally(payout) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const user = localStorage.getItem('user');
+    if (!user) return;
+
+    const parsedUser = JSON.parse(user);
+    const userId = parsedUser._id || parsedUser.id;
+    if (!userId) return;
+
+    localStorage.setItem(`eraiiz_payout_${userId}`, JSON.stringify(payout));
+  } catch (error) {
+    console.error('Failed to cache payout details locally', error);
+  }
+}
+
 async function paymentRequest(path, options = {}) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
   const headers = {
@@ -31,14 +67,39 @@ export async function fetchBanks() {
 }
 
 export async function fetchPayoutDetails() {
-  return paymentRequest('/api/payments/subaccount');
+  try {
+    const data = await paymentRequest('/api/payments/subaccount');
+    if (data?.subaccountCode) {
+      storePayoutLocally(data);
+      return data;
+    }
+  } catch (error) {
+    const cached = getStoredPayout();
+    if (cached?.subaccountCode) {
+      return cached;
+    }
+    throw error;
+  }
+
+  const cached = getStoredPayout();
+  return cached || { subaccountCode: null };
 }
 
 export async function createSellerSubaccount(payload) {
-  return paymentRequest('/api/payments/subaccount', {
+  const data = await paymentRequest('/api/payments/subaccount', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+
+  storePayoutLocally({
+    subaccountCode: data.subaccountCode,
+    accountName: data.accountName,
+    businessName: data.businessName,
+    bankCode: payload.bankCode,
+    accountNumber: payload.accountNumber,
+  });
+
+  return data;
 }
 
 export async function initializeCheckout({ items, billing, callbackUrl }) {
