@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import DualNavSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 export default function Search() {
   const searchParams = useSearchParams();
@@ -43,7 +44,7 @@ export default function Search() {
         throw new Error('Invalid response format');
       }
 
-      setProducts(productsData);
+      setProducts(await boostProductsByPlan(productsData));
     } catch (err) {
       console.error('Error searching products:', err);
       setError('Failed to search products. Please try again.');

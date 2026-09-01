@@ -34,6 +34,7 @@ export default function ProductDetail() {
   const [isBuyingNow, setIsBuyingNow] = useState(false);
   const [isInCartState, setIsInCartState] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [sellerPlan, setSellerPlan] = useState('commission');
 
   // Check if item is in cart
   const checkIsInCart = () => {
@@ -173,6 +174,18 @@ export default function ProductDetail() {
           email: '',
           role: 'seller'
         });
+      }
+
+      try {
+        const ranksRes = await fetch('/api/payments/plans/ranks');
+        const ranksData = await ranksRes.json();
+        const sellerKey =
+          typeof productRes.data.sellerId === 'object'
+            ? productRes.data.sellerId._id || productRes.data.sellerId.id
+            : productRes.data.sellerId;
+        setSellerPlan(ranksData.ranks?.[String(sellerKey)] || 'commission');
+      } catch {
+        setSellerPlan('commission');
       }
 
       // Fetch reviews
@@ -462,6 +475,13 @@ export default function ProductDetail() {
               {product.name} by{' '}
               <span className="text-green-600">{seller?.username || 'Seller'}</span>
             </h1>
+            {(sellerPlan === 'growth' || sellerPlan === 'pro') && (
+              <span className={`inline-flex mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                sellerPlan === 'pro' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+              }`}>
+                {sellerPlan === 'pro' ? 'Pro featured seller' : 'Featured seller'}
+              </span>
+            )}
 
             <div className="mt-3 flex items-center">
               <div className="flex items-center">

@@ -8,6 +8,7 @@ import ProductCard from '../components/ProductCard';
 import axios from 'axios';
 import { useCurrency } from '../context/CurrencyContext';
 import { enrichProductsWithCurrency, getProductCurrency } from '@/lib/productCurrency';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 export default function CategoriesPage() {
   const router = useRouter();
@@ -164,7 +165,7 @@ export default function CategoriesPage() {
       }
       
       console.log('Products data:', productData);
-      setProducts(await enrichProductsWithCurrency(productData));
+      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productData)));
     } catch (error) {
       console.error('Error fetching products:', error);
       setError('Failed to load products');

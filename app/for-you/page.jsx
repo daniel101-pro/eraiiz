@@ -5,6 +5,7 @@ import Link from 'next/link';
 import DualNavbarSell from '../components/DualNavbarSell';
 import { Heart, ShoppingCart, Star, Eye, Truck, Shield } from 'lucide-react';
 import { enrichProductsWithCurrency } from '@/lib/productCurrency';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 import { useCurrency } from '../context/CurrencyContext';
 
 export default function ForYouPage() {
@@ -21,7 +22,7 @@ export default function ForYouPage() {
         if (!Array.isArray(res.data)) {
           throw new Error('Invalid product data received');
         }
-        setProducts(await enrichProductsWithCurrency(res.data));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(res.data)));
       } catch (err) {
         setError(err.message || 'Failed to fetch products');
       } finally {

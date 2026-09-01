@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { applyPlanRanks } from '@/lib/boostProducts';
+import { getAllSellerPlanRanks } from '@/lib/sellerSubscriptionStore';
 
 export async function GET(request: Request) {
   try {
@@ -9,19 +11,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Search query is required' }, { status: 400 });
     }
 
-    // Call your backend API to search for products
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/search?q=${encodeURIComponent(query)}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/products/search?q=${encodeURIComponent(query)}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error('Failed to fetch products');
     }
 
     const products = await response.json();
-    return NextResponse.json(products);
+    const ranks = await getAllSellerPlanRanks();
+    const boosted = applyPlanRanks(Array.isArray(products) ? products : products.products || [], ranks);
+    return NextResponse.json(boosted);
   } catch (error) {
     console.error('Search error:', error);
     return NextResponse.json(
@@ -29,4 +35,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

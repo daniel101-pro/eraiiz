@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import ProductCard from './ProductCard';
 import { enrichProductsWithCurrency } from '@/lib/productCurrency';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 export default function ProductsForYou({ limit = 8 }) {
   const [products, setProducts] = useState([]);
@@ -12,7 +13,7 @@ export default function ProductsForYou({ limit = 8 }) {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         const res = await axios.get(`${apiUrl}/api/products/random?limit=${limit}`);
-        setProducts(await enrichProductsWithCurrency(res.data || []));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(res.data || [])));
       } catch (err) {
         console.error('ProductsForYou fetch error:', err.response?.data || err.message);
       }

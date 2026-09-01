@@ -38,7 +38,11 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
-export default function Sales({ onTokenError }) {
+import { fetchSellerPlan } from '../../services/paymentService';
+import { getPlanBenefits } from '@/lib/planBenefits';
+import PlanPerks from '../seller/PlanPerks';
+
+export default function Sales({ onTokenError, onUpgrade }) {
   const [salesData, setSalesData] = useState({
     totalSales: 2847.50,
     totalOrders: 23,
@@ -119,10 +123,18 @@ export default function Sales({ onTokenError }) {
   const [shipmentsError, setShipmentsError] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [activeTab, setActiveTab] = useState('overview');
+  const [planId, setPlanId] = useState('commission');
+  const benefits = getPlanBenefits(planId);
 
   useEffect(() => {
     fetchSalesData();
   }, [selectedPeriod]);
+
+  useEffect(() => {
+    fetchSellerPlan()
+      .then((data) => setPlanId(data.planId || 'commission'))
+      .catch(() => setPlanId('commission'));
+  }, []);
 
   // Fetch shipments when tab is active
   useEffect(() => {
@@ -370,28 +382,72 @@ export default function Sales({ onTokenError }) {
             <option value="quarter">This Quarter</option>
             <option value="year">This Year</option>
           </select>
-          <button className="px-2 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-            <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
+          {benefits.exportReports ? (
+            <button
+              type="button"
+              onClick={() => {
+                const rows = [
+                  ['Metric', 'Value'],
+                  ['Total revenue', salesData.totalSales],
+                  ['Total orders', salesData.totalOrders],
+                  ['Customers', salesData.totalCustomers],
+                ];
+                const csv = rows.map((row) => row.join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `eraiiz-sales-${selectedPeriod}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-2 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap"
+            >
+              <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onUpgrade?.()}
+              className="px-2 sm:px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-xs sm:text-sm whitespace-nowrap"
+              title="Upgrade to Growth or Pro to export reports"
+            >
+              Export (Growth+)
+            </button>
+          )}
         </div>
       </div>
 
+      <PlanPerks planId={planId} />
+
       {/* Tabs */}
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg overflow-x-auto scrollbar-hide">
-        {['overview', 'analytics', 'inventory', 'sustainability', 'shipments'].map((tab) => (
+        {['overview', 'analytics', 'inventory', 'sustainability', 'shipments'].map((tab) => {
+          const locked =
+            (tab === 'analytics' || tab === 'inventory') && !benefits.enhancedAnalytics;
+          const proLocked = tab === 'sustainability' && !benefits.earlyAccess;
+          const isLocked = locked || proLocked;
+
+          return (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              if (isLocked) return;
+              setActiveTab(tab);
+            }}
             className={`flex-shrink-0 px-2 sm:px-3 md:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === tab
                 ? 'bg-white text-green-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                : isLocked
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {isLocked ? ' •' : ''}
           </button>
-        ))}
+        )})}
       </div>
 
       {activeTab === 'overview' && (
@@ -720,7 +776,17 @@ export default function Sales({ onTokenError }) {
         </div>
       )}
 
-      {activeTab === 'analytics' && (
+      {activeTab === 'analytics' && !benefits.enhancedAnalytics && (
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+          <p className="font-medium text-gray-900 mb-2">Enhanced analytics is a Growth perk</p>
+          <p className="text-sm text-gray-600 mb-4">Upgrade to see traffic sources, conversions, and category performance.</p>
+          <button type="button" onClick={() => onUpgrade?.()} className="text-green-700 font-medium hover:underline">
+            Open Billing to upgrade
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'analytics' && benefits.enhancedAnalytics && (
         <div className="space-y-4 sm:space-y-6">
           {/* Traffic Sources */}
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
@@ -791,7 +857,14 @@ export default function Sales({ onTokenError }) {
         </div>
       )}
 
-      {activeTab === 'inventory' && (
+      {activeTab === 'inventory' && !benefits.enhancedAnalytics && (
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+          <p className="font-medium text-gray-900 mb-2">Inventory insights are a Growth perk</p>
+          <p className="text-sm text-gray-600">Upgrade to Growth or Pro to unlock stock and top-product analytics.</p>
+        </div>
+      )}
+
+      {activeTab === 'inventory' && benefits.enhancedAnalytics && (
         <div className="space-y-4 sm:space-y-6">
           {/* Inventory Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
@@ -863,7 +936,14 @@ export default function Sales({ onTokenError }) {
         </div>
       )}
 
-      {activeTab === 'sustainability' && (
+      {activeTab === 'sustainability' && !benefits.earlyAccess && (
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+          <p className="font-medium text-gray-900 mb-2">Advanced sustainability reports are Pro early access</p>
+          <p className="text-sm text-gray-600">Pro sellers get this dashboard first, plus strategy and shoutout support.</p>
+        </div>
+      )}
+
+      {activeTab === 'sustainability' && benefits.earlyAccess && (
         <div className="space-y-6">
           {/* Sustainability Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

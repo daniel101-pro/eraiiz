@@ -68,6 +68,15 @@ export async function getSellerSubscription(userId: string) {
   return store[userId] ?? null;
 }
 
+export async function getAllSellerPlanRanks(): Promise<Record<string, SellerPlanId>> {
+  const store = await readStore();
+  const ranks: Record<string, SellerPlanId> = {};
+  for (const [id, record] of Object.entries(store)) {
+    ranks[id] = record.planId || 'commission';
+  }
+  return ranks;
+}
+
 export async function getSellerSubscriptionByIds(ids: string[]) {
   const store = await readStore();
   for (const id of uniqueIds(ids)) {

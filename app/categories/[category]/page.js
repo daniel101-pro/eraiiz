@@ -9,6 +9,7 @@ import DualNavbarSell from '../../components/DualNavbarSell';
 import ProductCard from '../../components/ProductCard';
 import { useCurrency } from '../../context/CurrencyContext';
 import { enrichProductsWithCurrency, getProductCurrency } from '@/lib/productCurrency';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 const validCategories = {
   plastic: 'Plastic Made Products',
@@ -72,7 +73,7 @@ export default function CategoryPage({ params }) {
           throw new Error(`Unexpected API response format: ${JSON.stringify(response.data)}`);
         }
 
-        setProducts(await enrichProductsWithCurrency(productData));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productData)));
       } catch (err) {
         console.error(`Client: ${categoryName} Fetch Error:`, err.response?.data || err.message, err.config?.url);
         setError('Failed to load products');

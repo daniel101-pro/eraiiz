@@ -10,6 +10,7 @@ import ProductCard from '../../components/ProductCard';
 import HeroCarousel from '../../components/HeroCarousel';
 import ProductCarousel from '../../components/ProductCarousel';
 import { enrichProductsWithCurrency } from '@/lib/productCurrency';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 export default function UnifiedDashboard() {
   const [user, setUser] = useState(null);
@@ -131,7 +132,7 @@ export default function UnifiedDashboard() {
           headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
           timeout: 30000,
         });
-        setProductsForYou(await enrichProductsWithCurrency(res.data));
+        setProductsForYou(await boostProductsByPlan(await enrichProductsWithCurrency(res.data)));
       } catch (err) {
         console.error('Error fetching products for you:', {
           message: err.message,

@@ -181,6 +181,15 @@ export default function ProductCard({ product }) {
                   className="object-cover"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 />
+                {product.featured && (
+                  <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    product.sellerPlan === 'pro'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-green-600 text-white'
+                  }`}>
+                    {product.sellerPlan === 'pro' ? 'Pro featured' : 'Featured'}
+                  </span>
+                )}
               </div>
             </div>
 

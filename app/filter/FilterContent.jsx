@@ -6,6 +6,7 @@ import axios from 'axios';
 import Link from 'next/link';
 import ProductCard from '../components/ProductCard';
 import { enrichProductsWithCurrency } from '@/lib/productCurrency';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 export default function FilterContent() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function FilterContent() {
           throw new Error('No products found or invalid response');
         }
 
-        setProducts(await enrichProductsWithCurrency(res.data.products));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(res.data.products)));
       } catch (err) {
         console.error('Error fetching filtered products:', err);
         setError('Failed to fetch filtered products. Please try again.');

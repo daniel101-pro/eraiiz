@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { refreshAccessToken } from '../../app/utils/auth';
 import ProductCard from './ProductCard';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -44,13 +45,13 @@ export default function ProductList() {
           });
           if (!retryRes.ok) throw new Error('Failed to fetch products');
           const data = await retryRes.json();
-          setProducts(data);
+          setProducts(await boostProductsByPlan(data));
         } else {
           throw new Error('Failed to fetch products');
         }
       } else {
         const data = await res.json();
-        setProducts(data);
+        setProducts(await boostProductsByPlan(data));
       }
     } catch (err) {
       setError(err.message);

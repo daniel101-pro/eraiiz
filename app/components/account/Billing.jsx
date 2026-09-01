@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CheckCircle, DollarSign, LayoutGrid, Loader2, Rocket } from 'lucide-react';
-import PayoutSetup from '../seller/PayoutSetup';
+import PlanPerks from '../seller/PlanPerks';
 import {
   cancelSellerPlan,
   fetchSellerPlan,
@@ -123,7 +123,9 @@ export default function Billing({ user }) {
           </p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <PlanPerks planId={currentPlanId} />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {SELLER_PLANS.map((plan) => {
             const isCurrent = plan.id === currentPlanId;
             const isProcessing = processingPlanId === plan.id;

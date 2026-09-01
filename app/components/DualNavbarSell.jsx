@@ -9,6 +9,7 @@ import { useCart } from '../context/CartContext';
 import Image from 'next/image';
 import axios from 'axios';
 import { debounce } from 'lodash';
+import { boostProductsByPlan } from '@/lib/boostProducts';
 
 // Icons from lucide-react
 import { ShoppingCart, User, ChevronDown, Search, Filter, Menu, X, LogOut, Clock, ArrowRight, Globe, Bell } from 'lucide-react';
@@ -134,7 +135,7 @@ export default function DualNavbarSell({ handleLogout }) {
       const products = Array.isArray(res.data) ? res.data : res.data.products || [];
       
       // Only show products that match the search query
-      const matchingProducts = products
+      const matchingProducts = (await boostProductsByPlan(products))
         .filter(product => 
           product.name.toLowerCase().includes(query.toLowerCase()) ||
           product.category.toLowerCase().includes(query.toLowerCase())
