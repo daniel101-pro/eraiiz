@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { getProductCurrency } from '@/lib/productCurrency';
-import { getSellerPayout } from '@/lib/sellerPayoutStore';
+import { getSellerPayout, findPaystackSubaccountForSeller } from '@/lib/sellerPayoutStore';
 import {
   fromKobo,
   generateReference,
@@ -64,6 +64,7 @@ async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
 
   let paystackSubaccountCode: string | undefined;
   let name: string | undefined;
+  let email: string | undefined;
 
   try {
     const response = await axios.get(`${API_URL}/api/users/seller/${sellerId}`, {
@@ -72,6 +73,7 @@ async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
     });
 
     name = response.data?.name as string | undefined;
+    email = response.data?.email as string | undefined;
     paystackSubaccountCode = response.data?.paystackSubaccountCode as string | undefined;
 
     const nested = response.data?.sellerPayout as { paystackSubaccountCode?: string } | undefined;
@@ -84,6 +86,14 @@ async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
   if (!paystackSubaccountCode) {
     const localPayout = await getSellerPayout(sellerId);
     paystackSubaccountCode = localPayout?.subaccountCode;
+  }
+
+  if (!paystackSubaccountCode) {
+    const paystackSubaccount = await findPaystackSubaccountForSeller({
+      ids: [sellerId],
+      email,
+    });
+    paystackSubaccountCode = paystackSubaccount?.subaccount_code;
   }
 
   return {

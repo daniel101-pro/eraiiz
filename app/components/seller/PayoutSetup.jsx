@@ -24,13 +24,12 @@ export default function PayoutSetup({ user }) {
     const cached = typeof window !== 'undefined'
       ? (() => {
           try {
-            const user = localStorage.getItem('user');
-            if (!user) return null;
-            const parsedUser = JSON.parse(user);
-            const userId = parsedUser._id || parsedUser.id;
-            if (!userId) return null;
-            const raw = localStorage.getItem(`eraiiz_payout_${userId}`);
-            return raw ? JSON.parse(raw) : null;
+            const keys = Object.keys(localStorage).filter((key) => key.startsWith('eraiiz_payout_'));
+            for (const key of keys) {
+              const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+              if (parsed?.subaccountCode) return parsed;
+            }
+            return null;
           } catch {
             return null;
           }
@@ -48,7 +47,9 @@ export default function PayoutSetup({ user }) {
           fetchPayoutDetails(),
         ]);
         setBanks(bankList);
-        setExisting(payoutDetails?.subaccountCode ? payoutDetails : null);
+        if (payoutDetails?.subaccountCode) {
+          setExisting(payoutDetails);
+        }
         if (payoutDetails?.businessName) {
           setForm((prev) => ({
             ...prev,

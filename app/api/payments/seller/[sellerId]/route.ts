@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSellerPayout } from '@/lib/sellerPayoutStore';
+import { findPaystackSubaccountForSeller, getSellerPayout } from '@/lib/sellerPayoutStore';
 
 export async function GET(
   _request: NextRequest,
@@ -7,7 +7,22 @@ export async function GET(
 ) {
   try {
     const { sellerId } = await params;
-    const payout = await getSellerPayout(sellerId);
+    let payout = await getSellerPayout(sellerId);
+
+    if (!payout) {
+      const paystackSubaccount = await findPaystackSubaccountForSeller({ ids: [sellerId] });
+      if (paystackSubaccount) {
+        payout = {
+          userId: sellerId,
+          subaccountCode: paystackSubaccount.subaccount_code,
+          accountName: paystackSubaccount.business_name,
+          businessName: paystackSubaccount.business_name,
+          bankCode: paystackSubaccount.settlement_bank,
+          accountNumber: paystackSubaccount.account_number,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+    }
 
     if (!payout) {
       return NextResponse.json({ message: 'Seller payout not configured' }, { status: 404 });

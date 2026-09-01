@@ -1,36 +1,46 @@
 const API_BASE = '';
 
+function payoutCacheIds() {
+  const ids = new Set();
+
+  try {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const parsedUser = JSON.parse(user);
+      [parsedUser._id, parsedUser.id, parsedUser.userId].filter(Boolean).forEach((id) => ids.add(id));
+    }
+  } catch {
+    // ignore
+  }
+
+  ids.add('current');
+  return [...ids];
+}
+
 function getStoredPayout() {
   if (typeof window === 'undefined') return null;
 
   try {
-    const token = localStorage.getItem('accessToken');
-    const user = localStorage.getItem('user');
-    if (!token || !user) return null;
-
-    const parsedUser = JSON.parse(user);
-    const userId = parsedUser._id || parsedUser.id;
-    if (!userId) return null;
-
-    const raw = localStorage.getItem(`eraiiz_payout_${userId}`);
-    return raw ? JSON.parse(raw) : null;
+    for (const id of payoutCacheIds()) {
+      const raw = localStorage.getItem(`eraiiz_payout_${id}`);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (parsed?.subaccountCode) return parsed;
+    }
   } catch {
     return null;
   }
+
+  return null;
 }
 
 function storePayoutLocally(payout) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !payout?.subaccountCode) return;
 
   try {
-    const user = localStorage.getItem('user');
-    if (!user) return;
-
-    const parsedUser = JSON.parse(user);
-    const userId = parsedUser._id || parsedUser.id;
-    if (!userId) return;
-
-    localStorage.setItem(`eraiiz_payout_${userId}`, JSON.stringify(payout));
+    for (const id of payoutCacheIds()) {
+      localStorage.setItem(`eraiiz_payout_${id}`, JSON.stringify(payout));
+    }
   } catch (error) {
     console.error('Failed to cache payout details locally', error);
   }

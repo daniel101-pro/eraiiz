@@ -47,11 +47,15 @@ export interface PaystackBank {
 }
 
 export interface PaystackSubaccount {
+  id?: number;
   subaccount_code: string;
   business_name: string;
   account_number: string;
   settlement_bank: string;
   percentage_charge: number;
+  description?: string;
+  primary_contact_email?: string;
+  metadata?: Record<string, unknown> | string | null;
 }
 
 export interface PaystackSplitSubaccount {
@@ -100,21 +104,125 @@ export async function resolveAccountNumber(
   );
 }
 
+export function encodeSellerMarker(sellerIds: string[], email?: string) {
+  const ids = [...new Set(sellerIds.map((id) => String(id).trim()).filter(Boolean))];
+  return `eraiiz-seller|ids:${ids.join(',')}|email:${email || ''}`;
+}
+
+export function parseSellerMarker(subaccount: PaystackSubaccount): {
+  sellerIds: string[];
+  email?: string;
+} {
+  const sellerIds = new Set<string>();
+  let email: string | undefined;
+
+  const description = subaccount.description || '';
+  const idsMatch = description.match(/ids:([^|]*)/);
+  if (idsMatch?.[1]) {
+    idsMatch[1].split(',').filter(Boolean).forEach((id) => sellerIds.add(id));
+  }
+  const emailMatch = description.match(/email:([^\s|]*)/);
+  if (emailMatch?.[1]) {
+    email = emailMatch[1];
+  }
+
+  const metadata =
+    typeof subaccount.metadata === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(subaccount.metadata) as Record<string, unknown>;
+          } catch {
+            return {};
+          }
+        })()
+      : subaccount.metadata || {};
+
+  const metaIds = metadata.sellerIds;
+  if (Array.isArray(metaIds)) {
+    metaIds.forEach((id) => sellerIds.add(String(id)));
+  }
+  if (typeof metadata.sellerId === 'string') {
+    sellerIds.add(metadata.sellerId);
+  }
+  if (typeof metadata.email === 'string') {
+    email = email || metadata.email;
+  }
+
+  if (subaccount.primary_contact_email) {
+    email = email || subaccount.primary_contact_email;
+  }
+
+  return { sellerIds: [...sellerIds], email };
+}
+
+export async function listSubaccounts(): Promise<PaystackSubaccount[]> {
+  const results: PaystackSubaccount[] = [];
+
+  for (let page = 1; page <= 10; page += 1) {
+    const batch = await paystackRequest<PaystackSubaccount[]>(
+      `/subaccount?perPage=50&page=${page}`
+    );
+    const items = Array.isArray(batch) ? batch : [];
+    results.push(...items);
+    if (items.length < 50) break;
+  }
+
+  return results;
+}
+
+export async function updateSubaccount(
+  code: string,
+  input: {
+    description?: string;
+    primaryContactEmail?: string;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<PaystackSubaccount> {
+  return paystackRequest<PaystackSubaccount>(`/subaccount/${encodeURIComponent(code)}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      description: input.description,
+      primary_contact_email: input.primaryContactEmail,
+      metadata: input.metadata,
+    }),
+  });
+}
+
 export async function createSubaccount(input: {
   businessName: string;
   bankCode: string;
   accountNumber: string;
+  sellerIds?: string[];
+  email?: string;
 }): Promise<PaystackSubaccount> {
-  return paystackRequest<PaystackSubaccount>('/subaccount', {
-    method: 'POST',
-    body: JSON.stringify({
-      business_name: input.businessName,
-      settlement_bank: input.bankCode,
-      account_number: input.accountNumber,
-      percentage_charge: PLATFORM_COMMISSION_PERCENT,
-      description: `Eraiiz seller subaccount for ${input.businessName}`,
-    }),
-  });
+  const sellerIds = input.sellerIds || [];
+  const body = {
+    business_name: input.businessName,
+    settlement_bank: input.bankCode,
+    account_number: input.accountNumber,
+    percentage_charge: PLATFORM_COMMISSION_PERCENT,
+    description: encodeSellerMarker(sellerIds, input.email),
+    primary_contact_email: input.email,
+    metadata: {
+      eraiiz: true,
+      sellerId: sellerIds[0],
+      sellerIds,
+      email: input.email,
+    },
+  };
+
+  try {
+    return await paystackRequest<PaystackSubaccount>('/subaccount', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  } catch {
+    const { metadata: _metadata, ...withoutMetadata } = body;
+    return paystackRequest<PaystackSubaccount>('/subaccount', {
+      method: 'POST',
+      body: JSON.stringify(withoutMetadata),
+    });
+  }
 }
 
 export async function initializeTransaction(
