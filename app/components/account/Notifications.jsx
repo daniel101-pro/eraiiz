@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { refreshAccessToken } from '../../utils/auth';
 import { decodeJwt } from '../../utils/jwtDecode';
 import { Bell, BellRing, Check, Trash2, AlertCircle, Package, ShoppingCart, User, Settings, Calendar, Clock, Wifi, WifiOff, X, ExternalLink, Eye } from 'lucide-react';
+import { clearLocalInbox, fetchNotificationFeed, markNotificationRead } from '../../utils/notificationFeed';
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -20,55 +20,9 @@ export default function Notifications() {
         return;
       }
 
-      const url = process.env.NEXT_PUBLIC_API_URL + '/api/notifications';
-      console.log('Fetching from URL:', url);
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        credentials: 'include',
-      });
-
-      console.log('API Response Status:', res.status);
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.log('API Error Response:', errorText);
-        if (res.status === 401) {
-          try {
-            const newToken = await refreshAccessToken();
-            console.log('Refreshed token:', newToken);
-            const retryRes = await fetch(url, {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${newToken}`,
-              },
-              credentials: 'include',
-            });
-            if (!retryRes.ok) {
-              console.log('Retry Response Status:', retryRes.status);
-              throw new Error('Failed to fetch notifications');
-            }
-            const data = await retryRes.json();
-            setNotifications(data);
-          } catch (refreshErr) {
-            console.error('Refresh token error:', refreshErr.message);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('userId');
-            window.location.href = '/login';
-            return;
-          }
-        } else {
-          throw new Error(`Failed to fetch notifications: ${res.status} - ${errorText}`);
-        }
-      }
-
-      const data = await res.json();
-      console.log('Fetched notifications:', data);
+      const data = await fetchNotificationFeed();
       setNotifications(data);
+      setError(null);
     } catch (err) {
       console.error('Fetch error:', err.message);
       setError(err.message);
@@ -79,21 +33,8 @@ export default function Notifications() {
 
   const handleMarkAsRead = async (notificationId) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/${notificationId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify({ read: true }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to mark notification as read');
-      }
-
+      const notification = notifications.find((notif) => notif._id === notificationId) || { _id: notificationId };
+      await markNotificationRead(notification);
       setNotifications(notifications.map(notif => notif._id === notificationId ? { ...notif, read: true } : notif));
     } catch (err) {
       setError(err.message);
@@ -146,21 +87,8 @@ export default function Notifications() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
-      
-      for (const id of unreadIds) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/${id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          credentials: 'include',
-          body: JSON.stringify({ read: true }),
-        });
-      }
-
+      const unread = notifications.filter(n => !n.read);
+      await Promise.all(unread.map((notification) => markNotificationRead(notification)));
       setNotifications(notifications.map(notif => ({ ...notif, read: true })));
     } catch (err) {
       setError(err.message);
@@ -170,19 +98,24 @@ export default function Notifications() {
   const handleClearAll = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/notifications', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to clear notifications');
-      }
-
+      await Promise.allSettled([
+        fetch('/api/inbox', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }),
+        fetch(process.env.NEXT_PUBLIC_API_URL + '/api/notifications', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include',
+        }),
+      ]);
+      clearLocalInbox();
       setNotifications([]);
     } catch (err) {
       setError(err.message);
@@ -600,20 +533,15 @@ export default function Notifications() {
                </div>
 
                {/* Additional Details */}
-               {selectedNotification.data && (
+               {selectedNotification.data?.paymentReference && (
                  <div className="bg-blue-50 rounded-lg p-6">
                    <h3 className="text-sm font-medium text-blue-900 mb-3 flex items-center gap-2">
                      <AlertCircle className="w-4 h-4" />
                      Additional Information
                    </h3>
-                   <div className="text-sm text-blue-800">
-                     <pre className="whitespace-pre-wrap font-sans">
-                       {typeof selectedNotification.data === 'object' 
-                         ? JSON.stringify(selectedNotification.data, null, 2)
-                         : selectedNotification.data
-                       }
-                     </pre>
-                   </div>
+                   <p className="text-sm text-blue-800">
+                     Reference: {selectedNotification.data.paymentReference}
+                   </p>
                  </div>
                )}
 
@@ -634,11 +562,14 @@ export default function Notifications() {
                    )}
                    
                    {/* Action based on notification type */}
-                   {selectedNotification.type === 'order' && (
-                     <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                   {(selectedNotification.link || selectedNotification.type === 'order') && (
+                     <a
+                       href={selectedNotification.link || '/account?section=Orders'}
+                       className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                     >
                        <ExternalLink className="w-4 h-4" />
-                       View Order
-                     </button>
+                       {selectedNotification.link?.includes('Shipping') ? 'Open shipping' : 'View Order'}
+                     </a>
                    )}
                    
                    {selectedNotification.type === 'product' && (

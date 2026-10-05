@@ -14,6 +14,7 @@ import {
 } from '../../services/paymentService';
 import { showError, showSuccess } from '../../utils/toast';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
+import { buyerOrderNotice, persistInboxItem } from '../../utils/notificationFeed';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -99,6 +100,7 @@ export default function PaymentPage() {
                 amount: initialized.amount,
               })
             );
+            persistInboxItem(buyerOrderNotice({ reference: orderReference, items: payloadItems }));
 
             clearCart();
             clearCheckout();

@@ -12,6 +12,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { verifyCheckout } from '../../services/paymentService';
 import { showError } from '../../utils/toast';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
+import { buyerOrderNotice, persistInboxItem } from '../../utils/notificationFeed';
 
 const LAST_ORDER_KEY = 'eraiiz_last_order';
 
@@ -74,6 +75,7 @@ export default function CheckoutSuccessContent() {
         items: existing?.items || [],
       };
       saveLastOrder(nextOrder);
+      persistInboxItem(buyerOrderNotice({ reference: nextOrder.reference, items: nextOrder.items }));
       setOrder(nextOrder);
       setStatus('success');
       clearCheckout();
@@ -98,6 +100,7 @@ export default function CheckoutSuccessContent() {
           items,
         };
         saveLastOrder(nextOrder);
+        persistInboxItem(buyerOrderNotice({ reference: paymentReference, items }));
         setOrder(nextOrder);
         setStatus('success');
         clearCheckout();

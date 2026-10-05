@@ -10,6 +10,7 @@ import Image from 'next/image';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { boostProductsByPlan } from '@/lib/boostProducts';
+import { fetchNotificationFeed, addLocalInboxItem, buyerOrderNotice } from '../utils/notificationFeed';
 
 // Icons from lucide-react
 import { ShoppingCart, User, ChevronDown, Search, Filter, Menu, X, LogOut, Clock, ArrowRight, Globe, Bell } from 'lucide-react';
@@ -281,26 +282,9 @@ export default function DualNavbarSell({ handleLogout }) {
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Filter out any invalid notifications and ensure we have valid data
-        const validNotifications = Array.isArray(data) 
-          ? data.filter(n => n && n._id && n.message) 
-          : [];
-        setNotifications(validNotifications);
-        const unreadCount = validNotifications.filter(n => !n.read).length;
-        setNotificationCount(unreadCount);
-      }
+      const validNotifications = await fetchNotificationFeed();
+      setNotifications(validNotifications);
+      setNotificationCount(validNotifications.filter((n) => !n.read).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -308,12 +292,30 @@ export default function DualNavbarSell({ handleLogout }) {
 
   // Fetch notification count
   useEffect(() => {
+    try {
+      const lastOrder = JSON.parse(sessionStorage.getItem('eraiiz_last_order') || 'null');
+      if (lastOrder?.reference) {
+        addLocalInboxItem(buyerOrderNotice({
+          reference: lastOrder.reference,
+          items: lastOrder.items || [],
+        }));
+      }
+    } catch {
+      // ignore
+    }
+
     fetchNotifications();
 
     // Poll for updates every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
+    window.addEventListener('eraiiz-inbox-updated', fetchNotifications);
+    window.addEventListener('storage', fetchNotifications);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('eraiiz-inbox-updated', fetchNotifications);
+      window.removeEventListener('storage', fetchNotifications);
+    };
   }, []);
 
   // Fetch notifications when modal opens
@@ -1177,7 +1179,7 @@ export default function DualNavbarSell({ handleLogout }) {
                   ))}
                   {notifications.length > 10 && (
                     <Link 
-                      href="/account/notifications"
+                      href="/account?section=notifications"
                       className="block text-center py-3 text-green-600 hover:text-green-700 font-medium"
                       onClick={() => setIsNotificationModalOpen(false)}
                     >
@@ -1222,14 +1224,18 @@ export default function DualNavbarSell({ handleLogout }) {
               </div>
               <div className="flex gap-2">
                 <Link
-                  href="/account/notifications"
+                  href={selectedNotification.link || '/account?section=notifications'}
                   className="flex-1 text-center py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   onClick={() => {
                     setSelectedNotification(null);
                     setIsNotificationModalOpen(false);
                   }}
                 >
-                  View All
+                  {selectedNotification.link?.includes('Shipping')
+                    ? 'Open shipping'
+                    : selectedNotification.link?.includes('Orders')
+                      ? 'View order'
+                      : 'View All'}
                 </Link>
                 <button
                   onClick={() => setSelectedNotification(null)}

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { convertToNgn } from '@/lib/fxRates';
-import { getSellerPayout, findPaystackSubaccountForSeller } from '@/lib/sellerPayoutStore';
+import { getSellerPayout, findPaystackSubaccountForSeller, getIdentityFromAuthHeader } from '@/lib/sellerPayoutStore';
 import { getSellerSubscription } from '@/lib/sellerSubscriptionStore';
 import { platformShareForPlan, sellerShareForPlan } from '@/lib/sellerPlans';
 import {
@@ -14,6 +14,7 @@ import {
   createSellerInAppNotification,
   sendSellerSaleEmail,
 } from '@/lib/sellerSaleNotify';
+import { addInboxNotification } from '@/lib/orderInboxStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -229,34 +230,34 @@ export async function createBackendOrders(input: {
   authHeader?: string;
   origin?: string;
 }) {
-  if (!input.authHeader) return;
-
-  for (const item of input.items) {
-    try {
-      await axios.post(
-        `${API_URL}/api/orders`,
-        {
-          productId: item._id,
-          product: item.name,
-          price: item.price * (item.quantity || 1),
-          quantity: item.quantity || 1,
-          selectedSize: item.selectedSize,
-          sellerId: item.sellerId,
-          status: 'Pending',
-          paymentReference: input.reference,
-          paymentMethod: 'paystack',
-          billingAddress: input.billing,
-        },
-        {
-          headers: {
-            Authorization: input.authHeader,
-            'Content-Type': 'application/json',
+  if (input.authHeader) {
+    for (const item of input.items) {
+      try {
+        await axios.post(
+          `${API_URL}/api/orders`,
+          {
+            productId: item._id,
+            product: item.name,
+            price: item.price * (item.quantity || 1),
+            quantity: item.quantity || 1,
+            selectedSize: item.selectedSize,
+            sellerId: item.sellerId,
+            status: 'Pending',
+            paymentReference: input.reference,
+            paymentMethod: 'paystack',
+            billingAddress: input.billing,
           },
-          timeout: 15000,
-        }
-      );
-    } catch (error) {
-      console.error('Failed to create backend order for item', item._id, error);
+          {
+            headers: {
+              Authorization: input.authHeader,
+              'Content-Type': 'application/json',
+            },
+            timeout: 15000,
+          }
+        );
+      } catch (error) {
+        console.error('Failed to create backend order for item', item._id, error);
+      }
     }
   }
 
@@ -266,14 +267,38 @@ export async function createBackendOrders(input: {
 
 async function notifyBuyerOfOrder(input: {
   items: CheckoutCartItem[];
+  billing: CheckoutBilling;
   reference: string;
   authHeader?: string;
 }) {
-  if (!input.authHeader) return;
-
   const names = input.items.map((item) => item.name).filter(Boolean);
   const summary =
     names.length === 1 ? names[0] : names.length > 1 ? `${names.length} items` : 'your order';
+  const message = `Your order for ${summary} is confirmed. You can track it from Orders.`;
+  const identity = getIdentityFromAuthHeader(input.authHeader);
+
+  try {
+    await addInboxNotification(
+      [...identity.ids, identity.email, input.billing?.email],
+      {
+        _id: `inbox_buyer_${input.reference}`,
+        type: 'order',
+        title: 'Order confirmed',
+        message,
+        read: false,
+        createdAt: new Date().toISOString(),
+        link: '/account?section=Orders',
+        data: {
+          paymentReference: input.reference,
+          itemCount: input.items.length,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Failed to store buyer inbox notification', error);
+  }
+
+  if (!input.authHeader) return;
 
   try {
     await axios.post(
@@ -281,8 +306,8 @@ async function notifyBuyerOfOrder(input: {
       {
         type: 'order',
         title: 'Order confirmed',
-        message: `Your order for ${summary} is confirmed. You can track it from Orders.`,
-        content: `Your order for ${summary} is confirmed. You can track it from Orders.`,
+        message,
+        content: message,
         read: false,
         data: {
           paymentReference: input.reference,
@@ -326,6 +351,23 @@ async function notifySellersOfOrder(input: {
     const message = `You sold ${summary}. Open Shipping to fulfill this order.`;
 
     const seller = await fetchSellerSubaccount(sellerId, input.authHeader);
+
+    try {
+      await addInboxNotification([sellerId, seller.email], {
+        _id: `inbox_seller_${input.reference}_${sellerId}`,
+        type: 'order',
+        title: 'New order',
+        message,
+        read: false,
+        createdAt: new Date().toISOString(),
+        link: '/account?section=Shipping',
+        data: {
+          paymentReference: input.reference,
+        },
+      });
+    } catch (error) {
+      console.error(`Failed to store seller inbox notification for ${sellerId}`, error);
+    }
 
     await createSellerInAppNotification({
       sellerId,
