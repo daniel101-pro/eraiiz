@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { getProductCurrency } from '@/lib/productCurrency';
+import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
+import { convertToNgn } from '@/lib/fxRates';
 import { getSellerPayout, findPaystackSubaccountForSeller } from '@/lib/sellerPayoutStore';
 import { getSellerSubscription } from '@/lib/sellerSubscriptionStore';
 import { platformShareForPlan, sellerShareForPlan } from '@/lib/sellerPlans';
@@ -133,18 +134,19 @@ export async function validateCheckoutInput(input: {
       throw new Error(`Product "${product.name}" has no assigned seller`);
     }
 
-    const currency = getProductCurrency(product) || item.currency || 'NGN';
-    if (currency !== 'NGN') {
-      throw new Error(
-        `Paystack checkout currently supports NGN only. "${product.name}" is listed in ${currency}.`
-      );
+    const listingCurrency = getProductCurrency(product) || item.currency || 'NGN';
+    const listingPrice = getListingPrice(product);
+    const priceNgn = await convertToNgn(listingPrice, listingCurrency);
+
+    if (!Number.isFinite(priceNgn) || priceNgn <= 0) {
+      throw new Error(`"${product.name}" does not have a valid price`);
     }
 
-    const lineTotal = Number(product.price) * (item.quantity || 1);
+    const lineTotal = priceNgn * (item.quantity || 1);
     pricedItems.push({
       _id: item._id,
       name: product.name,
-      price: Number(product.price),
+      price: priceNgn,
       currency: 'NGN',
       quantity: item.quantity || 1,
       selectedSize: item.selectedSize,

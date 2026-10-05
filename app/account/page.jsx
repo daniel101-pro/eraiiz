@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Heart, Bell, Settings, LogOut, User, TrendingUp, DollarSign, Package, Truck } from 'lucide-react';
-import { refreshAccessToken } from '../utils/auth';
+import { refreshAccessToken, getValidAccessToken } from '../utils/auth';
 import MyEraiizAccount from '../components/account/MyEraiizAccount';
 import Orders from '../components/account/Orders';
 import FavoriteItems from '../components/account/FavoriteItems';
@@ -56,8 +56,10 @@ export default function AccountPage() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        let token = localStorage.getItem('accessToken');
-        if (!token) {
+        let token;
+        try {
+          token = await getValidAccessToken();
+        } catch {
           setShowModal(true);
           setTimeout(() => router.push('/login'), 2000);
           return;
@@ -88,6 +90,12 @@ export default function AccountPage() {
       }
     };
     loadUser();
+
+    const keepAlive = setInterval(() => {
+      getValidAccessToken().catch(() => {});
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(keepAlive);
   }, [router]);
 
   const handleLogout = () => {
@@ -102,10 +110,10 @@ export default function AccountPage() {
     router.push('/login');
   };
 
-  const handleTokenError = () => {
+  const handleTokenError = useCallback(() => {
     setShowModal(true);
     setTimeout(() => router.push('/login'), 2000);
-  };
+  }, [router]);
 
   if (isLoading) {
     return (

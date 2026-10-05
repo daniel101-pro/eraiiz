@@ -8,6 +8,7 @@ import { useCheckout } from '../../context/CheckoutContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import { showError } from '../../utils/toast';
+import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 
 const fields = [
   { name: 'fullName', label: 'Full Name', type: 'text', required: true },
@@ -57,7 +58,7 @@ export default function BillingPage() {
   };
 
   const orderTotal = cartItems.reduce((total, item) => {
-    return total + convertPrice(item.price, item.currency || 'NGN') * (item.quantity || 1);
+    return total + convertPrice(getListingPrice(item), getProductCurrency(item)) * (item.quantity || 1);
   }, 0);
 
   return (

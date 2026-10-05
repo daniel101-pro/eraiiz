@@ -6,9 +6,11 @@ import axios from 'axios';
 import Image from 'next/image';
 import { Edit2, Trash2, Eye, DollarSign, Package, Calendar, MoreVertical, Search } from 'lucide-react';
 import { useCurrency } from '../../context/CurrencyContext';
+import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
+import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 
 export default function UploadedProducts({ onTokenError }) {
-  const { getCurrencyInfo } = useCurrency();
+  const { getCurrencyInfo, convertPriceExplicit, exchangeRates } = useCurrency();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,40 +20,53 @@ export default function UploadedProducts({ onTokenError }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
+  const fetchProducts = async () => {
+    try {
+      const token = await getValidAccessToken();
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/products/seller`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        timeout: 30000,
+      });
+      setProducts(res.data);
+      setError(null);
+    } catch (err) {
+      if (err.response?.status === 401 || err.message.includes('Invalid or expired token')) {
+        try {
+          const token = await refreshAccessToken();
+          const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/products/seller`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            timeout: 30000,
+          });
+          setProducts(res.data);
+          setError(null);
+          return;
+        } catch (refreshErr) {
           onTokenError();
           return;
         }
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/products/seller`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          timeout: 30000,
-        });
-        setProducts(res.data);
-        setError(null);
-      } catch (err) {
-        if (err.response?.status === 401 || err.message.includes('Invalid or expired token')) {
-          onTokenError();
-        } else if (err.response?.status === 404) {
-          setError('No products found. Start uploading products to see them here!');
-        } else {
-          setError(err.message || 'Failed to fetch products');
-        }
-      } finally {
-        setLoading(false);
+      } else if (err.response?.status === 404) {
+        setError('No products found. Start uploading products to see them here!');
+      } else {
+        setError(err.message || 'Failed to fetch products');
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchProducts();
+    const keepAlive = setInterval(() => {
+      getValidAccessToken().catch(() => {});
+    }, 10 * 60 * 1000);
+    return () => clearInterval(keepAlive);
   }, [onTokenError]);
 
   const handleDelete = async (productId) => {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = await getValidAccessToken();
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${productId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -64,19 +79,45 @@ export default function UploadedProducts({ onTokenError }) {
   };
 
   const handleEdit = (product) => {
-    setEditingProduct({ ...product });
+    setEditingProduct({
+      ...product,
+      price: getListingPrice(product),
+      currency: getProductCurrency(product),
+    });
   };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('accessToken');
+      const listingCurrency = editingProduct.currency || getProductCurrency(editingProduct) || 'NGN';
+      const listingPrice = Number(editingProduct.price);
+
+      if (!Number.isFinite(listingPrice) || listingPrice <= 0) {
+        setError('Please enter a valid price');
+        return;
+      }
+
+      if (listingCurrency !== 'NGN' && !exchangeRates) {
+        setError('Exchange rates are still loading. Please wait a moment and try again.');
+        return;
+      }
+
+      const priceNgn = convertPriceExplicit(listingPrice, listingCurrency, 'NGN');
+      const token = await getValidAccessToken();
       const res = await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${editingProduct._id}`, {
         name: editingProduct.name,
         description: editingProduct.description,
-        price: editingProduct.price,
+        price: priceNgn,
+        currency: 'NGN',
+        listingPrice,
+        listingCurrency,
         category: editingProduct.category,
         status: editingProduct.status,
+        sustainability: {
+          ...(editingProduct.sustainability || {}),
+          listingCurrency,
+          listingPrice,
+        },
       }, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -117,9 +158,9 @@ export default function UploadedProducts({ onTokenError }) {
         case 'oldest':
           return new Date(a.updatedAt) - new Date(b.updatedAt);
         case 'price-high':
-          return b.price - a.price;
+          return getListingPrice(b) - getListingPrice(a);
         case 'price-low':
-          return a.price - b.price;
+          return getListingPrice(a) - getListingPrice(b);
         case 'name':
           return a.name.localeCompare(b.name);
         default:
@@ -274,7 +315,7 @@ export default function UploadedProducts({ onTokenError }) {
                     <div className="flex items-center text-green-600">
                       <DollarSign className="w-4 h-4" />
                       <span className="font-bold text-lg">
-                        {getCurrencyInfo(product.currency || 'NGN').symbol}{product.price.toLocaleString()}
+                        {getCurrencyInfo(getProductCurrency(product)).symbol}{getListingPrice(product).toLocaleString()}
                       </span>
                     </div>
                     <div className="text-gray-500 text-xs">
@@ -369,16 +410,33 @@ export default function UploadedProducts({ onTokenError }) {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Price ({getCurrencyInfo(editingProduct.currency || 'NGN').symbol} {editingProduct.currency || 'NGN'})
+                  Price
                 </label>
-                <input
-                  type="number"
-                  name="price"
-                  value={editingProduct.price || ''}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  required
-                />
+                <div className="flex gap-2">
+                  <select
+                    name="currency"
+                    value={editingProduct.currency || 'NGN'}
+                    onChange={handleChange}
+                    className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    {['NGN', 'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'CNY', 'INR'].map((code) => (
+                      <option key={code} value={code}>{code}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    name="price"
+                    value={editingProduct.price || ''}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.01"
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter the amount in the currency shoppers should see (e.g. EUR 9.10). Do not pre-convert to naira.
+                </p>
               </div>
               
               <div>

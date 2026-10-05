@@ -14,6 +14,7 @@ import {
 } from '../../services/paymentService';
 import { showError, showSuccess } from '../../utils/toast';
 import { PLATFORM_COMMISSION_PERCENT } from '@/lib/paymentConfig';
+import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function PaymentPage() {
 
   const orderTotal = useMemo(() => {
     return checkoutItems.reduce((total, item) => {
-      return total + convertPrice(item.price, item.currency || 'NGN') * (item.quantity || 1);
+      return total + convertPrice(getListingPrice(item), getProductCurrency(item)) * (item.quantity || 1);
     }, 0);
   }, [checkoutItems, convertPrice]);
 
@@ -53,8 +54,8 @@ export default function PaymentPage() {
       checkoutItems.map((item) => ({
         _id: item._id,
         name: item.name,
-        price: convertPrice(item.price, item.currency || 'NGN'),
-        currency: 'NGN',
+        price: getListingPrice(item),
+        currency: getProductCurrency(item),
         quantity: item.quantity || 1,
         selectedSize: item.selectedSize,
         sellerId: item.sellerId,

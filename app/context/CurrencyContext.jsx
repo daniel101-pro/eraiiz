@@ -38,7 +38,7 @@ export function CurrencyProvider({ children }) {
         // Fallback rates if API fails
         const fallbackRates = {
           USD: 1,
-          NGN: 800,
+          NGN: 1600,
           EUR: 0.85,
           GBP: 0.73,
           JPY: 110,

@@ -7,10 +7,11 @@ import { Toaster } from 'react-hot-toast';
 import { showProductToast, showError, showSuccess } from '../utils/toast';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '../context/CurrencyContext';
+import { getValidAccessToken, refreshAccessToken } from '../utils/auth';
 import { ChevronDown, Globe, DollarSign, Info, Upload, X, Plus, Minus, Package, Camera, Star, ShoppingBag, Leaf, Award } from 'lucide-react';
 
 const ProductUploadForm = () => {
-  const { getCurrencyInfo } = useCurrency();
+  const { getCurrencyInfo, convertPriceExplicit, formatPrice, exchangeRates } = useCurrency();
   const [product, setProduct] = useState({
     name: '',
     description: '',
@@ -165,55 +166,52 @@ const ProductUploadForm = () => {
     { value: 'conventional', label: 'Conventional' }
   ];
 
-  // Session management functions
-  const refreshToken = async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return null;
+  const fetchSession = async () => {
     try {
-      const { data } = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`,
-        { refreshToken },
-        { timeout: 30000 }
-      );
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      return data.accessToken;
+      let token = await getValidAccessToken();
+      let res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/session`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 30000,
+      });
+      setSession(res.data);
+      setError(null);
+      return true;
     } catch (err) {
-      console.error('Client: Refresh Error:', err.response?.data || err.message);
-      return null;
+      if (err.response?.status === 401) {
+        try {
+          const token = await refreshAccessToken();
+          const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/session`, {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 30000,
+          });
+          setSession(res.data);
+          setError(null);
+          return true;
+        } catch (refreshErr) {
+          console.error('Client: Session Error:', refreshErr.response?.data || refreshErr.message);
+        }
+      } else {
+        console.error('Client: Session Error:', err.response?.data || err.message);
+      }
+      if (!session) {
+        setError('Please sign in to access this page.');
+      }
+      return false;
     }
   };
 
   useEffect(() => {
-    const fetchSession = async () => {
-      let token = localStorage.getItem('accessToken');
-      if (!token) {
-        setError('Please sign in to access this page.');
-        setIsLoading(false);
-        return;
-      }
-      try {
-        let res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/session`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 30000,
-        });
-        if (res.status === 401) {
-          token = await refreshToken();
-          if (!token) throw new Error('Unable to refresh token');
-          res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/session`, {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 30000,
-          });
-        }
-        setSession(res.data);
-      } catch (err) {
-        console.error('Client: Session Error:', err.response?.data || err.message);
-        setError('Please sign in to access this page.');
-      } finally {
-        setIsLoading(false);
-      }
+    const load = async () => {
+      await fetchSession();
+      setIsLoading(false);
     };
-    fetchSession();
+    load();
+
+    const keepAlive = setInterval(() => {
+      getValidAccessToken().catch(() => {});
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(keepAlive);
   }, []);
 
   // Form handlers
@@ -386,7 +384,7 @@ const ProductUploadForm = () => {
 
     setIsCalculating(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = await getValidAccessToken();
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/carbon-footprint/calculate`,
         { sustainabilityData: product.sustainability },
@@ -484,15 +482,40 @@ const ProductUploadForm = () => {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
+      const listingCurrency = product.currency || 'NGN';
+      const listingPrice = Number(product.price);
+
+      if (!Number.isFinite(listingPrice) || listingPrice <= 0) {
+        const priceError = 'Please enter a valid price';
+        setError(priceError);
+        showError(priceError);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (listingCurrency !== 'NGN' && !exchangeRates) {
+        const rateError = 'Exchange rates are still loading. Please wait a moment and try again.';
+        setError(rateError);
+        showError(rateError);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const priceNgn = convertPriceExplicit(listingPrice, listingCurrency, 'NGN');
+      const token = await getValidAccessToken();
       const formData = new FormData();
 
-      // Add product data
+      // Canonical store price is NGN for Paystack. Keep the seller's amount for display.
       const productPayload = {
         ...product,
+        price: priceNgn,
+        currency: 'NGN',
+        listingPrice,
+        listingCurrency,
         sustainability: {
           ...product.sustainability,
-          listingCurrency: product.currency,
+          listingCurrency,
+          listingPrice,
         },
       };
 
@@ -717,16 +740,23 @@ const ProductUploadForm = () => {
                       />
                     </div>
                   </div>
+
+                  {product.currency !== 'NGN' && Number(product.price) > 0 && exchangeRates && (
+                    <p className="mt-2 text-xs text-gray-600">
+                      Shoppers will see {getCurrencyInfo(product.currency).symbol}{Number(product.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.
+                      Checkout charges {formatPrice(convertPriceExplicit(Number(product.price), product.currency, 'NGN'), 'NGN')} (Paystack is naira-only).
+                    </p>
+                  )}
                   
                   {/* Price Info */}
                   <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
                     <div className="flex items-start gap-2">
                       <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div className="text-xs text-blue-700">
-                        <p className="font-medium mb-1">💡 Pricing Tips:</p>
+                        <p className="font-medium mb-1">Pricing:</p>
                         <ul className="list-disc list-inside space-y-1">
-                          <li>Research similar products to stay competitive</li>
-                          <li>Buyers can view prices in their preferred currency</li>
+                          <li>Enter the price in the currency you want buyers to see (e.g. €9.10)</li>
+                          <li>Eraiiz converts it to naira for checkout and shows your original price on the storefront</li>
                         </ul>
                       </div>
                     </div>

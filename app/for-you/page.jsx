@@ -4,7 +4,7 @@ import axios from 'axios';
 import Link from 'next/link';
 import DualNavbarSell from '../components/DualNavbarSell';
 import { Heart, ShoppingCart, Star, Eye, Truck, Shield } from 'lucide-react';
-import { enrichProductsWithCurrency } from '@/lib/productCurrency';
+import { enrichProductsWithCurrency, getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { boostProductsByPlan } from '@/lib/boostProducts';
 import { useCurrency } from '../context/CurrencyContext';
 
@@ -217,11 +217,11 @@ export default function ForYouPage() {
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <span className="text-2xl font-bold text-green-600">
-                            {formatPrice(convertPrice(product.price, product.currency))}
+                            {formatPrice(convertPrice(getListingPrice(product), getProductCurrency(product)))}
                           </span>
                           {product.originalPrice && product.originalPrice > product.price && (
                             <span className="text-sm text-gray-500 line-through ml-2">
-                              {formatPrice(convertPrice(product.originalPrice, product.currency))}
+                              {formatPrice(convertPrice(product.originalPrice, getProductCurrency(product)))}
                             </span>
                           )}
                         </div>

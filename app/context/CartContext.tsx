@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { CartItem } from '../cart/types';
 import axios from 'axios';
 import { useCurrency } from './CurrencyContext';
-import { getProductCurrency } from '@/lib/productCurrency';
+import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -103,7 +103,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               details: fullProduct.details,
               bonus: fullProduct.bonus,
               name: fullProduct.name || item.name,
-              price: fullProduct.price || item.price,
+              price: getListingPrice(fullProduct) || item.price,
               currency: getProductCurrency(fullProduct) || item.currency || 'NGN',
               images: fullProduct.images || item.images,
               sellerId: sellerId ? String(sellerId) : item.sellerId,

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { refreshAccessToken } from '../../app/utils/auth';
 import ProductCard from './ProductCard';
 import { boostProductsByPlan } from '@/lib/boostProducts';
+import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -45,13 +46,13 @@ export default function ProductList() {
           });
           if (!retryRes.ok) throw new Error('Failed to fetch products');
           const data = await retryRes.json();
-          setProducts(await boostProductsByPlan(data));
+          setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(data)));
         } else {
           throw new Error('Failed to fetch products');
         }
       } else {
         const data = await res.json();
-        setProducts(await boostProductsByPlan(data));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(data)));
       }
     } catch (err) {
       setError(err.message);

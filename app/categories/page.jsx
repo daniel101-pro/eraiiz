@@ -7,7 +7,7 @@ import DualNavbarSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
 import axios from 'axios';
 import { useCurrency } from '../context/CurrencyContext';
-import { enrichProductsWithCurrency, getProductCurrency } from '@/lib/productCurrency';
+import { enrichProductsWithCurrency, getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { boostProductsByPlan } from '@/lib/boostProducts';
 
 export default function CategoriesPage() {
@@ -384,7 +384,7 @@ export default function CategoriesPage() {
                   <p className="text-gray-500">Price Range</p>
                   <p className="font-semibold text-gray-900">
                     {(() => {
-                      const converted = products.map(p => convertPrice(p.price, getProductCurrency(p)));
+                      const converted = products.map(p => convertPrice(getListingPrice(p), getProductCurrency(p)));
                       return `${formatPrice(Math.min(...converted))} - ${formatPrice(Math.max(...converted))}`;
                     })()}
                   </p>

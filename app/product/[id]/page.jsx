@@ -13,6 +13,7 @@ import DualNavbarSell from '../../components/DualNavbarSell';
 import ImageGallery from '../../components/ImageGallery';
 import ReportModal from '../../components/ReportModal';
 import { Const } from 'three/tsl';
+import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -339,8 +340,8 @@ export default function ProductDetail() {
       const cartItem = {
         _id: product._id,
         name: product.name,
-        price: product.price,
-        currency: product.currency || 'NGN',
+        price: getListingPrice(product),
+        currency: getProductCurrency(product),
         quantity: quantity,
         selectedSize: selectedSize,
         images: product.images
@@ -406,7 +407,7 @@ export default function ProductDetail() {
   const calculateDiscountedPrice = () => {
     if (!product?.bonus?.enabled) return null;
     
-    const originalPrice = product.price;
+    const originalPrice = getListingPrice(product);
     if (product.bonus.type === 'percentage') {
       return originalPrice - (originalPrice * (product.bonus.value / 100));
     } else {
@@ -439,7 +440,8 @@ export default function ProductDetail() {
     );
   }
 
-  const productCurrency = product.currency || 'NGN';
+  const productCurrency = getProductCurrency(product);
+  const listingPrice = getListingPrice(product);
 
   return (
     <>
@@ -498,7 +500,7 @@ export default function ProductDetail() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-medium text-gray-400 line-through">
-                      {formatPrice(convertPrice(product.price, productCurrency))}
+                      {formatPrice(convertPrice(listingPrice, productCurrency))}
                     </span>
                     <span className="bg-red-100 text-red-600 text-sm px-2 py-1 rounded">
                       {product.bonus.type === 'percentage' 
@@ -513,7 +515,7 @@ export default function ProductDetail() {
                 </div>
               ) : (
                 <div className="text-2xl font-medium text-gray-900">
-                  {formatPrice(convertPrice(product.price, productCurrency))}
+                  {formatPrice(convertPrice(listingPrice, productCurrency))}
                 </div>
               )}
             </div>

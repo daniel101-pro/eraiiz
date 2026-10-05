@@ -6,6 +6,7 @@ import axios from 'axios';
 import DualNavSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
 import { boostProductsByPlan } from '@/lib/boostProducts';
+import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 
 export default function Search() {
   const searchParams = useSearchParams();
@@ -44,7 +45,7 @@ export default function Search() {
         throw new Error('Invalid response format');
       }
 
-      setProducts(await boostProductsByPlan(productsData));
+      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productsData)));
     } catch (err) {
       console.error('Error searching products:', err);
       setError('Failed to search products. Please try again.');
