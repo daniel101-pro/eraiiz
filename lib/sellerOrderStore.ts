@@ -16,6 +16,8 @@ export interface SellerOrder {
   reference: string;
   status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
   createdAt: string;
+  trackingNumber?: string;
+  courierName?: string;
   buyer: {
     name: string;
     email: string;
@@ -96,10 +98,10 @@ export async function getSellerOrders(sellerKeys: Array<string | null | undefine
   );
 }
 
-export async function updateSellerOrderStatus(
+export async function updateSellerOrder(
   sellerKeys: Array<string | null | undefined>,
   orderId: string,
-  status: SellerOrder['status']
+  patch: Partial<Pick<SellerOrder, 'status' | 'trackingNumber' | 'courierName'>>
 ) {
   const keys = uniqueIds(sellerKeys);
   const store = await readStore();
@@ -108,11 +110,19 @@ export async function updateSellerOrderStatus(
   for (const key of keys) {
     store[key] = (store[key] || []).map((item) => {
       if (item._id !== orderId) return item;
-      updated = { ...item, status };
+      updated = { ...item, ...patch };
       return updated;
     });
   }
 
   await writeStore(store);
   return updated;
+}
+
+export async function updateSellerOrderStatus(
+  sellerKeys: Array<string | null | undefined>,
+  orderId: string,
+  status: SellerOrder['status']
+) {
+  return updateSellerOrder(sellerKeys, orderId, { status });
 }

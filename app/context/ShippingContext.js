@@ -6,29 +6,56 @@ import { showSuccess, showError } from '../utils/toast';
 
 const ShippingContext = createContext();
 
+function collapseItems(items) {
+  const grouped = new Map();
+  for (const item of items || []) {
+    const name = String(item.name || 'Product').trim();
+    const size = String(item.selectedSize || '').trim();
+    const key = `${name.toLowerCase()}|${size.toLowerCase()}`;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.quantity += Number(item.quantity || 1);
+    } else {
+      grouped.set(key, {
+        ...item,
+        name,
+        selectedSize: size,
+        quantity: Number(item.quantity || 1),
+      });
+    }
+  }
+  return [...grouped.values()];
+}
+
 function toShipment(order) {
-  const items = Array.isArray(order.items) ? order.items : [];
+  const items = collapseItems(Array.isArray(order.items) ? order.items : []);
   const address = order.shippingAddress || {};
+  const quantity = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
   return {
     _id: order._id,
     orderId: {
       orderNumber: String(order.reference || order._id || '').slice(-8).toUpperCase(),
     },
-    trackingNumber: order.status === 'pending' ? 'Awaiting shipment' : order.reference,
+    trackingNumber: order.trackingNumber || '',
     buyerId: {
       name: order.buyer?.name || address.fullName || 'Customer',
       email: order.buyer?.email || '',
+      phone: order.buyer?.phone || address.phone || '',
     },
     status: order.status === 'pending' ? 'pending' : order.status,
-    courierName: 'Not assigned',
-    courierServiceName: '',
-    totalCost: 0,
-    currency: 'NGN',
+    courierName: order.courierName || '',
     createdAt: order.createdAt,
     items,
-    productSummary: items.map((item) => item.name).filter(Boolean).join(', ') || 'Order',
-    destination: address,
+    quantity,
+    productSummary: items
+      .map((item) => `${item.quantity > 1 ? `${item.quantity} × ` : ''}${item.name}${item.selectedSize ? ` (${item.selectedSize})` : ''}`)
+      .join(', ') || 'Order',
+    destination: {
+      ...address,
+      phone: address.phone || order.buyer?.phone || '',
+    },
     reference: order.reference,
+    amountNgn: Number(order.amountNgn || 0),
   };
 }
 
@@ -356,6 +383,54 @@ export const ShippingProvider = ({ children }) => {
 
   // ===== LABELS =====
 
+  const markOrderStatus = async (shipmentId, status, extra = {}) => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) throw new Error('Please sign in again');
+
+    const response = await fetch('/api/seller-orders', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        _id: shipmentId,
+        status,
+        trackingNumber: extra.trackingNumber,
+        courierName: extra.courierName,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Could not update this order');
+    }
+
+    setShipments((prev) => {
+      const next = prev.map((item) =>
+        item._id === shipmentId
+          ? {
+              ...item,
+              status,
+              trackingNumber: extra.trackingNumber || item.trackingNumber,
+              courierName: extra.courierName || item.courierName,
+            }
+          : item
+      );
+      setShippingStats({
+        totalShipments: next.length,
+        pendingShipments: next.filter((item) => item.status === 'pending' || item.status === 'confirmed').length,
+        inTransitShipments: next.filter((item) => item.status === 'in_transit' || item.status === 'shipped').length,
+        deliveredShipments: next.filter((item) => item.status === 'delivered').length,
+        totalShippingCost: 0,
+        averageShippingCost: 0,
+      });
+      return next;
+    });
+
+    return response.json();
+  };
+
   const generateLabel = async (shipmentId) => {
     try {
       setIsLoading(true);
@@ -438,7 +513,6 @@ export const ShippingProvider = ({ children }) => {
 
   // Fetch initial data
   useEffect(() => {
-    fetchCouriers();
     fetchShippingStats();
   }, []);
 
@@ -473,6 +547,7 @@ export const ShippingProvider = ({ children }) => {
     getPickupSlots,
     schedulePickup,
     generateLabel,
+    markOrderStatus,
 
     // Filter & Pagination
     updateFilters,

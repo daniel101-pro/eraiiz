@@ -1,466 +1,336 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useShipping } from '../../context/ShippingContext';
-import { 
-  Package, 
-  Truck, 
-  Calendar, 
-  Clock, 
-  Download, 
-  MapPin,
-  DollarSign,
+import { showSuccess, showError } from '../../utils/toast';
+import {
+  Package,
+  Truck,
+  Clock,
   CheckCircle,
-  AlertCircle,
   RefreshCw,
-  Plus,
-  Filter
+  Phone,
+  Mail,
+  Copy,
+  MapPin,
 } from 'lucide-react';
 
-const ShippingDashboard = ({ sellerId }) => {
+function formatNaira(amount) {
+  return `₦${Number(amount || 0).toLocaleString()}`;
+}
+
+function formatWhen(dateString) {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleString('en-NG', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function addressLines(shipment) {
+  const destination = shipment.destination || {};
+  return [
+    destination.fullName || shipment.buyerId?.name,
+    destination.address,
+    [destination.city, destination.state, destination.postalCode].filter(Boolean).join(', '),
+    destination.phone || shipment.buyerId?.phone,
+  ].filter(Boolean);
+}
+
+function copyText(value, label) {
+  navigator.clipboard.writeText(value).then(
+    () => showSuccess(`${label} copied`),
+    () => showError('Could not copy')
+  );
+}
+
+export default function ShippingDashboard({ sellerId }) {
   const {
     shipments,
-    shippingStats,
     isLoading,
-    error,
     fetchShipments,
-    fetchShippingStats,
-    generateLabel,
-    schedulePickup,
-    getPickupSlots,
-    getStatusColor,
-    getStatusText,
-    formatAddress,
-    refreshShipments
+    refreshShipments,
+    markOrderStatus,
   } = useShipping();
 
-  const [selectedShipments, setSelectedShipments] = useState([]);
-  const [showPickupModal, setShowPickupModal] = useState(false);
-  const [pickupData, setPickupData] = useState({
-    date: '',
-    timeSlot: '',
-    address: {},
-    contactPerson: '',
-    contactPhone: '',
-    instructions: ''
-  });
-  const [pickupSlots, setPickupSlots] = useState([]);
-  const [loadingPickupSlots, setLoadingPickupSlots] = useState(false);
+  const [tab, setTab] = useState('pending');
+  const [updatingId, setUpdatingId] = useState('');
+  const [shipForm, setShipForm] = useState({ id: '', trackingNumber: '', courierName: '' });
 
   useEffect(() => {
-    // Fetch seller's shipments
     fetchShipments(1, { sellerId });
-    fetchShippingStats({ sellerId });
   }, [sellerId]);
 
-  const handleGenerateLabel = async (shipmentId) => {
-    try {
-      await generateLabel(shipmentId);
-    } catch (error) {
-      console.error('Failed to generate label:', error);
-    }
-  };
+  const counts = useMemo(
+    () => ({
+      pending: shipments.filter((item) => item.status === 'pending' || item.status === 'confirmed').length,
+      shipped: shipments.filter((item) => item.status === 'shipped' || item.status === 'in_transit').length,
+      delivered: shipments.filter((item) => item.status === 'delivered').length,
+    }),
+    [shipments]
+  );
 
-  const handleSchedulePickup = async () => {
-    try {
-      await schedulePickup({
-        ...pickupData,
-        shipmentIds: selectedShipments
-      });
-      
-      setShowPickupModal(false);
-      setSelectedShipments([]);
-      refreshShipments();
-    } catch (error) {
-      console.error('Failed to schedule pickup:', error);
-    }
-  };
+  const visible = shipments.filter((item) => {
+    if (tab === 'shipped') return item.status === 'shipped' || item.status === 'in_transit';
+    if (tab === 'delivered') return item.status === 'delivered';
+    return item.status === 'pending' || item.status === 'confirmed';
+  });
 
-  const handleGetPickupSlots = async () => {
-    if (!pickupData.date || !pickupData.address.city) return;
-
+  const updateStatus = async (shipment, status, extra = {}) => {
     try {
-      setLoadingPickupSlots(true);
-      const slots = await getPickupSlots({
-        address: pickupData.address,
-        date: pickupData.date,
-        courierId: 'dhl' // Default courier - should be dynamic
-      });
-      setPickupSlots(slots.pickup_slots || []);
+      setUpdatingId(shipment._id);
+      await markOrderStatus(shipment._id, status, extra);
+      setShipForm({ id: '', trackingNumber: '', courierName: '' });
+      showSuccess(
+        status === 'shipped'
+          ? 'Marked as shipped'
+          : status === 'delivered'
+            ? 'Marked as delivered'
+            : 'Order updated'
+      );
     } catch (error) {
-      console.error('Failed to get pickup slots:', error);
+      showError(error.message || 'Could not update this order');
     } finally {
-      setLoadingPickupSlots(false);
+      setUpdatingId('');
     }
   };
 
-  const formatCurrency = (amount, currency = 'NGN') => {
-    if (currency === 'NGN') {
-      return `₦${amount.toLocaleString()}`;
-    }
-    return `${currency} ${amount.toFixed(2)}`;
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getShipmentsByStatus = (status) => {
-    return shipments.filter(shipment => shipment.status === status);
-  };
-
-  const pendingShipments = shipments.filter(
-    (shipment) => shipment.status === 'pending' || shipment.status === 'confirmed'
-  );
-  const inTransitShipments = shipments.filter(
-    (shipment) => shipment.status === 'in_transit' || shipment.status === 'shipped'
-  );
-  const deliveredShipments = getShipmentsByStatus('delivered');
-
-  if (isLoading) {
+  if (isLoading && shipments.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-        <span className="ml-3 text-gray-600">Loading shipping data...</span>
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+        <span className="ml-3 text-gray-600">Loading orders to ship...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
+    <div className="space-y-5 max-w-3xl">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Shipping Dashboard</h1>
-          <p className="text-gray-600">Manage your orders and schedule pickups</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">To ship</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Pack the item, send it, then mark it shipped.
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <button
+          onClick={refreshShipments}
+          className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg"
+          title="Refresh"
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-xs text-amber-800">To pack</p>
+          <p className="text-2xl font-bold text-amber-900">{counts.pending}</p>
+        </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+          <p className="text-xs text-blue-800">Shipped</p>
+          <p className="text-2xl font-bold text-blue-900">{counts.shipped}</p>
+        </div>
+        <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+          <p className="text-xs text-green-800">Delivered</p>
+          <p className="text-2xl font-bold text-green-900">{counts.delivered}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        {[
+          { id: 'pending', label: 'To pack', count: counts.pending },
+          { id: 'shipped', label: 'Shipped', count: counts.shipped },
+          { id: 'delivered', label: 'Delivered', count: counts.delivered },
+        ].map((item) => (
           <button
-            onClick={refreshShipments}
-            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
-            title="Refresh"
+            key={item.id}
+            onClick={() => setTab(item.id)}
+            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium ${
+              tab === item.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
+            }`}
           >
-            <RefreshCw className="w-5 h-5" />
+            {item.label} ({item.count})
           </button>
-          {selectedShipments.length > 0 && (
-            <button
-              onClick={() => setShowPickupModal(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-            >
-              <Calendar className="w-5 h-5" />
-              <span>Schedule Pickup ({selectedShipments.length})</span>
-            </button>
-          )}
-        </div>
+        ))}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Shipments</p>
-              <p className="text-3xl font-bold text-gray-900">{shippingStats.totalShipments}</p>
-            </div>
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <Package className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
+      {visible.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <h3 className="font-medium text-gray-900 mb-1">
+            {tab === 'pending' ? 'Nothing to pack' : 'No orders here'}
+          </h3>
+          <p className="text-sm text-gray-500">
+            {tab === 'pending'
+              ? 'New sales will show up here with the customer address.'
+              : 'Orders you mark shipped or delivered will appear in this tab.'}
+          </p>
         </div>
+      ) : (
+        <div className="space-y-4">
+          {visible.map((shipment) => {
+            const phone = shipment.destination?.phone || shipment.buyerId?.phone;
+            const email = shipment.buyerId?.email;
+            const lines = addressLines(shipment);
+            const busy = updatingId === shipment._id;
+            const shipping = shipForm.id === shipment._id;
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending Pickup</p>
-              <p className="text-3xl font-bold text-gray-900">{pendingShipments.length}</p>
-            </div>
-            <div className="bg-yellow-100 p-3 rounded-lg">
-              <Clock className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">In Transit</p>
-              <p className="text-3xl font-bold text-gray-900">{inTransitShipments.length}</p>
-            </div>
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <Truck className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Delivered</p>
-              <p className="text-3xl font-bold text-gray-900">{deliveredShipments.length}</p>
-            </div>
-            <div className="bg-green-100 p-3 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Shipments Table */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Your Shipments</h3>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedShipments(pendingShipments.map(s => s._id));
-                      } else {
-                        setSelectedShipments([]);
-                      }
-                    }}
-                  />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Order
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ship to
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {shipments.map((shipment) => (
-                <tr key={shipment._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {(shipment.status === 'confirmed' || shipment.status === 'pending') && (
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                        checked={selectedShipments.includes(shipment._id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedShipments(prev => [...prev, shipment._id]);
-                          } else {
-                            setSelectedShipments(prev => prev.filter(id => id !== shipment._id));
-                          }
-                        }}
-                      />
+            return (
+              <div key={shipment._id} className="bg-white rounded-2xl border border-gray-200 p-4 md:p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      {formatWhen(shipment.createdAt)}
+                      {shipment.reference ? ` · ${shipment.reference}` : ''}
+                    </p>
+                    <h3 className="text-base font-semibold text-gray-900 mt-1">
+                      {shipment.productSummary}
+                    </h3>
+                    {shipment.amountNgn > 0 && (
+                      <p className="text-sm text-gray-600 mt-0.5">{formatNaira(shipment.amountNgn)}</p>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      #{shipment.orderId?.orderNumber || String(shipment.reference || shipment._id || '').slice(-8)}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {shipment.trackingNumber || 'Awaiting shipment'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">
-                      {shipment.productSummary || shipment.items?.map((item) => item.name).join(', ') || 'Order'}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Qty {shipment.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {shipment.buyerId?.name || shipment.destination?.fullName || 'Customer'}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {shipment.buyerId?.email || shipment.destination?.phone || ''}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {shipment.destination?.address || ''}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {[shipment.destination?.city, shipment.destination?.state, shipment.destination?.postalCode]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(shipment.status)}`}>
-                      {getStatusText(shipment.status === 'pending' ? 'pending' : shipment.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    {shipment.trackingNumber && shipment.trackingNumber !== 'Awaiting shipment' && (
-                      <button
-                        onClick={() => window.open(`/track/${shipment.trackingNumber}`, '_blank')}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Track Package"
+                  </div>
+                  <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 capitalize">
+                    {shipment.status === 'pending' ? (
+                      <>
+                        <Clock className="w-3 h-3" /> To pack
+                      </>
+                    ) : shipment.status === 'shipped' ? (
+                      <>
+                        <Truck className="w-3 h-3" /> Shipped
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-3 h-3" /> Delivered
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-900 mb-2">
+                    <MapPin className="w-4 h-4 text-green-600" />
+                    Ship to
+                  </div>
+                  <div className="text-sm text-gray-800 leading-relaxed space-y-0.5">
+                    {lines.map((line) => (
+                      <p key={line}>{line}</p>
+                    ))}
+                    {email && <p className="text-gray-500">{email}</p>}
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => copyText(lines.join('\n'), 'Address')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy address
+                    </button>
+                    {phone && (
+                      <a
+                        href={`tel:${phone}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
                       >
-                        <MapPin className="w-4 h-4" />
+                        <Phone className="w-3.5 h-3.5" />
+                        Call
+                      </a>
+                    )}
+                    {email && (
+                      <a
+                        href={`mailto:${email}?subject=${encodeURIComponent('Your Eraiiz order')}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        Email
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {shipment.trackingNumber && (
+                  <p className="text-sm text-gray-600 mt-3">
+                    Tracking: <span className="font-medium text-gray-900">{shipment.trackingNumber}</span>
+                    {shipment.courierName ? ` · ${shipment.courierName}` : ''}
+                  </p>
+                )}
+
+                {shipment.status === 'pending' && (
+                  <div className="mt-4 space-y-3">
+                    {shipping ? (
+                      <div className="space-y-2">
+                        <input
+                          value={shipForm.courierName}
+                          onChange={(event) =>
+                            setShipForm((prev) => ({ ...prev, courierName: event.target.value }))
+                          }
+                          placeholder="Courier (optional)"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
+                        />
+                        <input
+                          value={shipForm.trackingNumber}
+                          onChange={(event) =>
+                            setShipForm((prev) => ({ ...prev, trackingNumber: event.target.value }))
+                          }
+                          placeholder="Tracking number (optional)"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              updateStatus(shipment, 'shipped', {
+                                trackingNumber: shipForm.trackingNumber,
+                                courierName: shipForm.courierName,
+                              })
+                            }
+                            className="flex-1 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60"
+                          >
+                            {busy ? 'Saving...' : 'Confirm shipped'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShipForm({ id: '', trackingNumber: '', courierName: '' })}
+                            className="px-4 py-2 text-sm border border-gray-200 rounded-lg"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          setShipForm({ id: shipment._id, trackingNumber: '', courierName: '' })
+                        }
+                        className="w-full px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60"
+                      >
+                        Mark as shipped
                       </button>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                )}
 
-        {shipments.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No Shipments Yet
-            </h3>
-            <p className="text-gray-600">
-              Your shipments will appear here once orders are placed.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Pickup Modal */}
-      {showPickupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule Pickup</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pickup Date
-                </label>
-                <input
-                  type="date"
-                  value={pickupData.date}
-                  onChange={(e) => {
-                    setPickupData(prev => ({ ...prev, date: e.target.value }));
-                    if (e.target.value && pickupData.address.city) {
-                      handleGetPickupSlots();
-                    }
-                  }}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Time Slot
-                </label>
-                <select
-                  value={pickupData.timeSlot}
-                  onChange={(e) => setPickupData(prev => ({ ...prev, timeSlot: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  disabled={loadingPickupSlots || pickupSlots.length === 0}
-                >
-                  <option value="">Select time slot</option>
-                  {pickupSlots.map((slot, index) => (
-                    <option key={index} value={slot.time_slot}>
-                      {slot.time_slot}
-                    </option>
-                  ))}
-                </select>
-                {loadingPickupSlots && (
-                  <p className="text-sm text-gray-500 mt-1">Loading available slots...</p>
+                {shipment.status === 'shipped' && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => updateStatus(shipment, 'delivered')}
+                    className="mt-4 w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-60"
+                  >
+                    {busy ? 'Saving...' : 'Mark as delivered'}
+                  </button>
                 )}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Person
-                </label>
-                <input
-                  type="text"
-                  value={pickupData.contactPerson}
-                  onChange={(e) => setPickupData(prev => ({ ...prev, contactPerson: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Your name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Phone
-                </label>
-                <input
-                  type="tel"
-                  value={pickupData.contactPhone}
-                  onChange={(e) => setPickupData(prev => ({ ...prev, contactPhone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="+234 xxx xxx xxxx"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Special Instructions
-                </label>
-                <textarea
-                  value={pickupData.instructions}
-                  onChange={(e) => setPickupData(prev => ({ ...prev, instructions: e.target.value }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Any special pickup instructions..."
-                />
-              </div>
-            </div>
-
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowPickupModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSchedulePickup}
-                disabled={!pickupData.date || !pickupData.timeSlot || !pickupData.contactPerson || !pickupData.contactPhone}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-              >
-                Schedule
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <div className="flex items-center space-x-3">
-            <AlertCircle className="w-6 h-6 text-red-600" />
-            <div>
-              <h3 className="text-lg font-semibold text-red-800">Error</h3>
-              <p className="text-red-600">{error}</p>
-            </div>
-          </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
-};
-
-export default ShippingDashboard;
+}

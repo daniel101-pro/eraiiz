@@ -4,7 +4,7 @@ import { expandIdentityKeys } from '@/lib/accountIdentity';
 import {
   addSellerOrder,
   getSellerOrders,
-  updateSellerOrderStatus,
+  updateSellerOrder,
   type SellerOrder,
 } from '@/lib/sellerOrderStore';
 
@@ -169,12 +169,16 @@ export async function PATCH(request: NextRequest) {
 
   const body = await request.json();
   const id = String(body?._id || '');
-  const status = body?.status as SellerOrder['status'];
-  if (!id || !status) {
-    return NextResponse.json({ message: 'Order id and status are required' }, { status: 400 });
+  const status = body?.status as SellerOrder['status'] | undefined;
+  if (!id) {
+    return NextResponse.json({ message: 'Order id is required' }, { status: 400 });
   }
 
   const keys = await expandIdentityKeys(authHeader);
-  const updated = await updateSellerOrderStatus(keys, id, status);
+  const updated = await updateSellerOrder(keys, id, {
+    ...(status ? { status } : {}),
+    ...(body.trackingNumber ? { trackingNumber: String(body.trackingNumber) } : {}),
+    ...(body.courierName ? { courierName: String(body.courierName) } : {}),
+  });
   return NextResponse.json(updated || { _id: id, status });
 }
