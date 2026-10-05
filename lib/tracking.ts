@@ -42,7 +42,9 @@ export function courierLabel(idOrName?: string) {
 }
 
 export function verifyTrackingNumber(trackingNumber: string, courier?: string) {
-  const value = String(trackingNumber || '').replace(/\s+/g, '').toUpperCase();
+  const value = String(trackingNumber || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '');
   if (!value) {
     return { ok: false as const, message: 'Enter the tracking number from your courier' };
   }
@@ -52,14 +54,11 @@ export function verifyTrackingNumber(trackingNumber: string, courier?: string) {
   if (FAKE_TRACKING.test(value)) {
     return { ok: false as const, message: 'Enter the real tracking number from your courier' };
   }
-  if (!/^[A-Z0-9-]+$/.test(value)) {
-    return { ok: false as const, message: 'Tracking numbers can only contain letters, numbers, and hyphens' };
-  }
 
   const courierId = String(courier || 'other').toLowerCase();
-  const pattern = COURIER_PATTERNS[courierId] || COURIER_PATTERNS.other;
   const label = courierLabel(courierId);
-  if (!pattern.test(value)) {
+  const pattern = COURIER_PATTERNS[courierId];
+  if (pattern && courierId !== 'other' && !pattern.test(value) && !COURIER_PATTERNS.other.test(value)) {
     return {
       ok: false as const,
       message: `That does not look like a ${label} tracking number`,
@@ -69,8 +68,8 @@ export function verifyTrackingNumber(trackingNumber: string, courier?: string) {
   return {
     ok: true as const,
     trackingNumber: value,
-    courierId,
-    courierName: label,
+    courierId: pattern && pattern.test(value) ? courierId : 'other',
+    courierName: pattern && pattern.test(value) ? label : 'Other',
   };
 }
 

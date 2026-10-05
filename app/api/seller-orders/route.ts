@@ -217,7 +217,7 @@ export async function PATCH(request: NextRequest) {
 
   if (status === 'shipped') {
     if (!String(body.courierName || '').trim()) {
-      return NextResponse.json({ message: 'Choose a courier' }, { status: 400 });
+      body.courierName = 'other';
     }
     const verified = verifyTrackingNumber(String(body.trackingNumber || ''), String(body.courierName || ''));
     if (!verified.ok) {

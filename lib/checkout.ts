@@ -259,6 +259,7 @@ export async function createBackendOrders(input: {
   amountNgn: number;
   authHeader?: string;
   origin?: string;
+  buyerEmail?: string;
 }) {
   if (input.authHeader) {
     for (const item of input.items) {
@@ -300,16 +301,23 @@ export async function notifyBuyerOfOrder(input: {
   billing: CheckoutBilling;
   reference: string;
   authHeader?: string;
+  origin?: string;
+  buyerEmail?: string;
 }) {
   const names = input.items.map((item) => item.name).filter(Boolean);
   const summary =
     names.length === 1 ? names[0] : names.length > 1 ? `${names.length} items` : 'your order';
   const message = `Your order for ${summary} is confirmed. You can track it from Orders.`;
   const identity = getIdentityFromAuthHeader(input.authHeader);
+  const buyerEmail =
+    input.buyerEmail ||
+    input.billing?.email ||
+    identity.email ||
+    '';
 
   try {
     await addInboxNotification(
-      [...identity.ids, identity.email, input.billing?.email],
+      [...identity.ids, identity.email, input.billing?.email, buyerEmail],
       {
         _id: `inbox_buyer_${input.reference}`,
         type: 'order',
@@ -330,10 +338,11 @@ export async function notifyBuyerOfOrder(input: {
 
   try {
     await sendBuyerOrderConfirmedEmail({
-      to: input.billing?.email,
+      to: buyerEmail,
       name: input.billing?.fullName,
       items: input.items,
       reference: input.reference,
+      origin: input.origin,
     });
   } catch (error) {
     console.error('Failed to email buyer order confirmation', error);

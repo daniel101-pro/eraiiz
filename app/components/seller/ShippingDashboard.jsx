@@ -79,16 +79,24 @@ export default function ShippingDashboard({ sellerId }) {
     return item.status === 'pending' || item.status === 'confirmed';
   });
 
-  const formFor = (id) => shipForms[id] || { trackingNumber: '', courierName: '' };
+  const formFor = (id) => shipForms[id] || { trackingNumber: '', courierName: 'other' };
 
   const setFormField = (id, field, value) => {
     setShipForms((prev) => ({
       ...prev,
       [id]: {
-        ...(prev[id] || { trackingNumber: '', courierName: '' }),
+        ...(prev[id] || { trackingNumber: '', courierName: 'other' }),
         [field]: value,
       },
     }));
+  };
+
+  const pasteTracking = (id, event) => {
+    const pasted = event.clipboardData?.getData('text') || event.clipboardData?.getData('text/plain') || '';
+    if (!pasted) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setFormField(id, 'trackingNumber', pasted.replace(/\s+/g, '').trim());
   };
 
   const updateStatus = async (shipment, status, extra = {}) => {
@@ -106,7 +114,7 @@ export default function ShippingDashboard({ sellerId }) {
         };
       }
       await markOrderStatus(shipment._id, status, extra);
-      setShipForms((prev) => ({ ...prev, [shipment._id]: { trackingNumber: '', courierName: '' } }));
+      setShipForms((prev) => ({ ...prev, [shipment._id]: { trackingNumber: '', courierName: 'other' } }));
       showSuccess(
         status === 'shipped'
           ? 'Shipped. Buyer can now track this order.'
@@ -289,11 +297,10 @@ export default function ShippingDashboard({ sellerId }) {
                   {shipment.status === 'pending' && (
                     <div className="space-y-2">
                       <select
-                        value={formFor(shipment._id).courierName}
+                        value={formFor(shipment._id).courierName || 'other'}
                         onChange={(event) => setFormField(shipment._id, 'courierName', event.target.value)}
                         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
                       >
-                        <option value="">Courier</option>
                         {COURIERS.map((courier) => (
                           <option key={courier.id} value={courier.id}>
                             {courier.label}
@@ -301,21 +308,29 @@ export default function ShippingDashboard({ sellerId }) {
                         ))}
                       </select>
                       <input
+                        type="text"
+                        name="trackingNumber"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        inputMode="text"
                         value={formFor(shipment._id).trackingNumber}
                         onChange={(event) => setFormField(shipment._id, 'trackingNumber', event.target.value)}
-                        placeholder="Tracking number"
+                        onPaste={(event) => pasteTracking(shipment._id, event)}
+                        placeholder="Paste tracking number"
                         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
                       />
                       <p className="text-xs text-gray-500">
-                        Required. The buyer will see this under Track.
+                        Paste the tracking number from your courier.
                       </p>
                       <button
                         type="button"
-                        disabled={busy || !formFor(shipment._id).trackingNumber || !formFor(shipment._id).courierName}
+                        disabled={busy || !formFor(shipment._id).trackingNumber}
                         onClick={() =>
                           updateStatus(shipment, 'shipped', {
                             trackingNumber: formFor(shipment._id).trackingNumber,
-                            courierName: formFor(shipment._id).courierName,
+                            courierName: formFor(shipment._id).courierName || 'other',
                           })
                         }
                         className="w-full px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60"

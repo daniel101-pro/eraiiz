@@ -124,10 +124,19 @@ const TrackingComponent = ({ initialTrackingNumber = '', onTrackingResult = null
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
+              name="trackingNumber"
+              autoComplete="off"
+              spellCheck={false}
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
+              onPaste={(e) => {
+                const pasted = e.clipboardData?.getData('text') || '';
+                if (!pasted) return;
+                e.preventDefault();
+                setTrackingNumber(pasted.replace(/\s+/g, '').trim());
+              }}
               onKeyPress={handleKeyPress}
-              placeholder="Enter tracking number (e.g., TR123456789)"
+              placeholder="Paste tracking number"
               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
             />
           </div>

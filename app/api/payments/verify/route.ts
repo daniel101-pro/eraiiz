@@ -45,11 +45,15 @@ export async function POST(request: NextRequest) {
 
     await createBackendOrders({
       items: checkout.items,
-      billing: checkout.billing,
+      billing: {
+        ...checkout.billing,
+        email: checkout.billing.email || checkout.email || transaction.customer?.email || '',
+      },
       reference,
       amountNgn: checkout.amountNgn,
       authHeader,
       origin: request.nextUrl.origin,
+      buyerEmail: checkout.email || checkout.billing.email || transaction.customer?.email,
     });
 
     return NextResponse.json({

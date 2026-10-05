@@ -23,10 +23,10 @@ function toCartItems(orders: SellerOrder[]): CheckoutCartItem[] {
   );
 }
 
-function toBilling(order: SellerOrder): CheckoutBilling {
+function toBilling(order: SellerOrder, customerEmail?: string): CheckoutBilling {
   return {
     fullName: order.shippingAddress?.fullName || order.buyer?.name || 'Customer',
-    email: order.buyer?.email || '',
+    email: order.buyer?.email || customerEmail || '',
     phone: order.buyer?.phone || order.shippingAddress?.phone || '',
     address: order.shippingAddress?.address || '',
     city: order.shippingAddress?.city || '',
@@ -96,12 +96,14 @@ export async function POST(request: NextRequest) {
         }
         try {
           if (orders.length) {
-            const billing = toBilling(orders[0]);
+            const billing = toBilling(orders[0], transaction.customer?.email);
             const items = toCartItems(orders);
             await notifyBuyerOfOrder({
               items,
               billing,
               reference: transaction.reference,
+              buyerEmail: billing.email || transaction.customer?.email,
+              origin: request.nextUrl.origin,
             });
             await notifySellersOfOrder({
               items,
