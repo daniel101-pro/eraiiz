@@ -9,6 +9,11 @@ import {
   generateReference,
   toKobo,
 } from '@/lib/paymentConfig';
+import {
+  appOrigin,
+  createSellerInAppNotification,
+  sendSellerSaleEmail,
+} from '@/lib/sellerSaleNotify';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -222,6 +227,7 @@ export async function createBackendOrders(input: {
   reference: string;
   amountNgn: number;
   authHeader?: string;
+  origin?: string;
 }) {
   if (!input.authHeader) return;
 
@@ -255,6 +261,7 @@ export async function createBackendOrders(input: {
   }
 
   await notifyBuyerOfOrder(input);
+  await notifySellersOfOrder(input);
 }
 
 async function notifyBuyerOfOrder(input: {
@@ -292,6 +299,57 @@ async function notifyBuyerOfOrder(input: {
     );
   } catch (error) {
     console.error('Failed to create order notification', error);
+  }
+}
+
+async function notifySellersOfOrder(input: {
+  items: CheckoutCartItem[];
+  billing: CheckoutBilling;
+  reference: string;
+  authHeader?: string;
+  origin?: string;
+}) {
+  const bySeller = new Map<string, CheckoutCartItem[]>();
+  for (const item of input.items) {
+    if (!item.sellerId) continue;
+    const list = bySeller.get(item.sellerId) || [];
+    list.push(item);
+    bySeller.set(item.sellerId, list);
+  }
+
+  const shippingUrl = `${appOrigin(input.origin)}/account?section=Shipping`;
+
+  for (const [sellerId, items] of bySeller.entries()) {
+    const names = items.map((item) => item.name).filter(Boolean);
+    const quantity = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const summary = names.length === 1 ? names[0] : names.join(', ');
+    const message = `You sold ${summary}. Open Shipping to fulfill this order.`;
+
+    const seller = await fetchSellerSubaccount(sellerId, input.authHeader);
+
+    await createSellerInAppNotification({
+      sellerId,
+      message,
+      reference: input.reference,
+      shippingUrl,
+      authHeader: input.authHeader,
+    });
+
+    if (!seller.email) continue;
+
+    try {
+      await sendSellerSaleEmail({
+        to: seller.email,
+        sellerName: seller.name,
+        productNames: names,
+        quantity,
+        billing: input.billing,
+        shippingUrl,
+        reference: input.reference,
+      });
+    } catch (error) {
+      console.error(`Failed to email seller ${sellerId}`, error);
+    }
   }
 }
 

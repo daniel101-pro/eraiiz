@@ -103,6 +103,24 @@ export default function AccountPage() {
     return () => clearInterval(keepAlive);
   }, [router]);
 
+  useEffect(() => {
+    const section = new URLSearchParams(window.location.search).get('section');
+    if (!section) return;
+
+    const mapped = {
+      shipping: 'Shipping',
+      Shipping: 'Shipping',
+      sales: 'Sales',
+      Sales: 'Sales',
+      products: 'Uploaded Products',
+      billing: 'Billing',
+      orders: 'Orders',
+      notifications: 'Notifications',
+    }[section];
+
+    if (mapped) setActiveSection(mapped);
+  }, []);
+
   const handleLogout = () => {
     // Clear cart first
     clearCart();

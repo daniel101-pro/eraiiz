@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       reference,
       amountNgn: checkout.amountNgn,
       authHeader,
+      origin: request.nextUrl.origin,
     });
 
     return NextResponse.json({
