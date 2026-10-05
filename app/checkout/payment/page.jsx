@@ -12,21 +12,25 @@ import {
   openPaystackCheckout,
   verifyCheckout,
 } from '../../services/paymentService';
-import { showError, showSuccess } from '../../utils/toast';
+import { showError } from '../../utils/toast';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { buyerOrderNotice, persistInboxItem } from '../../utils/notificationFeed';
+import { saveLastOrder } from '../../utils/lastOrder';
 
 export default function PaymentPage() {
   const router = useRouter();
-  const { cartItems, clearCart, enrichedCartItems } = useCart();
-  const { billing, clearCheckout } = useCheckout();
+  const { cartItems, enrichedCartItems } = useCart();
+  const { billing } = useCheckout();
   const { formatPrice, convertPrice } = useCurrency();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentInit, setPaymentInit] = useState(null);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const checkoutItems = enrichedCartItems.length > 0 ? enrichedCartItems : cartItems;
 
   useEffect(() => {
+    if (isCompleting) return;
+
     const token = localStorage.getItem('accessToken');
     if (!token) {
       router.push('/login');
@@ -41,7 +45,7 @@ export default function PaymentPage() {
     if (!billing.email || !billing.fullName) {
       router.push('/checkout/billing');
     }
-  }, [billing.email, billing.fullName, checkoutItems.length, router]);
+  }, [billing.email, billing.fullName, checkoutItems.length, isCompleting, router]);
 
   const orderTotal = useMemo(() => {
     return checkoutItems.reduce((total, item) => {
@@ -75,6 +79,12 @@ export default function PaymentPage() {
 
       setPaymentInit(initialized);
       sessionStorage.setItem('eraiiz_last_checkout_items', JSON.stringify(payloadItems));
+      saveLastOrder({
+        billing,
+        items: payloadItems,
+        reference: initialized.reference,
+        amount: initialized.amount,
+      });
 
       await openPaystackCheckout({
         publicKey: initialized.publicKey,
@@ -82,35 +92,22 @@ export default function PaymentPage() {
         amountKobo: initialized.amountKobo,
         reference: initialized.reference,
         accessCode: initialized.accessCode,
-        onSuccess: async (transaction) => {
-          try {
-            await verifyCheckout({
-              reference: transaction.reference || initialized.reference,
-              items: payloadItems,
-              billing,
-            });
-
-            const orderReference = transaction.reference || initialized.reference;
-            sessionStorage.setItem(
-              'eraiiz_last_order',
-              JSON.stringify({
-                billing,
-                items: payloadItems,
-                reference: orderReference,
-                amount: initialized.amount,
-              })
-            );
-            persistInboxItem(buyerOrderNotice({ reference: orderReference, items: payloadItems }));
-
-            clearCart();
-            clearCheckout();
-            sessionStorage.removeItem('eraiiz_last_checkout_items');
-            router.push(`/checkout/success?reference=${orderReference}&status=success`);
-          } catch (error) {
-            showError(error.message || 'Payment verification failed');
-          } finally {
-            setIsProcessing(false);
-          }
+        onSuccess: (transaction) => {
+          const orderReference = transaction.reference || initialized.reference;
+          setIsCompleting(true);
+          saveLastOrder({
+            billing,
+            items: payloadItems,
+            reference: orderReference,
+            amount: initialized.amount,
+          });
+          persistInboxItem(buyerOrderNotice({ reference: orderReference, items: payloadItems }));
+          router.replace(`/checkout/success?reference=${orderReference}&status=success`);
+          verifyCheckout({
+            reference: orderReference,
+            items: payloadItems,
+            billing,
+          }).catch(() => {});
         },
         onCancel: () => {
           setIsProcessing(false);

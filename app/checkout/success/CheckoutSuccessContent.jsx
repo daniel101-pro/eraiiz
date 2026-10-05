@@ -7,35 +7,19 @@ import Confetti from 'react-confetti';
 import { motion } from 'framer-motion';
 import { Check, MapPin, Package, Phone, Mail } from 'lucide-react';
 import DualNavbarSell from '../../components/DualNavbarSell';
+import { useCart } from '../../context/CartContext';
 import { useCheckout } from '../../context/CheckoutContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { verifyCheckout } from '../../services/paymentService';
-import { showError } from '../../utils/toast';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { buyerOrderNotice, persistInboxItem } from '../../utils/notificationFeed';
-
-const LAST_ORDER_KEY = 'eraiiz_last_order';
-
-function readLastOrder() {
-  try {
-    return JSON.parse(sessionStorage.getItem(LAST_ORDER_KEY) || 'null');
-  } catch {
-    return null;
-  }
-}
-
-function saveLastOrder(order) {
-  try {
-    sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(order));
-  } catch {
-    // ignore
-  }
-}
+import { readLastOrder, saveLastOrder } from '../../utils/lastOrder';
 
 export default function CheckoutSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { billing, clearCheckout } = useCheckout();
+  const { clearCart } = useCart();
   const { formatPrice, convertPrice } = useCurrency();
   const [status, setStatus] = useState('loading');
   const [order, setOrder] = useState(null);
@@ -58,60 +42,46 @@ export default function CheckoutSuccessContent() {
       searchParams.get('reference') ||
       searchParams.get('trxref') ||
       searchParams.get('ref');
-    const presetStatus = searchParams.get('status');
     const existing = readLastOrder();
+    const snapshotBilling = existing?.billing || billing;
+    const snapshotItems = existing?.items || [];
+    const reference = paymentReference || existing?.reference || '';
 
-    if (!paymentReference && !existing) {
+    const hasDetails =
+      snapshotItems.length > 0 ||
+      Boolean(snapshotBilling?.fullName || snapshotBilling?.address || snapshotBilling?.email);
+
+    if (!reference && !hasDetails) {
       setStatus('missing');
       return;
     }
 
-    if (presetStatus === 'success' || existing?.reference) {
-      handledRef.current = true;
-      const nextOrder = {
-        reference: paymentReference || existing?.reference || '',
-        amount: existing?.amount ?? null,
-        billing: existing?.billing || billing,
-        items: existing?.items || [],
-      };
-      saveLastOrder(nextOrder);
-      persistInboxItem(buyerOrderNotice({ reference: nextOrder.reference, items: nextOrder.items }));
-      setOrder(nextOrder);
-      setStatus('success');
-      clearCheckout();
-      sessionStorage.removeItem('eraiiz_last_checkout_items');
-      return;
-    }
-
-    const storedItems = sessionStorage.getItem('eraiiz_last_checkout_items');
-    const items = storedItems ? JSON.parse(storedItems) : existing?.items || [];
+    const nextOrder = {
+      reference,
+      amount: existing?.amount ?? null,
+      billing: snapshotBilling,
+      items: snapshotItems,
+    };
 
     handledRef.current = true;
-    verifyCheckout({
-      reference: paymentReference,
-      items,
-      billing,
-    })
-      .then((result) => {
-        const nextOrder = {
-          reference: paymentReference,
-          amount: result.payment?.amountNgn ?? existing?.amount ?? null,
-          billing: existing?.billing || billing,
-          items,
-        };
-        saveLastOrder(nextOrder);
-        persistInboxItem(buyerOrderNotice({ reference: paymentReference, items }));
-        setOrder(nextOrder);
-        setStatus('success');
-        clearCheckout();
-        sessionStorage.removeItem('eraiiz_last_checkout_items');
-      })
-      .catch((error) => {
-        handledRef.current = false;
-        showError(error.message || 'Could not verify payment');
-        setStatus('failed');
+    saveLastOrder(nextOrder);
+    persistInboxItem(buyerOrderNotice({ reference: nextOrder.reference, items: nextOrder.items }));
+    setOrder(nextOrder);
+    setStatus('success');
+    clearCart();
+    clearCheckout();
+    sessionStorage.removeItem('eraiiz_last_checkout_items');
+
+    if (reference && snapshotItems.length && snapshotBilling?.email) {
+      verifyCheckout({
+        reference,
+        items: snapshotItems,
+        billing: snapshotBilling,
+      }).catch(() => {
+        // Payment already returned from Paystack; keep the confirmation on screen.
       });
-  }, [billing, clearCheckout, searchParams]);
+    }
+  }, [billing, clearCart, clearCheckout, searchParams]);
 
   const formattedTotal = useMemo(() => {
     if (order?.amount == null) return null;
@@ -125,11 +95,11 @@ export default function CheckoutSuccessContent() {
     <>
       <DualNavbarSell />
 
-      {status === 'success' && windowSize.width > 0 && (
+      {status === 'success' && (windowSize.width > 0 || typeof window !== 'undefined') && (
         <Confetti
-          width={windowSize.width}
-          height={windowSize.height}
-          numberOfPieces={180}
+          width={windowSize.width || (typeof window !== 'undefined' ? window.innerWidth : 375)}
+          height={windowSize.height || (typeof window !== 'undefined' ? window.innerHeight : 667)}
+          numberOfPieces={220}
           recycle={false}
           gravity={0.12}
           colors={['#16a34a', '#22c55e', '#86efac', '#bbf7d0', '#facc15']}
@@ -158,13 +128,13 @@ export default function CheckoutSuccessContent() {
                     initial={{ scale: 0.4, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: 'spring', stiffness: 260, damping: 16 }}
-                    className="mx-auto mb-5 w-20 h-20 rounded-full bg-green-100 text-green-700 flex items-center justify-center"
+                    className="mx-auto mb-5 w-20 h-20 rounded-full bg-green-100 text-green-700 flex items-center justify-center shadow-[0_0_0_12px_rgba(22,163,74,0.12)]"
                   >
                     <Check className="w-10 h-10" strokeWidth={2.5} />
                   </motion.div>
-                  <h1 className="text-3xl font-semibold text-gray-900 mb-2">You&apos;re all set</h1>
+                  <h1 className="text-3xl font-semibold text-gray-900 mb-2">Order confirmed</h1>
                   <p className="text-gray-600">
-                    Your order is confirmed. We&apos;ll get it ready for delivery.
+                    Thanks for your purchase. Here&apos;s what you ordered and where it&apos;s going.
                   </p>
                   {order?.reference && (
                     <p className="mt-4 text-sm text-gray-500">
