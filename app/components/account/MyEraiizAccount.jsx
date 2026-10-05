@@ -105,6 +105,11 @@ export default function MyEraiizAccount({ user, setUser }) {
         throw new Error(data.message || 'Failed to update user data');
       }
       setUser(data);
+      try {
+        localStorage.setItem('user', JSON.stringify(data));
+      } catch (storageErr) {
+        console.error('Failed to cache updated account', storageErr);
+      }
       setIsEditingAccount(false);
       setIsEditingBilling(false);
       setSuccess('Profile updated successfully!');

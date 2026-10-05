@@ -48,6 +48,11 @@ export default function AccountPage() {
         throw new Error(data.message || 'Failed to fetch user data', { cause: { status: res.status } });
       }
       setUser(data);
+      try {
+        localStorage.setItem('user', JSON.stringify(data));
+      } catch (storageErr) {
+        console.error('Failed to cache account', storageErr);
+      }
     } catch (err) {
       throw err;
     }
