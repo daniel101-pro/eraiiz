@@ -42,80 +42,127 @@ import { fetchSellerPlan } from '../../services/paymentService';
 import { getPlanBenefits } from '@/lib/planBenefits';
 import PlanPerks from '../seller/PlanPerks';
 
-export default function Sales({ onTokenError, onUpgrade }) {
-  const [salesData, setSalesData] = useState({
-    totalSales: 2847.50,
-    totalOrders: 23,
-    totalCustomers: 18,
-    monthlyRevenue: 847.30,
+function emptySalesData() {
+  return {
+    totalSales: 0,
+    totalOrders: 0,
+    totalCustomers: 0,
+    monthlyRevenue: 0,
     orderStatus: {
-      pending: 5,
-      processing: 8,
-      shipped: 6,
-      delivered: 4
+      pending: 0,
+      processing: 0,
+      shipped: 0,
+      delivered: 0,
     },
     productPerformance: {
-      views: 1247,
-      clicks: 892,
-      conversions: 156
+      views: 0,
+      clicks: 0,
+      conversions: 0,
     },
     inventory: {
-      inStock: 45,
-      lowStock: 12,
-      outOfStock: 3
+      inStock: 0,
+      lowStock: 0,
+      outOfStock: 0,
     },
     reviews: {
-      averageRating: 4.6,
-      totalReviews: 89,
-      recentReviews: []
+      averageRating: 0,
+      totalReviews: 0,
+      recentReviews: [],
     },
     sustainabilityMetrics: {
-      carbonFootprintReduced: 234.5,
-      sustainableProductsSold: 67,
-      ecoFriendlyPackaging: 89
+      carbonFootprintReduced: 0,
+      sustainableProductsSold: 0,
+      ecoFriendlyPackaging: 0,
     },
     returns: {
-      pending: 2,
-      processed: 1,
-      total: 3
+      pending: 0,
+      processed: 0,
+      total: 0,
     },
     topProducts: [],
     inquiries: {
-      new: 8,
-      responded: 12,
-      total: 20
+      new: 0,
+      responded: 0,
+      total: 0,
     },
     platformFees: {
-      owed: 142.50,
-      paid: 89.30,
-      total: 231.80
+      owed: 0,
+      paid: 0,
+      total: 0,
     },
     promotions: {
-      active: 3,
-      totalDiscount: 156.80,
-      conversions: 23
+      active: 0,
+      totalDiscount: 0,
+      conversions: 0,
     },
     trafficSources: {
-      organic: 45,
-      referrals: 28,
-      ads: 27
+      organic: 0,
+      referrals: 0,
+      ads: 0,
     },
     performanceScore: {
-      overall: 8.7,
-      delivery: 9.2,
-      satisfaction: 8.5,
-      sustainability: 9.1
+      overall: 0,
+      delivery: 0,
+      satisfaction: 0,
+      sustainability: 0,
     },
     certifications: {
-      upcoming: 2,
-      active: 5,
-      expired: 0
+      upcoming: 0,
+      active: 0,
+      expired: 0,
     },
     categoryAnalytics: [],
-    revenueGrowth: null, // Added for dynamic growth display
-    orderGrowth: null, // Added for dynamic growth display
-    customerGrowth: null // Added for dynamic growth display
-  });
+    recentOrders: [],
+    revenueGrowth: null,
+    orderGrowth: null,
+    customerGrowth: null,
+  };
+}
+
+function summarizeSellerOrders(orders) {
+  const data = emptySalesData();
+  if (!orders.length) return data;
+
+  const customers = new Set();
+  const products = new Map();
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  for (const order of orders) {
+    const amount = Number(order.amountNgn || 0);
+    data.totalSales += amount;
+    data.totalOrders += 1;
+    if (order.buyer?.email) customers.add(order.buyer.email.toLowerCase());
+    if (order.createdAt && new Date(order.createdAt) >= monthStart) {
+      data.monthlyRevenue += amount;
+    }
+
+    const status = String(order.status || 'pending').toLowerCase();
+    if (status === 'delivered') data.orderStatus.delivered += 1;
+    else if (status === 'shipped' || status === 'in_transit') data.orderStatus.shipped += 1;
+    else data.orderStatus.pending += 1;
+
+    for (const item of order.items || []) {
+      const name = item.name || 'Product';
+      const current = products.get(name) || { name, sales: 0, revenue: 0 };
+      current.sales += Number(item.quantity || 1);
+      current.revenue += Number(item.price || 0) * Number(item.quantity || 1);
+      products.set(name, current);
+    }
+  }
+
+  data.totalCustomers = customers.size;
+  data.topProducts = [...products.values()].sort((a, b) => b.sales - a.sales).slice(0, 5);
+  data.recentOrders = orders.slice(0, 8);
+  data.sustainabilityMetrics.sustainableProductsSold = orders.reduce(
+    (sum, order) => sum + Number(order.quantity || 0),
+    0
+  );
+  return data;
+}
+
+export default function Sales({ onTokenError, onUpgrade }) {
+  const [salesData, setSalesData] = useState(emptySalesData());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [shipments, setShipments] = useState([]);
@@ -147,7 +194,7 @@ export default function Sales({ onTokenError, onUpgrade }) {
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/seller/shipments?period=${selectedPeriod}`, {
+        const response = await fetch('/api/seller-orders', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -168,7 +215,19 @@ export default function Sales({ onTokenError, onUpgrade }) {
         }
 
         const data = await response.json();
-        setShipments(data.shipments || []);
+        const orders = Array.isArray(data.orders) ? data.orders : [];
+        setShipments(
+          orders.map((order) => ({
+            orderId: String(order.reference || order._id || ''),
+            products: (order.items || []).map((item) => ({
+              name: item.name,
+              quantity: item.quantity || 1,
+            })),
+            totalQuantity: order.quantity || (order.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0),
+            pickupDate: order.createdAt,
+            status: order.status || 'pending',
+          }))
+        );
         setShipmentsError(null);
       } catch (err) {
         console.error('Shipments fetch error:', err);
@@ -191,7 +250,7 @@ export default function Sales({ onTokenError, onUpgrade }) {
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/seller?period=${selectedPeriod}`, {
+      const response = await fetch('/api/seller-orders', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -199,127 +258,29 @@ export default function Sales({ onTokenError, onUpgrade }) {
         },
       });
 
+      if (response.status === 401) {
+        onTokenError();
+        return;
+      }
+
       if (!response.ok) {
-        if (response.status === 401) {
-          onTokenError();
-          return;
-        }
-        // If the API endpoint doesn't exist yet, use mock data
-        if (response.status === 404) {
-          console.log('Sales API not deployed yet, using mock data');
-          throw new Error('API_NOT_DEPLOYED');
-        }
         throw new Error('Failed to fetch sales data');
       }
 
       const data = await response.json();
-      setSalesData(data);
+      setSalesData(summarizeSellerOrders(Array.isArray(data.orders) ? data.orders : []));
+      setError(null);
     } catch (err) {
       console.error('Error fetching sales data:', err);
-      
-      // If API is not deployed yet, use mock data without showing error
-      if (err.message === 'API_NOT_DEPLOYED') {
-        console.log('Using mock data for sales dashboard');
-      } else {
-        setError(err.message);
-      }
-      
-      // Mock data for demo
-      setSalesData({
-        totalSales: 2847.50,
-        totalOrders: 23,
-        totalCustomers: 18,
-        monthlyRevenue: 847.30,
-        orderStatus: {
-          pending: 5,
-          processing: 8,
-          shipped: 6,
-          delivered: 4
-        },
-        productPerformance: {
-          views: 1247,
-          clicks: 892,
-          conversions: 156
-        },
-        inventory: {
-          inStock: 45,
-          lowStock: 12,
-          outOfStock: 3
-        },
-        reviews: {
-          averageRating: 4.6,
-          totalReviews: 89,
-          recentReviews: [
-            { id: 1, customer: 'Sarah J.', rating: 5, comment: 'Amazing eco-friendly product!', date: '2024-01-15' },
-            { id: 2, customer: 'Mike C.', rating: 4, comment: 'Great quality, fast delivery', date: '2024-01-14' },
-            { id: 3, customer: 'Emma D.', rating: 5, comment: 'Love the sustainable packaging!', date: '2024-01-13' }
-          ]
-        },
-        sustainabilityMetrics: {
-          carbonFootprintReduced: 234.5,
-          sustainableProductsSold: 67,
-          ecoFriendlyPackaging: 89
-        },
-        returns: {
-          pending: 2,
-          processed: 1,
-          total: 3
-        },
-        topProducts: [
-          { name: 'Recycled Glass Vase', sales: 12, revenue: 1079.88, views: 156, rating: 4.8 },
-          { name: 'Bamboo Coffee Cup', sales: 8, revenue: 199.92, views: 98, rating: 4.6 },
-          { name: 'Organic Cotton Tote', sales: 6, revenue: 209.94, views: 134, rating: 4.7 }
-        ],
-        inquiries: {
-          new: 8,
-          responded: 12,
-          total: 20
-        },
-        platformFees: {
-          owed: 142.50,
-          paid: 89.30,
-          total: 231.80
-        },
-        promotions: {
-          active: 3,
-          totalDiscount: 156.80,
-          conversions: 23
-        },
-        trafficSources: {
-          organic: 45,
-          referrals: 28,
-          ads: 27
-        },
-        performanceScore: {
-          overall: 8.7,
-          delivery: 9.2,
-          satisfaction: 8.5,
-          sustainability: 9.1
-        },
-        certifications: {
-          upcoming: 2,
-          active: 5,
-          expired: 0
-        },
-        categoryAnalytics: [
-          { category: 'Glass Products', sales: 45, revenue: 1247.50, growth: 12.5 },
-          { category: 'Bamboo Items', sales: 32, revenue: 892.30, growth: 8.7 },
-          { category: 'Organic Textiles', sales: 28, revenue: 567.80, growth: 15.3 }
-        ],
-        revenueGrowth: 12.5, // Mock data for revenue growth
-        orderGrowth: 8.2, // Mock data for order growth
-        customerGrowth: 15.3 // Mock data for customer growth
-      });
+      setSalesData(emptySalesData());
+      setError(null);
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+    return `₦${Number(amount || 0).toLocaleString()}`;
   };
 
   const formatNumber = (num) => {
@@ -527,7 +488,7 @@ export default function Sales({ onTokenError, onUpgrade }) {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Performance Score</p>
-                  <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 truncate">{salesData.performanceScore.overall}/10</p>
+                  <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 truncate">{salesData.performanceScore?.overall ?? 0}/10</p>
                 </div>
                 <div className="p-2 sm:p-3 bg-orange-100 rounded-full flex-shrink-0">
                   <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-orange-600" />
@@ -544,6 +505,31 @@ export default function Sales({ onTokenError, onUpgrade }) {
               </div>
             </div>
           </div>
+
+          {salesData.recentOrders?.length > 0 && (
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Recent sales</h3>
+              <div className="space-y-3">
+                {salesData.recentOrders.map((order) => (
+                  <div key={order._id} className="flex items-start justify-between gap-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {(order.items || []).map((item) => item.name).join(', ') || 'Order'}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {order.buyer?.name || 'Customer'}
+                        {order.shippingAddress?.city ? ` · ${order.shippingAddress.city}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-semibold text-gray-900">{formatCurrency(order.amountNgn)}</p>
+                      <p className="text-xs text-gray-500 capitalize">{order.status || 'pending'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Order Status & Product Performance */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -725,6 +711,7 @@ export default function Sales({ onTokenError, onUpgrade }) {
             </div>
 
             {/* Alerts */}
+            {(salesData.inventory.lowStock > 0 || salesData.inventory.outOfStock > 0 || (salesData.inquiries?.new ?? 0) > 0) && (
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Alerts</h3>
               <div className="space-y-3">
@@ -751,27 +738,7 @@ export default function Sales({ onTokenError, onUpgrade }) {
                 </div>
               </div>
             </div>
-
-            {/* Platform Fees */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Platform Fees</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg">
-                  <span className="text-xs sm:text-sm">Owed</span>
-                  <span className="font-bold text-red-600">{formatCurrency(salesData.platformFees?.owed ?? 0)}</span>
-                </div>
-                <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg">
-                  <span className="text-xs sm:text-sm">Paid</span>
-                  <span className="font-bold text-green-600">{formatCurrency(salesData.platformFees?.paid ?? 0)}</span>
-                </div>
-                <div className="pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-medium">Total</span>
-                    <span className="font-bold">{formatCurrency(salesData.platformFees?.total ?? 0)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

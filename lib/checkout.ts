@@ -15,6 +15,7 @@ import {
   sendSellerSaleEmail,
 } from '@/lib/sellerSaleNotify';
 import { addInboxNotification } from '@/lib/orderInboxStore';
+import { addSellerOrder } from '@/lib/sellerOrderStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -351,6 +352,73 @@ async function notifySellersOfOrder(input: {
     const message = `You sold ${summary}. Open Shipping to fulfill this order.`;
 
     const seller = await fetchSellerSubaccount(sellerId, input.authHeader);
+    const amountNgn = items.reduce(
+      (sum, item) => sum + convertToNgn(item.price * (item.quantity || 1), item.currency || 'NGN'),
+      0
+    );
+
+    try {
+      await addSellerOrder([sellerId, seller.email], {
+        _id: `sale_${input.reference}_${sellerId}`,
+        sellerId,
+        reference: input.reference,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        buyer: {
+          name: input.billing.fullName,
+          email: input.billing.email,
+          phone: input.billing.phone,
+        },
+        shippingAddress: {
+          fullName: input.billing.fullName,
+          address: input.billing.address,
+          city: input.billing.city,
+          state: input.billing.state,
+          postalCode: input.billing.postalCode,
+          phone: input.billing.phone,
+        },
+        items: items.map((item) => ({
+          productId: item._id,
+          name: item.name,
+          quantity: item.quantity || 1,
+          selectedSize: item.selectedSize,
+          price: item.price,
+          currency: item.currency,
+        })),
+        quantity,
+        amountNgn,
+      });
+    } catch (error) {
+      console.error(`Failed to store seller order for ${sellerId}`, error);
+    }
+
+    if (input.authHeader) {
+      try {
+        await axios.post(
+          `${API_URL}/api/shipping/shipments`,
+          {
+            sellerId,
+            paymentReference: input.reference,
+            status: 'pending',
+            items: items.map((item) => ({
+              productId: item._id,
+              name: item.name,
+              quantity: item.quantity || 1,
+            })),
+            destination: input.billing,
+          },
+          {
+            headers: {
+              Authorization: input.authHeader,
+              'Content-Type': 'application/json',
+            },
+            timeout: 10000,
+          }
+        );
+      } catch (error) {
+        console.error(`Failed to create backend shipment for ${sellerId}`, error);
+      }
+    }
 
     try {
       await addInboxNotification([sellerId, seller.email], {

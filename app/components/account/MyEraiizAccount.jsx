@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { refreshAccessToken } from '../../utils/auth';
 import { User, Mail, Phone, MapPin, Calendar, Globe, Building, Edit3, Save, X, Check, AlertCircle, CreditCard, BarChart3 } from 'lucide-react';
 import EnvironmentalImpact from './EnvironmentalImpact';
@@ -20,6 +20,37 @@ export default function MyEraiizAccount({ user, setUser }) {
     city: user?.billingAddress?.city || '',
     postalAddress: user?.billingAddress?.postalAddress || '',
   });
+  const [stats, setStats] = useState({
+    purchases: user?.eraizStats?.numberOfPurchases || 0,
+    spent: user?.eraizStats?.totalAmountSpent || 0,
+    salesCount: 0,
+    salesAmount: 0,
+    toShip: 0,
+  });
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        const response = await fetch('/api/account-stats', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setStats({
+          purchases: Number(data.purchases || 0),
+          spent: Number(data.spent || 0),
+          salesCount: Number(data.salesCount || 0),
+          salesAmount: Number(data.salesAmount || 0),
+          toShip: Number(data.toShip || 0),
+        });
+      } catch (err) {
+        console.error('Failed to load account stats', err);
+      }
+    };
+    loadStats();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -536,7 +567,7 @@ export default function MyEraiizAccount({ user, setUser }) {
               <div>
                 <p className="text-xs font-medium text-blue-900">Total Purchases</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900 mt-1">
-                  {user?.eraizStats?.numberOfPurchases || 0}
+                  {stats.purchases}
                 </p>
               </div>
               <div className="p-2 md:p-3 bg-blue-200 rounded-lg">
@@ -550,7 +581,7 @@ export default function MyEraiizAccount({ user, setUser }) {
               <div>
                 <p className="text-xs font-medium text-green-900">Total Spent</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-green-900 mt-1">
-                  ₦{(user?.eraizStats?.totalAmountSpent || 0).toLocaleString()}
+                  ₦{Number(stats.spent || 0).toLocaleString()}
                 </p>
               </div>
               <div className="p-2 md:p-3 bg-green-200 rounded-lg">
@@ -558,6 +589,37 @@ export default function MyEraiizAccount({ user, setUser }) {
               </div>
             </div>
           </div>
+
+          {(user?.role === 'seller' || stats.salesCount > 0) && (
+            <>
+              <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 p-4 md:p-6 rounded-lg border border-emerald-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-emerald-900">Items sold</p>
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-emerald-900 mt-1">
+                      {stats.salesCount}
+                    </p>
+                  </div>
+                  <div className="p-2 md:p-3 bg-emerald-200 rounded-lg">
+                    <BarChart3 className="w-5 h-5 text-emerald-700" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-r from-amber-50 to-amber-100 p-4 md:p-6 rounded-lg border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-amber-900">Orders to ship</p>
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-amber-900 mt-1">
+                      {stats.toShip}
+                    </p>
+                  </div>
+                  <div className="p-2 md:p-3 bg-amber-200 rounded-lg">
+                    <CreditCard className="w-5 h-5 text-amber-700" />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

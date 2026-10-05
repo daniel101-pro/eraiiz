@@ -115,8 +115,12 @@ const ShippingDashboard = ({ sellerId }) => {
     return shipments.filter(shipment => shipment.status === status);
   };
 
-  const pendingShipments = getShipmentsByStatus('confirmed');
-  const inTransitShipments = getShipmentsByStatus('in_transit');
+  const pendingShipments = shipments.filter(
+    (shipment) => shipment.status === 'pending' || shipment.status === 'confirmed'
+  );
+  const inTransitShipments = shipments.filter(
+    (shipment) => shipment.status === 'in_transit' || shipment.status === 'shipped'
+  );
   const deliveredShipments = getShipmentsByStatus('delivered');
 
   if (isLoading) {
@@ -234,16 +238,16 @@ const ShippingDashboard = ({ sellerId }) => {
                   Order
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Product
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ship to
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Courier
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cost
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -254,7 +258,7 @@ const ShippingDashboard = ({ sellerId }) => {
               {shipments.map((shipment) => (
                 <tr key={shipment._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {shipment.status === 'confirmed' && (
+                    {(shipment.status === 'confirmed' || shipment.status === 'pending') && (
                       <input
                         type="checkbox"
                         className="rounded border-gray-300 text-green-600 focus:ring-green-500"
@@ -271,53 +275,53 @@ const ShippingDashboard = ({ sellerId }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      #{shipment.orderId.orderNumber}
+                      #{shipment.orderId?.orderNumber || String(shipment.reference || shipment._id || '').slice(-8)}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {shipment.trackingNumber}
+                      {shipment.trackingNumber || 'Awaiting shipment'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-medium text-gray-900">
+                      {shipment.productSummary || shipment.items?.map((item) => item.name).join(', ') || 'Order'}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Qty {shipment.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {shipment.buyerId.name}
+                      {shipment.buyerId?.name || shipment.destination?.fullName || 'Customer'}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {shipment.buyerId.email}
+                      {shipment.buyerId?.email || shipment.destination?.phone || ''}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900">
+                      {shipment.destination?.address || ''}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {[shipment.destination?.city, shipment.destination?.state, shipment.destination?.postalCode]
+                        .filter(Boolean)
+                        .join(', ')}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(shipment.status)}`}>
-                      {getStatusText(shipment.status)}
+                      {getStatusText(shipment.status === 'pending' ? 'pending' : shipment.status)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {shipment.courierName}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {shipment.courierServiceName}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {formatCurrency(shipment.totalCost, shipment.currency)}
-                    </div>
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button
-                      onClick={() => handleGenerateLabel(shipment._id)}
-                      className="text-green-600 hover:text-green-900"
-                      title="Download Label"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => window.open(`/track/${shipment.trackingNumber}`, '_blank')}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="Track Package"
-                    >
-                      <MapPin className="w-4 h-4" />
-                    </button>
+                    {shipment.trackingNumber && shipment.trackingNumber !== 'Awaiting shipment' && (
+                      <button
+                        onClick={() => window.open(`/track/${shipment.trackingNumber}`, '_blank')}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Track Package"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
