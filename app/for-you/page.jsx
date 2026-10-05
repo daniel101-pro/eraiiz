@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import DualNavbarSell from '../components/DualNavbarSell';
-import { Heart, ShoppingCart, Star, Eye, Truck, Shield } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Eye } from 'lucide-react';
 import { enrichProductsWithCurrency, getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { boostProductsByPlan } from '@/lib/boostProducts';
 import { useCurrency } from '../context/CurrencyContext';
@@ -106,41 +106,6 @@ export default function ForYouPage() {
       <DualNavbarSell />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
-          {/* Header Section */}
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Discover Amazing Products
-            </h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Curated just for you from our sustainable marketplace
-            </p>
-          </div>
-
-          {/* Stats Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mb-4">
-                <Truck className="w-6 h-6 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Fast Delivery</h3>
-              <p className="text-gray-600 text-sm">Free shipping on orders over ₦50,000</p>
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mb-4">
-                <Shield className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Secure Payment</h3>
-              <p className="text-gray-600 text-sm">100% secure payment processing</p>
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mb-4">
-                <Star className="w-6 h-6 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Quality Assured</h3>
-              <p className="text-gray-600 text-sm">Premium products, guaranteed quality</p>
-            </div>
-          </div>
-
           {/* Products Grid */}
           {products.length === 0 ? (
             <div className="text-center py-16">
