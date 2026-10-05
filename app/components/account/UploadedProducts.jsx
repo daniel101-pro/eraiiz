@@ -19,6 +19,17 @@ export default function UploadedProducts({ onTokenError }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const energySources = [
+    { value: 'solar', label: 'Solar Power' },
+    { value: 'wind', label: 'Wind Power' },
+    { value: 'hydro', label: 'Hydroelectric' },
+    { value: 'nuclear', label: 'Nuclear' },
+    { value: 'fossil_fuel', label: 'Local diesel generator' },
+    { value: 'mixed', label: 'Mixed Sources' },
+    { value: 'unknown', label: 'Unknown' },
+  ];
 
   const fetchProducts = async () => {
     try {
@@ -79,10 +90,19 @@ export default function UploadedProducts({ onTokenError }) {
   };
 
   const handleEdit = (product) => {
+    const sustainability = product.sustainability || {};
     setEditingProduct({
       ...product,
       price: getListingPrice(product),
       currency: getProductCurrency(product),
+      sustainability: {
+        ...sustainability,
+        weight: {
+          value: sustainability.weight?.value ?? '',
+          unit: sustainability.weight?.unit || 'kg',
+        },
+        productionEnergySource: sustainability.productionEnergySource || 'unknown',
+      },
     });
   };
 
@@ -91,9 +111,15 @@ export default function UploadedProducts({ onTokenError }) {
     try {
       const listingCurrency = editingProduct.currency || getProductCurrency(editingProduct) || 'NGN';
       const listingPrice = Number(editingProduct.price);
+      const weightValue = Number(editingProduct.sustainability?.weight?.value);
 
       if (!Number.isFinite(listingPrice) || listingPrice <= 0) {
         setError('Please enter a valid price');
+        return;
+      }
+
+      if (!Number.isFinite(weightValue) || weightValue <= 0) {
+        setError('Please enter a valid product weight');
         return;
       }
 
@@ -102,8 +128,35 @@ export default function UploadedProducts({ onTokenError }) {
         return;
       }
 
+      setIsSaving(true);
       const priceNgn = convertPriceExplicit(listingPrice, listingCurrency, 'NGN');
       const token = await getValidAccessToken();
+      const sustainability = {
+        ...(editingProduct.sustainability || {}),
+        listingCurrency,
+        listingPrice,
+        weight: {
+          value: weightValue,
+          unit: editingProduct.sustainability?.weight?.unit || 'kg',
+        },
+        productionEnergySource:
+          editingProduct.sustainability?.productionEnergySource || 'unknown',
+      };
+
+      let carbonFootprint = editingProduct.carbonFootprint || null;
+      try {
+        const cfRes = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/carbon-footprint/calculate`,
+          { sustainabilityData: sustainability },
+          { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 }
+        );
+        if (cfRes.data?.success && cfRes.data?.data?.carbonFootprint) {
+          carbonFootprint = cfRes.data.data.carbonFootprint;
+        }
+      } catch (cfErr) {
+        console.error('Carbon footprint recalculation failed:', cfErr.response?.data || cfErr.message);
+      }
+
       const res = await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${editingProduct._id}`, {
         name: editingProduct.name,
         description: editingProduct.description,
@@ -113,23 +166,46 @@ export default function UploadedProducts({ onTokenError }) {
         listingCurrency,
         category: editingProduct.category,
         status: editingProduct.status,
-        sustainability: {
-          ...(editingProduct.sustainability || {}),
-          listingCurrency,
-          listingPrice,
-        },
+        sustainability,
+        carbonFootprint,
       }, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       setProducts(products.map((p) => p._id === editingProduct._id ? res.data : p));
       setEditingProduct(null);
+      setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update product');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleChange = (e) => {
     setEditingProduct({ ...editingProduct, [e.target.name]: e.target.value });
+  };
+
+  const handleWeightChange = (field, value) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      sustainability: {
+        ...(prev.sustainability || {}),
+        weight: {
+          ...(prev.sustainability?.weight || { value: '', unit: 'kg' }),
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const handleEnergyChange = (value) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      sustainability: {
+        ...(prev.sustainability || {}),
+        productionEnergySource: value,
+      },
+    }));
   };
 
   // Filter and sort products
@@ -375,13 +451,18 @@ export default function UploadedProducts({ onTokenError }) {
       {/* Edit Modal */}
       {editingProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900">Edit Product</h3>
-              <p className="text-sm text-gray-500 mt-1">Update your product information</p>
+              <p className="text-sm text-gray-500 mt-1">Update details, weight, energy source, and carbon footprint</p>
             </div>
             
             <form onSubmit={handleSaveEdit} className="p-6 space-y-5">
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  {error}
+                </p>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
                 <input
@@ -465,13 +546,53 @@ export default function UploadedProducts({ onTokenError }) {
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Weight</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    value={editingProduct.sustainability?.weight?.value ?? ''}
+                    onChange={(e) => handleWeightChange('value', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                  <select
+                    value={editingProduct.sustainability?.weight?.unit || 'kg'}
+                    onChange={(e) => handleWeightChange('unit', e.target.value)}
+                    className="w-24 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Production energy</label>
+                <select
+                  value={editingProduct.sustainability?.productionEnergySource || 'unknown'}
+                  onChange={(e) => handleEnergyChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  {energySources.map((source) => (
+                    <option key={source.value} value={source.value}>{source.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Saving recalculates the carbon footprint from the updated weight and energy source.
+                </p>
+              </div>
               
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  disabled={isSaving}
+                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-60"
                 >
-                  Save Changes
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button
                   type="button"

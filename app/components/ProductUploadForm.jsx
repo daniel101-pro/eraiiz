@@ -146,7 +146,7 @@ const ProductUploadForm = () => {
     { value: 'wind', label: 'Wind Power' },
     { value: 'hydro', label: 'Hydroelectric' },
     { value: 'nuclear', label: 'Nuclear' },
-    { value: 'fossil_fuel', label: 'Fossil Fuel' },
+    { value: 'fossil_fuel', label: 'Local diesel generator' },
     { value: 'mixed', label: 'Mixed Sources' },
     { value: 'unknown', label: 'Unknown' }
   ];
