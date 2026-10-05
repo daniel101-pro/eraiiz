@@ -13,7 +13,6 @@ import {
   verifyCheckout,
 } from '../../services/paymentService';
 import { showError, showSuccess } from '../../utils/toast';
-import { PLATFORM_COMMISSION_PERCENT } from '@/lib/paymentConfig';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 
 export default function PaymentPage() {
@@ -126,13 +125,6 @@ export default function PaymentPage() {
           <h2 className="text-2xl font-semibold mb-6">Pay with Paystack</h2>
 
           <div className="bg-white rounded-lg shadow p-6 space-y-6">
-            <div className="rounded-lg border border-green-100 bg-green-50 p-4">
-              <p className="text-sm text-green-800">
-                Payments are split automatically at checkout. Sellers receive their share directly,
-                and Eraiiz keeps a {PLATFORM_COMMISSION_PERCENT}% platform commission.
-              </p>
-            </div>
-
             <div className="space-y-3">
               <div className="flex justify-between text-gray-700">
                 <span>Items</span>
