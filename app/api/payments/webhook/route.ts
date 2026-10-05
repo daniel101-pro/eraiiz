@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyTransaction, verifyWebhookSignature } from '@/lib/paystack';
 import { getSellerPlan, type SellerPlanId } from '@/lib/sellerPlans';
 import { saveSellerSubscription } from '@/lib/sellerSubscriptionStore';
+import {
+  parsePaystackMetadata,
+  sellerOrdersFromPayment,
+} from '@/lib/marketplaceOrders';
+import { addSellerOrder } from '@/lib/sellerOrderStore';
 
 function planFromMetadata(metadata?: Record<string, unknown>): SellerPlanId | null {
   const planId = metadata?.planId;
@@ -27,9 +32,13 @@ export async function POST(request: NextRequest) {
 
     if (eventType === 'charge.success' && data?.reference) {
       const transaction = await verifyTransaction(data.reference);
-      const planId = planFromMetadata(transaction.metadata);
-      const sellerIds = Array.isArray(transaction.metadata?.sellerIds)
-        ? transaction.metadata.sellerIds.map((id) => String(id))
+      const metadata = parsePaystackMetadata(transaction.metadata);
+      const planId = planFromMetadata(metadata);
+      const sellerIds = Array.isArray(metadata.sellerIds)
+        ? metadata.sellerIds.map((id) => String(id))
+        : [];
+      const sellerEmails = Array.isArray(metadata.sellerEmails)
+        ? metadata.sellerEmails.map((email) => String(email))
         : [];
 
       if (planId && planId !== 'commission' && sellerIds.length > 0) {
@@ -47,6 +56,17 @@ export async function POST(request: NextRequest) {
           },
           sellerIds
         );
+      } else {
+        const orders = sellerOrdersFromPayment({
+          reference: transaction.reference,
+          amountKobo: transaction.amount,
+          paidAt: transaction.paid_at,
+          metadata,
+          customerEmail: transaction.customer?.email,
+        });
+        for (const order of orders) {
+          await addSellerOrder([order.sellerId, ...sellerEmails], order);
+        }
       }
     }
 

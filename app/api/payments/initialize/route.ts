@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateCheckoutInput } from '@/lib/checkout';
+import { buildOrderMetadata } from '@/lib/marketplaceOrders';
 import { initializeTransaction } from '@/lib/paystack';
 import { isPaystackConfigured, paystackPublicKey } from '@/lib/paymentConfig';
 
@@ -31,11 +32,7 @@ export async function POST(request: NextRequest) {
       amountKobo: checkout.amountKobo,
       reference: checkout.reference,
       callbackUrl,
-      metadata: {
-        buyerEmail: checkout.email,
-        itemCount: checkout.items.length,
-        sellerCount: checkout.sellerSplits.length,
-      },
+      metadata: buildOrderMetadata(checkout),
       subaccount: checkout.splitSubaccounts.length === 1 ? checkout.subaccount : undefined,
       splitSubaccounts: checkout.splitSubaccounts,
     });

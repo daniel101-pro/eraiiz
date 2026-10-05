@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { expandIdentityKeys } from '@/lib/accountIdentity';
+import { sellerOrdersFromPaystack } from '@/lib/marketplaceOrders';
 import { getSellerOrders } from '@/lib/sellerOrderStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
@@ -13,7 +14,15 @@ export async function GET(request: NextRequest) {
 
   const keys = await expandIdentityKeys(authHeader);
   const keySet = new Set(keys);
-  const sellerOrders = await getSellerOrders(keys);
+  const storedOrders = await getSellerOrders(keys);
+  const fromPaystack = await sellerOrdersFromPaystack(keys).catch(() => []);
+  const sellerOrders = [...storedOrders];
+  const seen = new Set(storedOrders.map((order) => order._id));
+  for (const order of fromPaystack) {
+    if (seen.has(order._id)) continue;
+    sellerOrders.push(order);
+    seen.add(order._id);
+  }
 
   let purchases: Array<Record<string, unknown>> = [];
   try {

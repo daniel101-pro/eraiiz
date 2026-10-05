@@ -41,6 +41,7 @@ export interface CheckoutBilling {
 
 export interface SellerSplit {
   sellerId: string;
+  email?: string;
   subaccountCode: string;
   subtotal: number;
   sellerShare: number;
@@ -185,6 +186,7 @@ export async function validateCheckoutInput(input: {
 
       return {
         sellerId: seller.sellerId,
+        email: seller.email,
         subaccountCode: seller.paystackSubaccountCode!,
         subtotal,
         sellerShare,

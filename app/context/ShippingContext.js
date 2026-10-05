@@ -122,29 +122,12 @@ export const ShippingProvider = ({ children }) => {
 
   // ===== FETCH METHODS =====
 
-  const fetchShipments = async (page = 1, customFilters = {}) => {
+  const fetchShipments = async (page = 1) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const params = {
-        page,
-        limit: pagination.limit,
-        ...filters,
-        ...customFilters
-      };
-
-      let nextShipments = [];
-      try {
-        const response = await shippingService.getShipments(params);
-        nextShipments = response.shipments || [];
-      } catch (error) {
-        console.error('Failed to fetch shipments from shipping API:', error);
-      }
-
-      if (!nextShipments.length) {
-        nextShipments = await fetchLocalSellerOrders();
-      }
+      const nextShipments = await fetchLocalSellerOrders();
 
       setShipments(nextShipments);
       setPagination(responsePagination(nextShipments, page));

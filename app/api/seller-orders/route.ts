@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { expandIdentityKeys } from '@/lib/accountIdentity';
+import { sellerOrdersFromPaystack } from '@/lib/marketplaceOrders';
 import {
   addSellerOrder,
   getSellerOrders,
@@ -110,8 +111,25 @@ export async function GET(request: NextRequest) {
 
   const keys = await expandIdentityKeys(authHeader);
   const stored = await getSellerOrders(keys);
+  const storedIds = new Set(stored.map((order) => order._id));
+  const fromPaystack = await sellerOrdersFromPaystack(keys).catch((error) => {
+    console.error('Failed to recover seller orders from Paystack', error);
+    return [] as SellerOrder[];
+  });
+
+  for (const order of fromPaystack) {
+    if (storedIds.has(order._id)) continue;
+    try {
+      await addSellerOrder([order.sellerId, ...keys], order);
+      storedIds.add(order._id);
+    } catch (error) {
+      console.error('Failed to persist recovered seller order', error);
+    }
+  }
+
   const fromBackend = await backendSellerOrders(authHeader, keys);
-  const orders = mergeOrders(stored, fromBackend);
+  const freshStored = await getSellerOrders(keys);
+  const orders = mergeOrders(freshStored, fromPaystack, fromBackend);
 
   return NextResponse.json({ orders });
 }

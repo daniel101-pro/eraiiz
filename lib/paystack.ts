@@ -86,11 +86,15 @@ export interface VerifiedTransaction {
   amount: number;
   currency: string;
   paid_at?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | string | null;
   customer?: {
     email?: string;
     customer_code?: string;
   };
+  subaccount?: string | { subaccount_code?: string } | null;
+  split?: {
+    subaccounts?: Array<string | { subaccount?: string; subaccount_code?: string }>;
+  } | null;
   plan?: string | { plan_code?: string; name?: string } | null;
 }
 
@@ -266,6 +270,26 @@ export async function verifyTransaction(
   return paystackRequest<VerifiedTransaction>(
     `/transaction/verify/${encodeURIComponent(reference)}`
   );
+}
+
+export async function listTransactions(
+  params: { status?: string; perPage?: number; maxPages?: number } = {}
+): Promise<VerifiedTransaction[]> {
+  const results: VerifiedTransaction[] = [];
+  const perPage = params.perPage || 50;
+  const status = params.status || 'success';
+  const maxPages = params.maxPages || 6;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const batch = await paystackRequest<VerifiedTransaction[]>(
+      `/transaction?status=${encodeURIComponent(status)}&perPage=${perPage}&page=${page}`
+    );
+    const items = Array.isArray(batch) ? batch : [];
+    results.push(...items);
+    if (items.length < perPage) break;
+  }
+
+  return results;
 }
 
 export function verifyWebhookSignature(
