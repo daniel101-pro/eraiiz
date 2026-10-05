@@ -4,10 +4,24 @@ import { expandIdentityKeys } from '@/lib/accountIdentity';
 import { sellerOrdersFromPaystack } from '@/lib/marketplaceOrders';
 import {
   addSellerOrder,
+  getOrderById,
   getSellerOrders,
   updateSellerOrder,
   type SellerOrder,
 } from '@/lib/sellerOrderStore';
+import {
+  appendTimeline,
+  deliveredEvent,
+  shippedEvent,
+  verifyTrackingNumber,
+} from '@/lib/tracking';
+import { addInboxNotification } from '@/lib/orderInboxStore';
+import {
+  sendBuyerDeliveredEmail,
+  sendBuyerShippedEmail,
+  sendSellerDeliveredEmail,
+  sendSellerShippedEmail,
+} from '@/lib/orderEmails';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -193,10 +207,119 @@ export async function PATCH(request: NextRequest) {
   }
 
   const keys = await expandIdentityKeys(authHeader);
-  const updated = await updateSellerOrder(keys, id, {
-    ...(status ? { status } : {}),
-    ...(body.trackingNumber ? { trackingNumber: String(body.trackingNumber) } : {}),
-    ...(body.courierName ? { courierName: String(body.courierName) } : {}),
-  });
-  return NextResponse.json(updated || { _id: id, status });
+  const current = await getOrderById(id);
+  if (!current) {
+    return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+  }
+
+  const patch: Partial<SellerOrder> = {};
+
+  if (status === 'shipped') {
+    if (!String(body.courierName || '').trim()) {
+      return NextResponse.json({ message: 'Choose a courier' }, { status: 400 });
+    }
+    const verified = verifyTrackingNumber(String(body.trackingNumber || ''), String(body.courierName || ''));
+    if (!verified.ok) {
+      return NextResponse.json({ message: verified.message }, { status: 400 });
+    }
+    const shippedAt = new Date().toISOString();
+    patch.status = 'shipped';
+    patch.trackingNumber = verified.trackingNumber;
+    patch.courierName = verified.courierName;
+    patch.shippedAt = shippedAt;
+    patch.timeline = appendTimeline(
+      current.timeline,
+      shippedEvent({
+        trackingNumber: verified.trackingNumber,
+        courierName: verified.courierName,
+        at: shippedAt,
+      })
+    );
+  } else if (status === 'delivered') {
+    if (current.status !== 'shipped' && current.status !== 'delivered') {
+      return NextResponse.json({ message: 'Ship this order with a tracking number first' }, { status: 400 });
+    }
+    const deliveredAt = new Date().toISOString();
+    patch.status = 'delivered';
+    patch.deliveredAt = deliveredAt;
+    patch.timeline = appendTimeline(current.timeline, deliveredEvent(deliveredAt));
+  } else if (status) {
+    patch.status = status;
+  }
+
+  const updated = await updateSellerOrder(keys, id, patch);
+  if (!updated) {
+    return NextResponse.json({ message: 'You cannot update this order' }, { status: 403 });
+  }
+
+  const origin = request.nextUrl.origin;
+  const productItems = updated.items || [];
+  const sellerEmail = keys.find((key) => key.includes('@'));
+
+  try {
+    if (updated.status === 'shipped' && status === 'shipped') {
+      await addInboxNotification([updated.buyer?.email], {
+        _id: `inbox_shipped_${updated.reference}_${updated.sellerId}`,
+        type: 'order',
+        title: 'Seller shipped',
+        message: `Your order is on the way. Tracking: ${updated.trackingNumber}`,
+        read: false,
+        createdAt: new Date().toISOString(),
+        link: '/account?section=Orders',
+        data: { paymentReference: updated.reference, trackingNumber: updated.trackingNumber },
+      });
+      await Promise.all([
+        sendBuyerShippedEmail({
+          to: updated.buyer?.email,
+          name: updated.buyer?.name,
+          items: productItems,
+          reference: updated.reference,
+          trackingNumber: updated.trackingNumber || '',
+          courierName: updated.courierName || 'Courier',
+          origin,
+        }),
+        sendSellerShippedEmail({
+          to: sellerEmail,
+          items: productItems,
+          reference: updated.reference,
+          trackingNumber: updated.trackingNumber || '',
+          courierName: updated.courierName || 'Courier',
+          buyerName: updated.buyer?.name,
+          origin,
+        }),
+      ]);
+    }
+
+    if (updated.status === 'delivered' && status === 'delivered') {
+      await addInboxNotification([updated.buyer?.email], {
+        _id: `inbox_delivered_${updated.reference}_${updated.sellerId}`,
+        type: 'order',
+        title: 'Order delivered',
+        message: 'The seller marked your order as delivered.',
+        read: false,
+        createdAt: new Date().toISOString(),
+        link: '/account?section=Orders',
+        data: { paymentReference: updated.reference },
+      });
+      await Promise.all([
+        sendBuyerDeliveredEmail({
+          to: updated.buyer?.email,
+          name: updated.buyer?.name,
+          items: productItems,
+          reference: updated.reference,
+          origin,
+        }),
+        sendSellerDeliveredEmail({
+          to: sellerEmail,
+          items: productItems,
+          reference: updated.reference,
+          origin,
+        }),
+      ]);
+    }
+  } catch (error) {
+    console.error('Failed to send shipping update emails', error);
+  }
+
+  return NextResponse.json(updated);
 }

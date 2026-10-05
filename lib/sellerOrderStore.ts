@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { initialTimeline, type TrackingEvent } from '@/lib/tracking';
 
 export interface SellerOrderItem {
   productId?: string;
@@ -16,8 +17,11 @@ export interface SellerOrder {
   reference: string;
   status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
   createdAt: string;
+  shippedAt?: string;
+  deliveredAt?: string;
   trackingNumber?: string;
   courierName?: string;
+  timeline?: TrackingEvent[];
   buyer: {
     name: string;
     email: string;
@@ -70,16 +74,20 @@ export async function addSellerOrder(
   sellerKeys: Array<string | null | undefined>,
   order: SellerOrder
 ) {
-  const keys = uniqueIds(sellerKeys);
-  if (keys.length === 0) return order;
+  const withTimeline: SellerOrder = {
+    ...order,
+    timeline: order.timeline?.length ? order.timeline : initialTimeline(order.createdAt),
+  };
+  const keys = uniqueIds([...sellerKeys, withTimeline.buyer?.email ? `buyer:${withTimeline.buyer.email}` : '']);
+  if (keys.length === 0) return withTimeline;
 
   const store = await readStore();
   for (const key of keys) {
     const existing = store[key] || [];
-    store[key] = [order, ...existing.filter((item) => item._id !== order._id)].slice(0, 200);
+    store[key] = [withTimeline, ...existing.filter((item) => item._id !== withTimeline._id)].slice(0, 200);
   }
   await writeStore(store);
-  return order;
+  return withTimeline;
 }
 
 export async function getSellerOrders(sellerKeys: Array<string | null | undefined>) {
@@ -98,21 +106,72 @@ export async function getSellerOrders(sellerKeys: Array<string | null | undefine
   );
 }
 
+export async function getBuyerOrders(buyerKeys: Array<string | null | undefined>) {
+  const keys = uniqueIds(buyerKeys);
+  const emails = keys.filter((key) => key.includes('@'));
+  const store = await readStore();
+  const merged = new Map<string, SellerOrder>();
+  const emailSet = new Set(emails);
+
+  for (const email of emails) {
+    for (const item of store[`buyer:${email}`] || []) {
+      merged.set(item._id, item);
+    }
+  }
+
+  for (const list of Object.values(store)) {
+    for (const item of list || []) {
+      if (emailSet.has(normalizeKey(item.buyer?.email || ''))) {
+        merged.set(item._id, item);
+      }
+    }
+  }
+
+  return [...merged.values()].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+export async function getOrderById(orderId: string) {
+  const store = await readStore();
+  for (const list of Object.values(store)) {
+    const match = (list || []).find((item) => item._id === orderId);
+    if (match) return match;
+  }
+  return null;
+}
+
 export async function updateSellerOrder(
   sellerKeys: Array<string | null | undefined>,
   orderId: string,
-  patch: Partial<Pick<SellerOrder, 'status' | 'trackingNumber' | 'courierName'>>
+  patch: Partial<
+    Pick<
+      SellerOrder,
+      'status' | 'trackingNumber' | 'courierName' | 'timeline' | 'shippedAt' | 'deliveredAt'
+    >
+  >
 ) {
   const keys = uniqueIds(sellerKeys);
+  const keySet = new Set(keys);
   const store = await readStore();
-  let updated: SellerOrder | null = null;
+  const current = await getOrderById(orderId);
+  if (!current) return null;
 
-  for (const key of keys) {
-    store[key] = (store[key] || []).map((item) => {
-      if (item._id !== orderId) return item;
-      updated = { ...item, ...patch };
-      return updated;
-    });
+  const owned =
+    keySet.has(normalizeKey(current.sellerId)) ||
+    keys.some((key) => (store[key] || []).some((item) => item._id === orderId));
+  if (!owned) return null;
+
+  const updated: SellerOrder = { ...current, ...patch };
+
+  for (const key of Object.keys(store)) {
+    store[key] = (store[key] || []).map((item) => (item._id === orderId ? updated : item));
+  }
+
+  const indexKeys = uniqueIds([updated.sellerId, updated.buyer?.email ? `buyer:${updated.buyer.email}` : '']);
+  for (const key of indexKeys) {
+    const existing = store[key] || [];
+    store[key] = [updated, ...existing.filter((item) => item._id !== orderId)].slice(0, 200);
   }
 
   await writeStore(store);

@@ -16,6 +16,8 @@ import {
 } from '@/lib/sellerSaleNotify';
 import { addInboxNotification } from '@/lib/orderInboxStore';
 import { addSellerOrder } from '@/lib/sellerOrderStore';
+import { initialTimeline } from '@/lib/tracking';
+import { sendBuyerOrderConfirmedEmail } from '@/lib/orderEmails';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -301,6 +303,17 @@ async function notifyBuyerOfOrder(input: {
     console.error('Failed to store buyer inbox notification', error);
   }
 
+  try {
+    await sendBuyerOrderConfirmedEmail({
+      to: input.billing?.email,
+      name: input.billing?.fullName,
+      items: input.items,
+      reference: input.reference,
+    });
+  } catch (error) {
+    console.error('Failed to email buyer order confirmation', error);
+  }
+
   if (!input.authHeader) return;
 
   try {
@@ -389,6 +402,7 @@ async function notifySellersOfOrder(input: {
         })),
         quantity,
         amountNgn,
+        timeline: initialTimeline(),
       });
     } catch (error) {
       console.error(`Failed to store seller order for ${sellerId}`, error);

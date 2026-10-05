@@ -44,6 +44,7 @@ function toShipment(order) {
     },
     status: order.status === 'pending' ? 'pending' : order.status,
     courierName: order.courierName || '',
+    timeline: order.timeline || [],
     createdAt: order.createdAt,
     items,
     quantity,

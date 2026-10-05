@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { refreshAccessToken, decodeToken } from '../../utils/auth';
-import { Package, Clock, Truck, CheckCircle, XCircle, Plus, Filter, Wifi, WifiOff } from 'lucide-react';
+import { Package, Clock, Truck, CheckCircle, XCircle, Plus, Wifi, WifiOff } from 'lucide-react';
+import OrderTrackingModal from './OrderTrackingModal';
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [trackingOrder, setTrackingOrder] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -102,60 +104,52 @@ export default function Orders() {
         return;
       }
 
-      console.log('Fetching orders with token:', token.substring(0, 20) + '...');
+      const localRes = await fetch('/api/buyer-orders', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (localRes.ok) {
+        const payload = await localRes.json();
+        setOrders(Array.isArray(payload.orders) ? payload.orders : []);
+        return;
+      }
+
       const res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/orders', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         credentials: 'include',
       });
 
-      console.log('Orders response status:', res.status);
-      console.log('Orders response headers:', res.headers);
-
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error('Orders error response:', errorText);
-        
         if (res.status === 401) {
-          try {
-            const newToken = await refreshAccessToken();
-            const retryRes = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/orders', {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${newToken}`,
-              },
-              credentials: 'include',
-            });
-            if (!retryRes.ok) {
-              const retryErrorText = await retryRes.text();
-              console.error('Retry orders error response:', retryErrorText);
-              throw new Error('Failed to fetch orders after token refresh');
-            }
-            const data = await retryRes.json();
-            setOrders(data);
-          } catch (refreshErr) {
-            console.error('Token refresh error:', refreshErr);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
-            return;
-          }
-        } else {
-          throw new Error(`Failed to fetch orders: ${res.status} ${errorText}`);
+          const newToken = await refreshAccessToken();
+          const retryRes = await fetch('/api/buyer-orders', {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${newToken}`,
+            },
+          });
+          if (!retryRes.ok) throw new Error('Failed to fetch orders after token refresh');
+          const retryData = await retryRes.json();
+          setOrders(Array.isArray(retryData.orders) ? retryData.orders : []);
+          return;
         }
+        const errorText = await res.text();
+        throw new Error(`Failed to fetch orders: ${res.status} ${errorText}`);
       }
 
       const data = await res.json();
-      console.log('Orders data received:', data);
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Orders fetch error:', err);
       setError(err.message);
-      setOrders([]); // Set empty array on error instead of showing fake data
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -175,14 +169,14 @@ export default function Orders() {
 
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'Pending':
+    switch (String(status || '').toLowerCase()) {
+      case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Shipped':
+      case 'shipped':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Delivered':
+      case 'delivered':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'Cancelled':
+      case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -190,18 +184,27 @@ export default function Orders() {
   };
 
   const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Pending':
+    switch (String(status || '').toLowerCase()) {
+      case 'pending':
         return <Clock className="w-3 h-3 md:w-4 md:h-4" />;
-      case 'Shipped':
+      case 'shipped':
         return <Truck className="w-3 h-3 md:w-4 md:h-4" />;
-      case 'Delivered':
+      case 'delivered':
         return <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />;
-      case 'Cancelled':
+      case 'cancelled':
         return <XCircle className="w-3 h-3 md:w-4 md:h-4" />;
       default:
         return null;
     }
+  };
+
+  const statusLabel = (status) => {
+    const value = String(status || 'pending').toLowerCase();
+    if (value === 'pending') return 'Seller has not shipped';
+    if (value === 'shipped') return 'Seller shipped';
+    if (value === 'delivered') return 'Delivered';
+    if (value === 'cancelled') return 'Cancelled';
+    return status;
   };
 
   const getConnectionStatusIcon = () => {
@@ -233,9 +236,9 @@ export default function Orders() {
     }
   };
 
-  const filteredOrders = selectedFilter === 'all' 
-    ? orders 
-    : orders.filter(order => order.status === selectedFilter);
+  const filteredOrders = selectedFilter === 'all'
+    ? orders
+    : orders.filter((order) => String(order.status || '').toLowerCase() === selectedFilter);
 
   if (isLoading) {
     return (
@@ -320,11 +323,11 @@ export default function Orders() {
           <div className="flex gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
             {[
               { key: 'all', label: 'All', count: orders.length },
-              { key: 'Pending', label: 'Pending', count: orders.filter(o => o.status === 'Pending').length },
-              { key: 'Shipped', label: 'Shipped', count: orders.filter(o => o.status === 'Shipped').length },
-              { key: 'Delivered', label: 'Delivered', count: orders.filter(o => o.status === 'Delivered').length },
-              { key: 'Cancelled', label: 'Cancelled', count: orders.filter(o => o.status === 'Cancelled').length }
-            ].map(tab => (
+              { key: 'pending', label: 'To ship', count: orders.filter((order) => String(order.status).toLowerCase() === 'pending').length },
+              { key: 'shipped', label: 'Shipped', count: orders.filter((order) => String(order.status).toLowerCase() === 'shipped').length },
+              { key: 'delivered', label: 'Delivered', count: orders.filter((order) => String(order.status).toLowerCase() === 'delivered').length },
+              { key: 'cancelled', label: 'Cancelled', count: orders.filter((order) => String(order.status).toLowerCase() === 'cancelled').length },
+            ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setSelectedFilter(tab.key)}
@@ -385,7 +388,7 @@ export default function Orders() {
                 </div>
                 <div className="text-right">
                   <p className="text-lg md:text-xl font-bold text-gray-900">
-                    ₦{order.price.toLocaleString()}
+                    ₦{Number(order.price || 0).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -394,7 +397,7 @@ export default function Orders() {
                 <div className="flex items-center space-x-3">
                   <span className={`inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium border ${getStatusColor(order.status)}`}>
                     {getStatusIcon(order.status)}
-                    <span className="ml-2">{order.status}</span>
+                    <span className="ml-2">{statusLabel(order.status)}</span>
                   </span>
                   {isConnected && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -404,11 +407,14 @@ export default function Orders() {
                   )}
                 </div>
                 
-                <div className="flex items-center space-x-3">
-                  <span className="text-xs md:text-sm text-gray-500">
-                    Status: <span className="font-medium text-gray-700">{order.status}</span>
-                  </span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setTrackingOrder(order)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-900 text-sm font-medium rounded-lg hover:bg-gray-50"
+                >
+                  <Truck className="w-4 h-4" />
+                  Track
+                </button>
               </div>
             </div>
           ))}
@@ -427,23 +433,26 @@ export default function Orders() {
             <div>
               <p className="text-xs md:text-sm text-gray-500">Total Value</p>
               <p className="text-lg md:text-2xl font-bold text-gray-900">
-                ₦{filteredOrders.reduce((sum, order) => sum + order.price, 0).toLocaleString()}
+                ₦{filteredOrders.reduce((sum, order) => sum + Number(order.price || 0), 0).toLocaleString()}
               </p>
             </div>
             <div>
               <p className="text-xs md:text-sm text-gray-500">Pending</p>
               <p className="text-lg md:text-2xl font-bold text-yellow-600">
-                {filteredOrders.filter(order => order.status === 'Pending').length}
+                {filteredOrders.filter((order) => String(order.status).toLowerCase() === 'pending').length}
               </p>
             </div>
             <div>
               <p className="text-xs md:text-sm text-gray-500">Delivered</p>
               <p className="text-lg md:text-2xl font-bold text-green-600">
-                {filteredOrders.filter(order => order.status === 'Delivered').length}
+                {filteredOrders.filter((order) => String(order.status).toLowerCase() === 'delivered').length}
               </p>
             </div>
           </div>
         </div>
+      )}
+      {trackingOrder && (
+        <OrderTrackingModal order={trackingOrder} onClose={() => setTrackingOrder(null)} />
       )}
     </div>
   );

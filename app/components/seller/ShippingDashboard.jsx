@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShipping } from '../../context/ShippingContext';
 import { showSuccess, showError } from '../../utils/toast';
+import { COURIERS, verifyTrackingNumber } from '@/lib/tracking';
 import {
   Package,
   Truck,
@@ -57,7 +58,7 @@ export default function ShippingDashboard({ sellerId }) {
 
   const [tab, setTab] = useState('pending');
   const [updatingId, setUpdatingId] = useState('');
-  const [shipForm, setShipForm] = useState({ id: '', trackingNumber: '', courierName: '' });
+  const [shipForms, setShipForms] = useState({});
 
   useEffect(() => {
     fetchShipments(1, { sellerId });
@@ -78,16 +79,39 @@ export default function ShippingDashboard({ sellerId }) {
     return item.status === 'pending' || item.status === 'confirmed';
   });
 
+  const formFor = (id) => shipForms[id] || { trackingNumber: '', courierName: '' };
+
+  const setFormField = (id, field, value) => {
+    setShipForms((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || { trackingNumber: '', courierName: '' }),
+        [field]: value,
+      },
+    }));
+  };
+
   const updateStatus = async (shipment, status, extra = {}) => {
     try {
       setUpdatingId(shipment._id);
+      if (status === 'shipped') {
+        const verified = verifyTrackingNumber(extra.trackingNumber, extra.courierName);
+        if (!verified.ok) {
+          showError(verified.message);
+          return;
+        }
+        extra = {
+          trackingNumber: verified.trackingNumber,
+          courierName: verified.courierId,
+        };
+      }
       await markOrderStatus(shipment._id, status, extra);
-      setShipForm({ id: '', trackingNumber: '', courierName: '' });
+      setShipForms((prev) => ({ ...prev, [shipment._id]: { trackingNumber: '', courierName: '' } }));
       showSuccess(
         status === 'shipped'
-          ? 'Marked as shipped'
+          ? 'Shipped. Buyer can now track this order.'
           : status === 'delivered'
-            ? 'Marked as delivered'
+            ? 'Marked as delivered. Buyer was emailed.'
             : 'Order updated'
       );
     } catch (error) {
@@ -177,12 +201,11 @@ export default function ShippingDashboard({ sellerId }) {
             const email = shipment.buyerId?.email;
             const lines = addressLines(shipment);
             const busy = updatingId === shipment._id;
-            const shipping = shipForm.id === shipment._id;
 
             return (
               <div
                 key={shipment._id}
-                className="bg-white rounded-2xl border border-gray-200 p-4 md:p-6 shadow-sm md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_200px] md:gap-6 md:items-start"
+                className="bg-white rounded-2xl border border-gray-200 p-4 md:p-6 shadow-sm md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(220px,240px)] md:gap-6 md:items-start"
               >
                 <div className="flex items-start justify-between gap-3 mb-4 md:mb-0 md:block">
                   <div>
@@ -264,60 +287,41 @@ export default function ShippingDashboard({ sellerId }) {
 
                 <div className="mt-4 md:mt-0">
                   {shipment.status === 'pending' && (
-                    <div className="space-y-3">
-                      {shipping ? (
-                        <div className="space-y-2">
-                          <input
-                            value={shipForm.courierName}
-                            onChange={(event) =>
-                              setShipForm((prev) => ({ ...prev, courierName: event.target.value }))
-                            }
-                            placeholder="Courier (optional)"
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
-                          />
-                          <input
-                            value={shipForm.trackingNumber}
-                            onChange={(event) =>
-                              setShipForm((prev) => ({ ...prev, trackingNumber: event.target.value }))
-                            }
-                            placeholder="Tracking number (optional)"
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
-                          />
-                          <div className="flex flex-col gap-2">
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() =>
-                                updateStatus(shipment, 'shipped', {
-                                  trackingNumber: shipForm.trackingNumber,
-                                  courierName: shipForm.courierName,
-                                })
-                              }
-                              className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60"
-                            >
-                              {busy ? 'Saving...' : 'Confirm shipped'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShipForm({ id: '', trackingNumber: '', courierName: '' })}
-                              className="w-full px-4 py-2 text-sm border border-gray-200 rounded-lg"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            setShipForm({ id: shipment._id, trackingNumber: '', courierName: '' })
-                          }
-                          className="w-full px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60"
-                        >
-                          Mark as shipped
-                        </button>
-                      )}
+                    <div className="space-y-2">
+                      <select
+                        value={formFor(shipment._id).courierName}
+                        onChange={(event) => setFormField(shipment._id, 'courierName', event.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                      >
+                        <option value="">Courier</option>
+                        {COURIERS.map((courier) => (
+                          <option key={courier.id} value={courier.id}>
+                            {courier.label}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={formFor(shipment._id).trackingNumber}
+                        onChange={(event) => setFormField(shipment._id, 'trackingNumber', event.target.value)}
+                        placeholder="Tracking number"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Required. The buyer will see this under Track.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={busy || !formFor(shipment._id).trackingNumber || !formFor(shipment._id).courierName}
+                        onClick={() =>
+                          updateStatus(shipment, 'shipped', {
+                            trackingNumber: formFor(shipment._id).trackingNumber,
+                            courierName: formFor(shipment._id).courierName,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60"
+                      >
+                        {busy ? 'Verifying...' : 'Verify & mark shipped'}
+                      </button>
                     </div>
                   )}
 
