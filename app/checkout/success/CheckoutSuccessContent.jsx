@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import { useCheckout } from '../../context/CheckoutContext';
 import { verifyCheckout } from '../../services/paymentService';
-import { showError } from '../../utils/toast';
+import { showError, showSuccess } from '../../utils/toast';
 
 export default function CheckoutSuccessContent() {
   const router = useRouter();
@@ -32,6 +32,7 @@ export default function CheckoutSuccessContent() {
 
     if (presetStatus === 'success') {
       setStatus('success');
+      showSuccess('Your order is confirmed');
       clearCheckout();
       sessionStorage.removeItem('eraiiz_last_checkout_items');
       return;
@@ -48,6 +49,7 @@ export default function CheckoutSuccessContent() {
       .then((result) => {
         setAmount(result.payment?.amountNgn ?? null);
         setStatus('success');
+        showSuccess('Your order is confirmed');
         clearCheckout();
         sessionStorage.removeItem('eraiiz_last_checkout_items');
       })

@@ -253,6 +253,46 @@ export async function createBackendOrders(input: {
       console.error('Failed to create backend order for item', item._id, error);
     }
   }
+
+  await notifyBuyerOfOrder(input);
+}
+
+async function notifyBuyerOfOrder(input: {
+  items: CheckoutCartItem[];
+  reference: string;
+  authHeader?: string;
+}) {
+  if (!input.authHeader) return;
+
+  const names = input.items.map((item) => item.name).filter(Boolean);
+  const summary =
+    names.length === 1 ? names[0] : names.length > 1 ? `${names.length} items` : 'your order';
+
+  try {
+    await axios.post(
+      `${API_URL}/api/notifications`,
+      {
+        type: 'order',
+        title: 'Order confirmed',
+        message: `Your order for ${summary} is confirmed. You can track it from Orders.`,
+        content: `Your order for ${summary} is confirmed. You can track it from Orders.`,
+        read: false,
+        data: {
+          paymentReference: input.reference,
+          itemCount: input.items.length,
+        },
+      },
+      {
+        headers: {
+          Authorization: input.authHeader,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+  } catch (error) {
+    console.error('Failed to create order notification', error);
+  }
 }
 
 export function summarizeVerifiedPayment(transaction: {
