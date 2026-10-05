@@ -115,8 +115,7 @@ export default function PayoutSetup({ user }) {
         Paystack Payout Setup
       </h2>
       <p className="text-sm text-gray-600 mb-6">
-        Connect the corporate bank account where your marketplace earnings should be settled.
-        Paystack will split each sale automatically and send your share directly to this account.
+        Connect the bank account where your earnings should be paid.
       </p>
 
       {existing?.subaccountCode ? (
@@ -125,15 +124,20 @@ export default function PayoutSetup({ user }) {
             <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
             <div>
               <p className="font-medium text-green-900">Payout account connected</p>
-              <p className="text-sm text-green-800 mt-1">
-                {existing.businessName} · {existing.accountName}
-              </p>
-              <p className="text-sm text-green-800">
-                Account ending in {String(existing.accountNumber).slice(-4)}
-              </p>
-              <p className="text-xs text-green-700 mt-2">
-                Subaccount: {existing.subaccountCode}
-              </p>
+              {existing.businessName || existing.accountName ? (
+                <p className="text-sm text-green-800 mt-1">
+                  {[existing.businessName, existing.accountName].filter(Boolean).join(' · ')}
+                </p>
+              ) : null}
+              {existing.accountNumber ? (
+                <p className="text-sm text-green-800">
+                  Account ending in {String(existing.accountNumber).slice(-4)}
+                </p>
+              ) : (
+                <p className="text-sm text-green-800 mt-1">
+                  Your bank account is connected and ready for payouts.
+                </p>
+              )}
             </div>
           </div>
         </div>

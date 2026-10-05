@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
       amount: checkout.amountNgn,
       amountKobo: checkout.amountKobo,
       email: checkout.email,
-      sellerSplits: checkout.sellerSplits,
     });
   } catch (error) {
     const message =
