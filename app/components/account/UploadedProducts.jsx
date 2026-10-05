@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import Image from 'next/image';
-import { Edit2, Trash2, Eye, DollarSign, Package, Calendar, MoreVertical, Search } from 'lucide-react';
+import { Edit2, Trash2, Eye, Package, Calendar, MoreVertical, Search } from 'lucide-react';
 import { useCurrency } from '../../context/CurrencyContext';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 
 export default function UploadedProducts({ onTokenError }) {
-  const { getCurrencyInfo, convertPriceExplicit, exchangeRates } = useCurrency();
+  const { convertPriceExplicit, exchangeRates, formatPrice } = useCurrency();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -312,11 +312,8 @@ export default function UploadedProducts({ onTokenError }) {
 
                   {/* Price and Reviews in same line (ProductCard layout) */}
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center text-green-600">
-                      <DollarSign className="w-4 h-4" />
-                      <span className="font-bold text-lg">
-                        {getCurrencyInfo(getProductCurrency(product)).symbol}{getListingPrice(product).toLocaleString()}
-                      </span>
+                    <div className="text-green-600 font-bold text-lg">
+                      {formatPrice(getListingPrice(product), getProductCurrency(product))}
                     </div>
                     <div className="text-gray-500 text-xs">
                       {product.totalReviews || '0'} reviews
