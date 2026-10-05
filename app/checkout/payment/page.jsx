@@ -89,12 +89,21 @@ export default function PaymentPage() {
               billing,
             });
 
+            const orderReference = transaction.reference || initialized.reference;
+            sessionStorage.setItem(
+              'eraiiz_last_order',
+              JSON.stringify({
+                billing,
+                items: payloadItems,
+                reference: orderReference,
+                amount: initialized.amount,
+              })
+            );
+
             clearCart();
             clearCheckout();
-            showSuccess('Payment successful');
-            router.push(
-              `/checkout/success?reference=${transaction.reference || initialized.reference}&status=success`
-            );
+            sessionStorage.removeItem('eraiiz_last_checkout_items');
+            router.push(`/checkout/success?reference=${orderReference}&status=success`);
           } catch (error) {
             showError(error.message || 'Payment verification failed');
           } finally {
