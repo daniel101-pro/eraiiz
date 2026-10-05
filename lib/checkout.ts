@@ -353,7 +353,7 @@ async function notifySellersOfOrder(input: {
 
     const seller = await fetchSellerSubaccount(sellerId, input.authHeader);
     const amountNgn = items.reduce(
-      (sum, item) => sum + convertToNgn(item.price * (item.quantity || 1), item.currency || 'NGN'),
+      (sum, item) => sum + Number(item.price || 0) * (item.quantity || 1),
       0
     );
 

@@ -46,8 +46,6 @@ async function fetchLocalSellerOrders() {
   return Array.isArray(data.orders) ? data.orders.map(toShipment) : [];
 }
 
-const ShippingContext = createContext();
-
 export const useShipping = () => {
   const context = useContext(ShippingContext);
   if (!context) {
