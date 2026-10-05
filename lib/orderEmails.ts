@@ -1,4 +1,4 @@
-import { appOrigin } from '@/lib/sellerSaleNotify';
+import { appOrigin } from '@/lib/appUrl';
 import { sendEraiizEmail, escapeHtml } from '@/lib/email';
 
 function productLine(items: Array<{ name?: string; quantity?: number }>) {
@@ -28,6 +28,7 @@ export async function sendBuyerOrderConfirmedEmail(input: {
   const greeting = input.name ? `Hi ${input.name},` : 'Hi,';
   await sendEraiizEmail({
     to: input.to,
+    idempotencyKey: `buyer-confirmed:${input.reference}:${input.to || ''}`,
     subject: `Your Eraiiz order is confirmed`,
     text: [
       greeting,
@@ -62,6 +63,7 @@ export async function sendBuyerShippedEmail(input: {
   const greeting = input.name ? `Hi ${input.name},` : 'Hi,';
   await sendEraiizEmail({
     to: input.to,
+    idempotencyKey: `buyer-shipped:${input.reference}:${input.to || ''}`,
     subject: `Your Eraiiz order is on the way`,
     text: [
       greeting,
@@ -96,6 +98,7 @@ export async function sendBuyerDeliveredEmail(input: {
   const greeting = input.name ? `Hi ${input.name},` : 'Hi,';
   await sendEraiizEmail({
     to: input.to,
+    idempotencyKey: `buyer-delivered:${input.reference}:${input.to || ''}`,
     subject: `Your Eraiiz order was delivered`,
     text: [
       greeting,
@@ -127,6 +130,7 @@ export async function sendSellerShippedEmail(input: {
   const shippingUrl = `${appOrigin(input.origin)}/account?section=Shipping`;
   await sendEraiizEmail({
     to: input.to,
+    idempotencyKey: `seller-shipped:${input.reference}:${input.to || ''}`,
     subject: `You shipped an Eraiiz order`,
     text: [
       `You marked ${products} as shipped.`,
@@ -151,6 +155,58 @@ export async function sendSellerShippedEmail(input: {
   });
 }
 
+export async function sendSellerNewOrderEmail(input: {
+  to?: string;
+  sellerName?: string;
+  items: Array<{ name?: string; quantity?: number }>;
+  billing: {
+    fullName: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
+  reference: string;
+  origin?: string;
+}) {
+  const products = productLine(input.items);
+  const quantity = input.items.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+  const shippingUrl = `${appOrigin(input.origin)}/account?section=Shipping`;
+  const greeting = input.sellerName ? `Hi ${input.sellerName},` : 'Hi,';
+
+  await sendEraiizEmail({
+    to: input.to,
+    idempotencyKey: `seller-sale:${input.reference}:${input.to || ''}`,
+    subject: `New Eraiiz order: ${products}`,
+    text: [
+      greeting,
+      '',
+      `You have a new order for ${products} (qty ${quantity}).`,
+      '',
+      'Ship to:',
+      input.billing.fullName,
+      input.billing.address,
+      `${input.billing.city}, ${input.billing.state} ${input.billing.postalCode}`,
+      input.billing.phone,
+      '',
+      `Open shipping: ${shippingUrl}`,
+      `Reference: ${input.reference}`,
+    ].join('\n'),
+    html: wrapHtml(`
+      <p>${escapeHtml(greeting)}</p>
+      <p>You have a new order for <strong>${escapeHtml(products)}</strong> (qty ${quantity}).</p>
+      <p><strong>Ship to</strong><br/>
+      ${escapeHtml(input.billing.fullName)}<br/>
+      ${escapeHtml(input.billing.address)}<br/>
+      ${escapeHtml(input.billing.city)}, ${escapeHtml(input.billing.state)} ${escapeHtml(input.billing.postalCode)}<br/>
+      ${escapeHtml(input.billing.phone)}</p>
+      <p><a href="${escapeHtml(shippingUrl)}" style="display:inline-block;background:#16a34a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Open shipping</a></p>
+      <p style="color:#666;font-size:12px">Reference: ${escapeHtml(input.reference)}</p>
+    `),
+  });
+}
+
 export async function sendSellerDeliveredEmail(input: {
   to?: string;
   items: Array<{ name?: string; quantity?: number }>;
@@ -161,6 +217,7 @@ export async function sendSellerDeliveredEmail(input: {
   const shippingUrl = `${appOrigin(input.origin)}/account?section=Shipping`;
   await sendEraiizEmail({
     to: input.to,
+    idempotencyKey: `seller-delivered:${input.reference}:${input.to || ''}`,
     subject: `You marked an Eraiiz order delivered`,
     text: [
       `You marked ${products} as delivered.`,

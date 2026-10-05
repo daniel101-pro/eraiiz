@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { convertToNgn } from '@/lib/fxRates';
-import { getSellerPayout, findPaystackSubaccountForSeller, getIdentityFromAuthHeader } from '@/lib/sellerPayoutStore';
+import { findPaystackSubaccountForSeller, getIdentityFromAuthHeader, getSellerPayout } from '@/lib/sellerPayoutStore';
+import { parseSellerMarker, listSubaccounts } from '@/lib/paystack';
 import { getSellerSubscription } from '@/lib/sellerSubscriptionStore';
 import { platformShareForPlan, sellerShareForPlan } from '@/lib/sellerPlans';
 import {
@@ -12,12 +13,11 @@ import {
 import {
   appOrigin,
   createSellerInAppNotification,
-  sendSellerSaleEmail,
 } from '@/lib/sellerSaleNotify';
 import { addInboxNotification } from '@/lib/orderInboxStore';
 import { addSellerOrder } from '@/lib/sellerOrderStore';
 import { initialTimeline } from '@/lib/tracking';
-import { sendBuyerOrderConfirmedEmail } from '@/lib/orderEmails';
+import { sendBuyerOrderConfirmedEmail, sendSellerNewOrderEmail } from '@/lib/orderEmails';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -69,7 +69,7 @@ async function fetchProduct(productId: string) {
   return response.data;
 }
 
-async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
+export async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
   const headers: Record<string, string> = {};
   if (authHeader) headers.Authorization = authHeader;
 
@@ -83,8 +83,14 @@ async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
       timeout: 15000,
     });
 
-    name = response.data?.name as string | undefined;
-    email = response.data?.email as string | undefined;
+    name = (response.data?.name || response.data?.fullName) as string | undefined;
+    email = (
+      response.data?.email ||
+      response.data?.user?.email ||
+      response.data?.seller?.email ||
+      response.data?.contactEmail ||
+      response.data?.primaryContactEmail
+    ) as string | undefined;
     paystackSubaccountCode = response.data?.paystackSubaccountCode as string | undefined;
 
     const nested = response.data?.sellerPayout as { paystackSubaccountCode?: string } | undefined;
@@ -105,6 +111,25 @@ async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
       email,
     });
     paystackSubaccountCode = paystackSubaccount?.subaccount_code;
+    if (!email && paystackSubaccount) {
+      const marker = parseSellerMarker(paystackSubaccount);
+      email = marker.email || paystackSubaccount.primary_contact_email;
+      name = name || paystackSubaccount.business_name;
+    }
+  }
+
+  if (!email && paystackSubaccountCode) {
+    try {
+      const subaccounts = await listSubaccounts();
+      const match = subaccounts.find((item) => item.subaccount_code === paystackSubaccountCode);
+      if (match) {
+        const marker = parseSellerMarker(match);
+        email = marker.email || match.primary_contact_email;
+        name = name || match.business_name;
+      }
+    } catch (error) {
+      console.error(`Failed to resolve seller email from Paystack for ${sellerId}`, error);
+    }
   }
 
   return {
@@ -270,7 +295,7 @@ export async function createBackendOrders(input: {
   await notifySellersOfOrder(input);
 }
 
-async function notifyBuyerOfOrder(input: {
+export async function notifyBuyerOfOrder(input: {
   items: CheckoutCartItem[];
   billing: CheckoutBilling;
   reference: string;
@@ -343,12 +368,13 @@ async function notifyBuyerOfOrder(input: {
   }
 }
 
-async function notifySellersOfOrder(input: {
+export async function notifySellersOfOrder(input: {
   items: CheckoutCartItem[];
   billing: CheckoutBilling;
   reference: string;
   authHeader?: string;
   origin?: string;
+  sellerEmails?: string[];
 }) {
   const bySeller = new Map<string, CheckoutCartItem[]>();
   for (const item of input.items) {
@@ -461,17 +487,23 @@ async function notifySellersOfOrder(input: {
       authHeader: input.authHeader,
     });
 
-    if (!seller.email) continue;
+    const sellerEmail =
+      seller.email ||
+      (bySeller.size === 1 ? input.sellerEmails?.find((value) => value.includes('@')) : undefined);
+
+    if (!sellerEmail) {
+      console.error(`No email found for seller ${sellerId}; new-order mail was not sent`);
+      continue;
+    }
 
     try {
-      await sendSellerSaleEmail({
-        to: seller.email,
+      await sendSellerNewOrderEmail({
+        to: sellerEmail,
         sellerName: seller.name,
-        productNames: names,
-        quantity,
+        items,
         billing: input.billing,
-        shippingUrl,
         reference: input.reference,
+        origin: input.origin,
       });
     } catch (error) {
       console.error(`Failed to email seller ${sellerId}`, error);

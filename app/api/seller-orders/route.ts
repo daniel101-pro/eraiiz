@@ -22,6 +22,7 @@ import {
   sendSellerDeliveredEmail,
   sendSellerShippedEmail,
 } from '@/lib/orderEmails';
+import { fetchSellerSubaccount } from '@/lib/checkout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -254,7 +255,15 @@ export async function PATCH(request: NextRequest) {
 
   const origin = request.nextUrl.origin;
   const productItems = updated.items || [];
-  const sellerEmail = keys.find((key) => key.includes('@'));
+  let sellerEmail = keys.find((key) => key.includes('@'));
+  if (!sellerEmail) {
+    try {
+      const seller = await fetchSellerSubaccount(updated.sellerId);
+      sellerEmail = seller.email;
+    } catch {
+      sellerEmail = undefined;
+    }
+  }
 
   try {
     if (updated.status === 'shipped' && status === 'shipped') {

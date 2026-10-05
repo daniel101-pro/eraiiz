@@ -6,7 +6,34 @@ import {
   parsePaystackMetadata,
   sellerOrdersFromPayment,
 } from '@/lib/marketplaceOrders';
-import { addSellerOrder } from '@/lib/sellerOrderStore';
+import { addSellerOrder, type SellerOrder } from '@/lib/sellerOrderStore';
+import { notifyBuyerOfOrder, notifySellersOfOrder, type CheckoutCartItem, type CheckoutBilling } from '@/lib/checkout';
+
+function toCartItems(orders: SellerOrder[]): CheckoutCartItem[] {
+  return orders.flatMap((order) =>
+    (order.items || []).map((item) => ({
+      _id: item.productId || '',
+      name: item.name,
+      price: Number(item.price || 0),
+      quantity: Number(item.quantity || 1),
+      selectedSize: item.selectedSize || '',
+      sellerId: order.sellerId,
+      currency: item.currency,
+    }))
+  );
+}
+
+function toBilling(order: SellerOrder): CheckoutBilling {
+  return {
+    fullName: order.shippingAddress?.fullName || order.buyer?.name || 'Customer',
+    email: order.buyer?.email || '',
+    phone: order.buyer?.phone || order.shippingAddress?.phone || '',
+    address: order.shippingAddress?.address || '',
+    city: order.shippingAddress?.city || '',
+    state: order.shippingAddress?.state || '',
+    postalCode: order.shippingAddress?.postalCode || '',
+  };
+}
 
 function planFromMetadata(metadata?: Record<string, unknown>): SellerPlanId | null {
   const planId = metadata?.planId;
@@ -66,6 +93,25 @@ export async function POST(request: NextRequest) {
         });
         for (const order of orders) {
           await addSellerOrder([order.sellerId, ...sellerEmails], order);
+        }
+        try {
+          if (orders.length) {
+            const billing = toBilling(orders[0]);
+            const items = toCartItems(orders);
+            await notifyBuyerOfOrder({
+              items,
+              billing,
+              reference: transaction.reference,
+            });
+            await notifySellersOfOrder({
+              items,
+              billing,
+              reference: transaction.reference,
+              sellerEmails,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to send paid-order emails from webhook', error);
         }
       }
     }
