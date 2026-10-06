@@ -29,8 +29,11 @@ function toBuyerOrder(order: SellerOrder) {
     reference: order.reference,
     trackingNumber: order.trackingNumber || '',
     courierName: order.courierName || '',
+    trackingUrl: order.trackingUrl || '',
+    trackingStatus: order.trackingStatus || '',
+    estimatedDelivery: order.estimatedDelivery || '',
     timeline,
-    trackingLabel: trackingHeadline(status, order.trackingNumber),
+    trackingLabel: trackingHeadline(status, order.trackingNumber, order.courierName),
   };
 }
 
@@ -76,8 +79,11 @@ export async function GET(request: NextRequest) {
         reference,
         trackingNumber: String(raw.trackingNumber || ''),
         courierName: String(raw.courierName || ''),
+        trackingUrl: String(raw.trackingUrl || ''),
+        trackingStatus: '',
+        estimatedDelivery: '',
         timeline: initialTimeline(createdAt),
-        trackingLabel: trackingHeadline(status, raw.trackingNumber),
+        trackingLabel: trackingHeadline(status, raw.trackingNumber, raw.courierName),
       });
     }
   } catch {

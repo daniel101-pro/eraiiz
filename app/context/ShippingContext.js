@@ -44,6 +44,9 @@ function toShipment(order) {
     },
     status: order.status === 'pending' ? 'pending' : order.status,
     courierName: order.courierName || '',
+    trackingUrl: order.trackingUrl || '',
+    trackingStatus: order.trackingStatus || '',
+    estimatedDelivery: order.estimatedDelivery || '',
     timeline: order.timeline || [],
     createdAt: order.createdAt,
     items,
@@ -390,14 +393,19 @@ export const ShippingProvider = ({ children }) => {
       throw new Error(data.message || 'Could not update this order');
     }
 
+    const data = await response.json();
     setShipments((prev) => {
       const next = prev.map((item) =>
         item._id === shipmentId
           ? {
               ...item,
-              status,
-              trackingNumber: extra.trackingNumber || item.trackingNumber,
-              courierName: extra.courierName || item.courierName,
+              status: data.status || status,
+              trackingNumber: data.trackingNumber || extra.trackingNumber || item.trackingNumber,
+              courierName: data.courierName || item.courierName,
+              trackingUrl: data.trackingUrl || item.trackingUrl,
+              trackingStatus: data.trackingStatus || item.trackingStatus,
+              estimatedDelivery: data.estimatedDelivery || item.estimatedDelivery,
+              timeline: data.timeline || item.timeline,
             }
           : item
       );
@@ -412,7 +420,7 @@ export const ShippingProvider = ({ children }) => {
       return next;
     });
 
-    return response.json();
+    return data;
   };
 
   const generateLabel = async (shipmentId) => {

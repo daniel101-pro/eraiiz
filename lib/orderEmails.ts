@@ -56,10 +56,12 @@ export async function sendBuyerShippedEmail(input: {
   reference: string;
   trackingNumber: string;
   courierName: string;
+  trackingUrl?: string;
   origin?: string;
 }) {
   const products = productLine(input.items);
   const ordersUrl = `${appOrigin(input.origin)}/account?section=Orders`;
+  const trackUrl = input.trackingUrl || ordersUrl;
   const greeting = input.name ? `Hi ${input.name},` : 'Hi,';
   await sendEraiizEmail({
     to: input.to,
@@ -71,16 +73,19 @@ export async function sendBuyerShippedEmail(input: {
       `The seller shipped ${products}.`,
       `Courier: ${input.courierName}`,
       `Tracking number: ${input.trackingNumber}`,
+      input.trackingUrl ? `Tracking link: ${input.trackingUrl}` : '',
       '',
       `Track it here: ${ordersUrl}`,
       `Reference: ${input.reference}`,
-    ].join('\n'),
+    ]
+      .filter((line) => line !== '')
+      .join('\n'),
     html: wrapHtml(`
       <p>${escapeHtml(greeting)}</p>
       <p>The seller shipped <strong>${escapeHtml(products)}</strong>.</p>
       <p><strong>Courier:</strong> ${escapeHtml(input.courierName)}<br/>
       <strong>Tracking number:</strong> ${escapeHtml(input.trackingNumber)}</p>
-      <p><a href="${escapeHtml(ordersUrl)}" style="display:inline-block;background:#16a34a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Track order</a></p>
+      <p><a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:#16a34a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Track shipment</a></p>
       <p style="color:#666;font-size:12px">Reference: ${escapeHtml(input.reference)}</p>
     `),
   });
@@ -123,6 +128,7 @@ export async function sendSellerShippedEmail(input: {
   reference: string;
   trackingNumber: string;
   courierName: string;
+  trackingUrl?: string;
   buyerName?: string;
   origin?: string;
 }) {
@@ -136,6 +142,7 @@ export async function sendSellerShippedEmail(input: {
       `You marked ${products} as shipped.`,
       `Courier: ${input.courierName}`,
       `Tracking number: ${input.trackingNumber}`,
+      input.trackingUrl ? `Tracking link: ${input.trackingUrl}` : '',
       input.buyerName ? `Buyer: ${input.buyerName}` : '',
       'We emailed the buyer this tracking info.',
       '',

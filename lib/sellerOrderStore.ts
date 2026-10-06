@@ -21,6 +21,9 @@ export interface SellerOrder {
   deliveredAt?: string;
   trackingNumber?: string;
   courierName?: string;
+  trackingUrl?: string;
+  trackingStatus?: string;
+  estimatedDelivery?: string;
   timeline?: TrackingEvent[];
   buyer: {
     name: string;
@@ -147,7 +150,7 @@ export async function updateSellerOrder(
   patch: Partial<
     Pick<
       SellerOrder,
-      'status' | 'trackingNumber' | 'courierName' | 'timeline' | 'shippedAt' | 'deliveredAt'
+      'status' | 'trackingNumber' | 'courierName' | 'trackingUrl' | 'trackingStatus' | 'estimatedDelivery' | 'timeline' | 'shippedAt' | 'deliveredAt'
     >
   >
 ) {

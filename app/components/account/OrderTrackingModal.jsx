@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckCircle, Clock, Copy, Truck, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CheckCircle, Clock, Copy, ExternalLink, Truck, X } from 'lucide-react';
 import { trackingHeadline } from '@/lib/tracking';
 import { showError, showSuccess } from '../../utils/toast';
 
@@ -21,10 +22,38 @@ const STEPS = [
 ];
 
 export default function OrderTrackingModal({ order, onClose }) {
+  const [live, setLive] = useState(null);
+
+  useEffect(() => {
+    if (!order?.trackingNumber) return undefined;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : '';
+    if (!token) return undefined;
+    let cancelled = false;
+    fetch(`/api/tracking/lookup?number=${encodeURIComponent(order.trackingNumber)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.ok) setLive(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [order?.trackingNumber]);
+
   if (!order) return null;
 
   const status = String(order.status || 'pending').toLowerCase();
+  const courierName = live?.courierName || order.courierName || '';
+  const trackingUrl = live?.trackingUrl || order.trackingUrl || '';
+  const trackingStatus = live?.statusText || order.trackingStatus || '';
+  const estimatedDelivery = live?.estimatedDelivery || order.estimatedDelivery || '';
   const events = Array.isArray(order.timeline) ? order.timeline : [];
+  const extraEvents = [
+    ...events.filter((event) => !STEPS.some((step) => step.status === event.status)),
+    ...(Array.isArray(live?.events) ? live.events : []),
+  ];
   const eventByStatus = Object.fromEntries(events.map((event) => [event.status, event]));
 
   const copyTracking = () => {
@@ -38,14 +67,18 @@ export default function OrderTrackingModal({ order, onClose }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Close tracking" />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-5 md:p-6">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-5 md:p-6">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <p className="text-xs text-gray-500">Tracking</p>
             <h2 className="text-lg font-semibold text-gray-900 mt-1">{order.product}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {order.trackingLabel || trackingHeadline(status, order.trackingNumber)}
+              {trackingHeadline(status, order.trackingNumber, courierName)}
             </p>
+            {trackingStatus && <p className="text-xs text-green-700 mt-1">{trackingStatus}</p>}
+            {estimatedDelivery && (
+              <p className="text-xs text-gray-500 mt-1">ETA: {formatWhen(estimatedDelivery) || estimatedDelivery}</p>
+            )}
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
             <X className="w-4 h-4" />
@@ -57,7 +90,7 @@ export default function OrderTrackingModal({ order, onClose }) {
             const event = eventByStatus[step.status];
             const reached =
               event ||
-              (step.status === 'ordered') ||
+              step.status === 'ordered' ||
               (step.status === 'shipped' && (status === 'shipped' || status === 'delivered')) ||
               (step.status === 'delivered' && status === 'delivered');
             const current =
@@ -100,12 +133,25 @@ export default function OrderTrackingModal({ order, onClose }) {
           })}
         </div>
 
+        {extraEvents.length > 0 && (
+          <div className="mt-1 mb-3 space-y-2">
+            <p className="text-xs font-medium text-gray-500">Courier updates</p>
+            {extraEvents.slice(-6).map((event, index) => (
+              <div key={`${event.at}-${index}`} className="rounded-lg bg-gray-50 px-3 py-2">
+                <p className="text-sm text-gray-900">{event.title}</p>
+                {event.detail && <p className="text-xs text-gray-500 mt-0.5">{event.detail}</p>}
+                {event.at && <p className="text-xs text-gray-400 mt-1">{formatWhen(event.at)}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
         {order.trackingNumber && (
           <div className="mt-2 rounded-xl bg-gray-50 p-3">
             <p className="text-xs text-gray-500">Tracking number</p>
             <div className="flex items-center justify-between gap-2 mt-1">
               <p className="text-sm font-medium text-gray-900 break-all">
-                {order.courierName ? `${order.courierName} · ` : ''}
+                {courierName && courierName !== 'Courier' ? `${courierName} · ` : ''}
                 {order.trackingNumber}
               </p>
               <button
@@ -117,6 +163,17 @@ export default function OrderTrackingModal({ order, onClose }) {
                 Copy
               </button>
             </div>
+            {trackingUrl && (
+              <a
+                href={trackingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-green-700"
+              >
+                Open tracking
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
           </div>
         )}
       </div>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShipping } from '../../context/ShippingContext';
 import { showSuccess, showError } from '../../utils/toast';
-import { COURIERS, verifyTrackingNumber } from '@/lib/tracking';
+import { detectCourier, verifyTrackingNumber } from '@/lib/tracking';
 import {
   Package,
   Truck,
@@ -79,13 +79,13 @@ export default function ShippingDashboard({ sellerId }) {
     return item.status === 'pending' || item.status === 'confirmed';
   });
 
-  const formFor = (id) => shipForms[id] || { trackingNumber: '', courierName: 'other' };
+  const formFor = (id) => shipForms[id] || { trackingNumber: '' };
 
   const setFormField = (id, field, value) => {
     setShipForms((prev) => ({
       ...prev,
       [id]: {
-        ...(prev[id] || { trackingNumber: '', courierName: 'other' }),
+        ...(prev[id] || { trackingNumber: '' }),
         [field]: value,
       },
     }));
@@ -103,18 +103,15 @@ export default function ShippingDashboard({ sellerId }) {
     try {
       setUpdatingId(shipment._id);
       if (status === 'shipped') {
-        const verified = verifyTrackingNumber(extra.trackingNumber, extra.courierName);
+        const verified = verifyTrackingNumber(extra.trackingNumber);
         if (!verified.ok) {
           showError(verified.message);
           return;
         }
-        extra = {
-          trackingNumber: verified.trackingNumber,
-          courierName: verified.courierId,
-        };
+        extra = { trackingNumber: verified.trackingNumber };
       }
       await markOrderStatus(shipment._id, status, extra);
-      setShipForms((prev) => ({ ...prev, [shipment._id]: { trackingNumber: '', courierName: 'other' } }));
+      setShipForms((prev) => ({ ...prev, [shipment._id]: { trackingNumber: '' } }));
       showSuccess(
         status === 'shipped'
           ? 'Shipped. Buyer can now track this order.'
@@ -209,6 +206,8 @@ export default function ShippingDashboard({ sellerId }) {
             const email = shipment.buyerId?.email;
             const lines = addressLines(shipment);
             const busy = updatingId === shipment._id;
+            const trackingDraft = formFor(shipment._id).trackingNumber;
+            const detected = detectCourier(trackingDraft);
 
             return (
               <div
@@ -231,8 +230,23 @@ export default function ShippingDashboard({ sellerId }) {
                       <p className="text-sm text-gray-600 mt-2">
                         Tracking:{' '}
                         <span className="font-medium text-gray-900">{shipment.trackingNumber}</span>
-                        {shipment.courierName ? ` · ${shipment.courierName}` : ''}
+                        {shipment.courierName && shipment.courierName !== 'Courier'
+                          ? ` · ${shipment.courierName}`
+                          : ''}
                       </p>
+                    )}
+                    {shipment.trackingStatus && (
+                      <p className="text-xs text-green-700 mt-1">{shipment.trackingStatus}</p>
+                    )}
+                    {shipment.trackingUrl && (
+                      <a
+                        href={shipment.trackingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-green-700 mt-1 inline-block"
+                      >
+                        Open tracking
+                      </a>
                     )}
                   </div>
                   <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 capitalize md:mt-3">
@@ -296,17 +310,6 @@ export default function ShippingDashboard({ sellerId }) {
                 <div className="mt-4 md:mt-0">
                   {shipment.status === 'pending' && (
                     <div className="space-y-2">
-                      <select
-                        value={formFor(shipment._id).courierName || 'other'}
-                        onChange={(event) => setFormField(shipment._id, 'courierName', event.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
-                      >
-                        {COURIERS.map((courier) => (
-                          <option key={courier.id} value={courier.id}>
-                            {courier.label}
-                          </option>
-                        ))}
-                      </select>
                       <input
                         type="text"
                         name="trackingNumber"
@@ -321,8 +324,15 @@ export default function ShippingDashboard({ sellerId }) {
                         placeholder="Paste tracking number"
                         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg"
                       />
+                      {trackingDraft.trim().length >= 6 && (
+                        <p className="text-xs text-green-700">
+                          {detected.id === 'courier'
+                            ? 'We’ll identify the courier from this number'
+                            : `Detected: ${detected.label}`}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500">
-                        Paste the tracking number from your courier.
+                        Paste the tracking number. We’ll find the courier and shipping updates.
                       </p>
                       <button
                         type="button"
@@ -330,12 +340,11 @@ export default function ShippingDashboard({ sellerId }) {
                         onClick={() =>
                           updateStatus(shipment, 'shipped', {
                             trackingNumber: formFor(shipment._id).trackingNumber,
-                            courierName: formFor(shipment._id).courierName || 'other',
                           })
                         }
                         className="w-full px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60"
                       >
-                        {busy ? 'Verifying...' : 'Verify & mark shipped'}
+                        {busy ? 'Checking tracking...' : 'Verify & mark shipped'}
                       </button>
                     </div>
                   )}

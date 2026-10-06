@@ -13,8 +13,8 @@ import {
   appendTimeline,
   deliveredEvent,
   shippedEvent,
-  verifyTrackingNumber,
 } from '@/lib/tracking';
+import { lookupShipment } from '@/lib/trackingLookup';
 import { addInboxNotification } from '@/lib/orderInboxStore';
 import {
   sendBuyerDeliveredEmail,
@@ -216,26 +216,33 @@ export async function PATCH(request: NextRequest) {
   const patch: Partial<SellerOrder> = {};
 
   if (status === 'shipped') {
-    if (!String(body.courierName || '').trim()) {
-      body.courierName = 'other';
-    }
-    const verified = verifyTrackingNumber(String(body.trackingNumber || ''), String(body.courierName || ''));
-    if (!verified.ok) {
-      return NextResponse.json({ message: verified.message }, { status: 400 });
+    const lookup = await lookupShipment(String(body.trackingNumber || ''));
+    if (!lookup.ok) {
+      return NextResponse.json({ message: lookup.message }, { status: 400 });
     }
     const shippedAt = new Date().toISOString();
     patch.status = 'shipped';
-    patch.trackingNumber = verified.trackingNumber;
-    patch.courierName = verified.courierName;
+    patch.trackingNumber = lookup.trackingNumber;
+    patch.courierName = lookup.courierName;
+    patch.trackingUrl = lookup.trackingUrl;
+    patch.trackingStatus = lookup.statusText;
+    patch.estimatedDelivery = lookup.estimatedDelivery;
     patch.shippedAt = shippedAt;
     patch.timeline = appendTimeline(
       current.timeline,
       shippedEvent({
-        trackingNumber: verified.trackingNumber,
-        courierName: verified.courierName,
+        trackingNumber: lookup.trackingNumber,
+        courierName: lookup.courierName,
         at: shippedAt,
+        extra: lookup.statusText || lookup.estimatedDelivery,
       })
     );
+    const extraEvents = lookup.events.filter(
+      (event) => !['ordered', 'shipped', 'delivered'].includes(String(event.status || '').toLowerCase())
+    );
+    if (extraEvents.length) {
+      patch.timeline = [...(patch.timeline || []), ...extraEvents].slice(0, 20);
+    }
   } else if (status === 'delivered') {
     if (current.status !== 'shipped' && current.status !== 'delivered') {
       return NextResponse.json({ message: 'Ship this order with a tracking number first' }, { status: 400 });
@@ -285,6 +292,7 @@ export async function PATCH(request: NextRequest) {
           reference: updated.reference,
           trackingNumber: updated.trackingNumber || '',
           courierName: updated.courierName || 'Courier',
+          trackingUrl: updated.trackingUrl,
           origin,
         }),
         sendSellerShippedEmail({
@@ -293,6 +301,7 @@ export async function PATCH(request: NextRequest) {
           reference: updated.reference,
           trackingNumber: updated.trackingNumber || '',
           courierName: updated.courierName || 'Courier',
+          trackingUrl: updated.trackingUrl,
           buyerName: updated.buyer?.name,
           origin,
         }),
