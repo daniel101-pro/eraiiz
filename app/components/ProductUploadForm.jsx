@@ -11,12 +11,12 @@ import { getValidAccessToken, refreshAccessToken } from '../utils/auth';
 import { ChevronDown, Globe, DollarSign, Info, Upload, X, Plus, Minus, Package, Camera, Star, ShoppingBag, Leaf, Award } from 'lucide-react';
 
 const ProductUploadForm = () => {
-  const { getCurrencyInfo, convertPriceExplicit, formatPrice, exchangeRates } = useCurrency();
+  const { getCurrencyInfo, convertPriceExplicit, formatPrice, exchangeRates, selectedCurrency } = useCurrency();
   const [product, setProduct] = useState({
     name: '',
     description: '',
     price: '',
-    currency: 'NGN',
+    currency: selectedCurrency || 'USD',
     category: '',
     subcategory: '',
     material: '',
@@ -213,6 +213,14 @@ const ProductUploadForm = () => {
 
     return () => clearInterval(keepAlive);
   }, []);
+
+  useEffect(() => {
+    setProduct((prev) => {
+      if (prev.name || prev.price) return prev;
+      if (prev.currency === selectedCurrency) return prev;
+      return { ...prev, currency: selectedCurrency || prev.currency };
+    });
+  }, [selectedCurrency]);
 
   // Form handlers
   const handleInputChange = (e) => {

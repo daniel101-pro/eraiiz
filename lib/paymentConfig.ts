@@ -7,6 +7,9 @@ export const isPaystackConfigured = Boolean(
   paystackPublicKey && paystackSecretKey
 );
 
+export const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? '';
+export const isStripeConfigured = Boolean(stripeSecretKey);
+
 export function toKobo(amount: number): number {
   return Math.round(amount * 100);
 }

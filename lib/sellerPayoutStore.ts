@@ -10,11 +10,16 @@ import {
 
 export interface SellerPayoutRecord {
   userId: string;
-  subaccountCode: string;
+  provider?: 'paystack' | 'stripe';
+  country?: string;
+  subaccountCode?: string;
   accountName: string;
   businessName: string;
-  bankCode: string;
-  accountNumber: string;
+  bankCode?: string;
+  accountNumber?: string;
+  stripeAccountId?: string;
+  stripeDetailsSubmitted?: boolean;
+  stripePayoutsEnabled?: boolean;
   updatedAt: string;
 }
 
@@ -52,6 +57,7 @@ export function recordFromSubaccount(
 ): SellerPayoutRecord {
   return {
     userId: fallbackId,
+    provider: 'paystack',
     subaccountCode: subaccount.subaccount_code,
     accountName: subaccount.business_name,
     businessName: subaccount.business_name,

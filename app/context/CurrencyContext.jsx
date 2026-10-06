@@ -1,30 +1,101 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { normalizeCurrencyCode } from '@/lib/productCurrency';
+import {
+  countryName,
+  currencyFromCountry,
+  currencyFromLocale,
+  parseGeoCookie,
+} from '@/lib/geoLocation';
 
 const CurrencyContext = createContext();
+const MANUAL_KEY = 'eraiiz_currency_manual';
+const PREFERRED_KEY = 'preferredCurrency';
 
-export function CurrencyProvider({ children }) {
-  const [selectedCurrency, setSelectedCurrency] = useState('NGN');
+function readCookie(name) {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function initialFromBrowser(fallbackCurrency, fallbackCountry) {
+  if (typeof window === 'undefined') {
+    return {
+      currency: fallbackCurrency || 'USD',
+      country: fallbackCountry || '',
+      manual: false,
+    };
+  }
+  const manual = localStorage.getItem(MANUAL_KEY) === '1';
+  if (manual) {
+    return {
+      currency: normalizeCurrencyCode(localStorage.getItem(PREFERRED_KEY)) || fallbackCurrency || 'USD',
+      country: parseGeoCookie(readCookie('eraiiz_geo'))?.country || fallbackCountry || '',
+      manual: true,
+    };
+  }
+  const cookie = parseGeoCookie(readCookie('eraiiz_geo'));
+  const localeCurrency = currencyFromLocale(navigator.language);
+  return {
+    currency:
+      cookie?.currency ||
+      fallbackCurrency ||
+      localeCurrency ||
+      'USD',
+    country: cookie?.country || fallbackCountry || '',
+    manual: false,
+  };
+}
+
+export function CurrencyProvider({ children, initialCurrency = '', initialCountry = '' }) {
+  const [selectedCurrency, setSelectedCurrencyState] = useState(initialCurrency || 'USD');
+  const [detectedCountry, setDetectedCountry] = useState(initialCountry || '');
+  const [currencyManual, setCurrencyManual] = useState(false);
+  const manualRef = useRef(false);
   const [exchangeRates, setExchangeRates] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Load currency preference from localStorage
   useEffect(() => {
-    const savedCurrency = localStorage.getItem('preferredCurrency');
-    if (savedCurrency) {
-      setSelectedCurrency(savedCurrency);
+    const started = initialFromBrowser(initialCurrency, initialCountry);
+    setDetectedCountry(started.country || initialCountry || '');
+    if (started.manual) {
+      manualRef.current = true;
+      setCurrencyManual(true);
+      setSelectedCurrencyState(started.currency);
+      return undefined;
     }
-  }, []);
+    if (started.currency) setSelectedCurrencyState(started.currency);
 
-  // Save currency preference to localStorage
-  useEffect(() => {
-    localStorage.setItem('preferredCurrency', selectedCurrency);
-  }, [selectedCurrency]);
+    let cancelled = false;
+    const applyGeo = (country, currency) => {
+      if (cancelled || manualRef.current) return;
+      const nextCurrency = normalizeCurrencyCode(currency) || currencyFromCountry(country);
+      if (country) setDetectedCountry(country);
+      if (nextCurrency) setSelectedCurrencyState(nextCurrency);
+    };
 
-  // Fetch exchange rates on mount and every hour
+    fetch('/api/geo')
+      .then((response) => (response.ok ? response.json() : null))
+      .then(async (data) => {
+        if (cancelled || manualRef.current) return;
+        if (data?.country) {
+          applyGeo(data.country, data.currency);
+          return;
+        }
+        const ip = await fetch('https://ipwho.is/').then((response) => (response.ok ? response.json() : null)).catch(() => null);
+        if (ip?.success !== false && ip?.country_code) {
+          applyGeo(ip.country_code, currencyFromCountry(ip.country_code));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialCountry, initialCurrency]);
+
   useEffect(() => {
     const fetchExchangeRates = async () => {
       try {
@@ -35,7 +106,6 @@ export function CurrencyProvider({ children }) {
         setLoading(false);
       } catch (error) {
         console.error('Error fetching exchange rates:', error);
-        // Fallback rates if API fails
         const fallbackRates = {
           USD: 1,
           NGN: 1600,
@@ -46,7 +116,7 @@ export function CurrencyProvider({ children }) {
           CAD: 1.25,
           AUD: 1.35,
           CNY: 6.45,
-          INR: 75
+          INR: 75,
         };
         setExchangeRates(fallbackRates);
         setLoading(false);
@@ -54,12 +124,24 @@ export function CurrencyProvider({ children }) {
     };
 
     fetchExchangeRates();
-    const interval = setInterval(fetchExchangeRates, 3600000); // Update every hour
+    const interval = setInterval(fetchExchangeRates, 3600000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Convert price from any currency to selected currency
+  const setSelectedCurrency = useCallback((code) => {
+    const next = normalizeCurrencyCode(code) || 'USD';
+    setSelectedCurrencyState(next);
+    setCurrencyManual(true);
+    manualRef.current = true;
+    try {
+      localStorage.setItem(MANUAL_KEY, '1');
+      localStorage.setItem(PREFERRED_KEY, next);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const convertPrice = useCallback((price, fromCurrency = 'NGN') => {
     const numericPrice = Number(price);
     if (!exchangeRates || !numericPrice || Number.isNaN(numericPrice)) return numericPrice || 0;
@@ -83,7 +165,6 @@ export function CurrencyProvider({ children }) {
     return Number(convertedPrice.toFixed(2));
   }, [exchangeRates, selectedCurrency]);
 
-  // Convert price with explicit from/to currencies
   const convertPriceExplicit = useCallback((price, fromCurrency, toCurrency) => {
     const numericPrice = Number(price);
     if (!exchangeRates || !numericPrice || Number.isNaN(numericPrice)) return numericPrice || 0;
@@ -105,7 +186,6 @@ export function CurrencyProvider({ children }) {
     return Number(convertedPrice.toFixed(2));
   }, [exchangeRates]);
 
-  // Get currency info
   const getCurrencyInfo = (currencyCode = selectedCurrency) => {
     const currencies = {
       NGN: { symbol: '₦', name: 'Nigerian Naira', flag: '🇳🇬' },
@@ -119,20 +199,16 @@ export function CurrencyProvider({ children }) {
       CNY: { symbol: '¥', name: 'Chinese Yuan', flag: '🇨🇳' },
       INR: { symbol: '₹', name: 'Indian Rupee', flag: '🇮🇳' },
     };
-    return currencies[currencyCode] || currencies.NGN;
+    return currencies[currencyCode] || currencies.USD;
   };
 
-  // Format price with currency symbol
   const formatPrice = (price, currencyCode = selectedCurrency) => {
     const { symbol } = getCurrencyInfo(currencyCode);
-    
-    // Handle different formatting for different currencies
     const formatOptions = {
       minimumFractionDigits: currencyCode === 'JPY' ? 0 : 2,
       maximumFractionDigits: currencyCode === 'JPY' ? 0 : 2,
     };
-
-    const formattedNumber = price.toLocaleString(undefined, formatOptions);
+    const formattedNumber = Number(price || 0).toLocaleString(undefined, formatOptions);
     return `${symbol}${formattedNumber}`;
   };
 
@@ -146,6 +222,9 @@ export function CurrencyProvider({ children }) {
     exchangeRates,
     lastUpdated,
     loading,
+    detectedCountry,
+    detectedCountryName: countryName(detectedCountry),
+    currencyManual,
   };
 
   return (
@@ -161,4 +240,4 @@ export function useCurrency() {
     throw new Error('useCurrency must be used within a CurrencyProvider');
   }
   return context;
-} 
+}

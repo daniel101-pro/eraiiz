@@ -98,8 +98,12 @@ export interface VerifiedTransaction {
   plan?: string | { plan_code?: string; name?: string } | null;
 }
 
-export async function listBanks(): Promise<PaystackBank[]> {
-  return paystackRequest<PaystackBank[]>('/bank?currency=NGN');
+export async function listBanks(country = 'nigeria', currency = 'NGN'): Promise<PaystackBank[]> {
+  const params = new URLSearchParams({
+    country,
+    currency,
+  });
+  return paystackRequest<PaystackBank[]>(`/bank?${params.toString()}`);
 }
 
 export async function resolveAccountNumber(

@@ -9,6 +9,7 @@ import {
   attachSellerIdentityToSubaccount,
   findPaystackSubaccountForSeller,
   getIdentityFromAuthHeader,
+  getSellerPayoutByIds,
   recordFromSubaccount,
   saveSellerPayout,
   type SellerIdentity,
@@ -25,14 +26,29 @@ function extractPayoutFromUser(user: Record<string, unknown> | null | undefined)
   if (!user) return null;
 
   const nested = user.sellerPayout as Record<string, unknown> | undefined;
+  const stripeAccountId =
+    (user.stripeAccountId as string | undefined) ||
+    (nested?.stripeAccountId as string | undefined);
   const subaccountCode =
     (user.paystackSubaccountCode as string | undefined) ||
     (nested?.paystackSubaccountCode as string | undefined);
 
-  if (!subaccountCode) return null;
+  if (!subaccountCode && !stripeAccountId) return null;
 
   return {
+    provider: (stripeAccountId && !subaccountCode ? 'stripe' : 'paystack') as 'paystack' | 'stripe',
+    country:
+      (user.payoutCountry as string | undefined) ||
+      (nested?.payoutCountry as string | undefined) ||
+      '',
     subaccountCode,
+    stripeAccountId,
+    stripeDetailsSubmitted: Boolean(
+      user.stripeDetailsSubmitted || nested?.stripeDetailsSubmitted
+    ),
+    stripePayoutsEnabled: Boolean(
+      user.stripePayoutsEnabled || nested?.stripePayoutsEnabled
+    ),
     accountName:
       (user.payoutAccountName as string | undefined) ||
       (nested?.payoutAccountName as string | undefined) ||
@@ -88,12 +104,22 @@ async function persistPayoutOnBackend(authHeader: string, payout: SellerPayoutRe
     payoutAccountNumber: payout.accountNumber,
     payoutAccountName: payout.accountName,
     payoutBusinessName: payout.businessName,
+    payoutCountry: payout.country,
+    payoutProvider: payout.provider,
+    stripeAccountId: payout.stripeAccountId,
+    stripeDetailsSubmitted: payout.stripeDetailsSubmitted,
+    stripePayoutsEnabled: payout.stripePayoutsEnabled,
     sellerPayout: {
       paystackSubaccountCode: payout.subaccountCode,
       payoutBankCode: payout.bankCode,
       payoutAccountNumber: payout.accountNumber,
       payoutAccountName: payout.accountName,
       payoutBusinessName: payout.businessName,
+      payoutCountry: payout.country,
+      payoutProvider: payout.provider,
+      stripeAccountId: payout.stripeAccountId,
+      stripeDetailsSubmitted: payout.stripeDetailsSubmitted,
+      stripePayoutsEnabled: payout.stripePayoutsEnabled,
     },
   };
 
@@ -121,7 +147,7 @@ async function resolvePayout(
   }
 
   const backendPayout = extractPayoutFromUser(backendUser);
-  if (backendPayout?.subaccountCode) {
+  if (backendPayout?.subaccountCode || backendPayout?.stripeAccountId) {
     const payout: SellerPayoutRecord = {
       userId: resolvedIdentity.ids[0] || 'unknown',
       ...backendPayout,
@@ -129,6 +155,11 @@ async function resolvePayout(
     };
     await saveSellerPayout(payout, resolvedIdentity.ids);
     return { payout, identity: resolvedIdentity };
+  }
+
+  const stored = await getSellerPayoutByIds(resolvedIdentity.ids);
+  if (stored?.subaccountCode || stored?.stripeAccountId) {
+    return { payout: stored, identity: resolvedIdentity };
   }
 
   const paystackSubaccount = await findPaystackSubaccountForSeller(resolvedIdentity);
@@ -175,7 +206,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { businessName, bankCode, accountNumber } = body;
+    const { businessName, bankCode, accountNumber, country } = body;
 
     if (!businessName || !bankCode || !accountNumber) {
       return NextResponse.json(
@@ -185,9 +216,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { payout: existing, identity } = await resolvePayout(authHeader, authIdentity);
-    if (existing?.subaccountCode) {
+    if (existing?.subaccountCode || existing?.stripeAccountId) {
       return NextResponse.json({
+        provider: existing.provider || (existing.stripeAccountId ? 'stripe' : 'paystack'),
+        country: existing.country || country || null,
         subaccountCode: existing.subaccountCode,
+        stripeAccountId: existing.stripeAccountId,
         accountName: existing.accountName,
         businessName: existing.businessName,
         bankCode: existing.bankCode,
@@ -223,6 +257,8 @@ export async function POST(request: NextRequest) {
 
     const payoutRecord: SellerPayoutRecord = {
       userId: identity.ids[0],
+      provider: 'paystack',
+      country: country ? String(country).toUpperCase() : 'NG',
       subaccountCode: subaccount.subaccount_code,
       accountName: resolved.account_name,
       businessName: String(businessName),
@@ -240,6 +276,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
+      provider: payoutRecord.provider,
+      country: payoutRecord.country,
       subaccountCode: payoutRecord.subaccountCode,
       accountName: payoutRecord.accountName,
       businessName: payoutRecord.businessName,
@@ -270,7 +308,10 @@ export async function GET(request: NextRequest) {
 
     if (!payout) {
       return NextResponse.json({
+        provider: null,
+        country: null,
         subaccountCode: null,
+        stripeAccountId: null,
         accountName: null,
         businessName: null,
         bankCode: null,
@@ -279,7 +320,12 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
+      provider: payout.provider || (payout.stripeAccountId ? 'stripe' : 'paystack'),
+      country: payout.country || null,
       subaccountCode: payout.subaccountCode,
+      stripeAccountId: payout.stripeAccountId,
+      stripeDetailsSubmitted: Boolean(payout.stripeDetailsSubmitted),
+      stripePayoutsEnabled: Boolean(payout.stripePayoutsEnabled),
       accountName: payout.accountName,
       businessName: payout.businessName,
       bankCode: payout.bankCode,

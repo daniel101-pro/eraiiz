@@ -17,7 +17,7 @@ import { ShoppingCart, User, ChevronDown, Search, Filter, Menu, X, LogOut, Clock
 
 export default function DualNavbarSell({ handleLogout }) {
   const router = useRouter();
-  const { selectedCurrency, setSelectedCurrency, getCurrencyInfo, loading: currencyLoading } = useCurrency();
+  const { selectedCurrency, setSelectedCurrency, getCurrencyInfo, loading: currencyLoading, detectedCountryName, currencyManual } = useCurrency();
   const { cartItems, clearCart } = useCart();
 
   // State for navbar visibility
@@ -644,6 +644,7 @@ export default function DualNavbarSell({ handleLogout }) {
                           </div>
                           <div className="text-xs text-gray-500">
                             {getCurrencyInfo(selectedCurrency).name}
+                            {!currencyManual && detectedCountryName ? ` · ${detectedCountryName}` : ''}
                           </div>
                         </div>
                       </div>
@@ -661,6 +662,13 @@ export default function DualNavbarSell({ handleLogout }) {
                         
                         {/* Dropdown */}
                         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[80] max-h-48 overflow-y-auto">
+                          <div className="text-xs font-medium text-gray-500 px-3 py-2">
+                            {currencyManual
+                              ? 'Your currency'
+                              : detectedCountryName
+                                ? `Based on ${detectedCountryName}`
+                                : 'Select currency'}
+                          </div>
                           {currencies.map((currency) => (
                             <button
                               key={currency.code}
@@ -856,7 +864,11 @@ export default function DualNavbarSell({ handleLogout }) {
                       <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-40 max-h-64 overflow-y-auto animate-slideDown">
                         <div className="p-2">
                           <div className="text-xs font-medium text-gray-500 px-3 py-2 uppercase tracking-wider">
-                            Select Currency
+                            {currencyManual
+                              ? 'Your currency'
+                              : detectedCountryName
+                                ? `Based on ${detectedCountryName}`
+                                : 'Select currency'}
                           </div>
                           {currencies.map((currency) => (
                             <button

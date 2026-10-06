@@ -25,7 +25,7 @@ function getStoredPayout() {
       const raw = localStorage.getItem(`eraiiz_payout_${id}`);
       if (!raw) continue;
       const parsed = JSON.parse(raw);
-      if (parsed?.subaccountCode) return parsed;
+      if (parsed?.subaccountCode || parsed?.stripeAccountId) return parsed;
     }
   } catch {
     return null;
@@ -35,7 +35,7 @@ function getStoredPayout() {
 }
 
 function storePayoutLocally(payout) {
-  if (typeof window === 'undefined' || !payout?.subaccountCode) return;
+  if (typeof window === 'undefined' || !(payout?.subaccountCode || payout?.stripeAccountId)) return;
 
   try {
     for (const id of payoutCacheIds()) {
@@ -71,28 +71,28 @@ async function paymentRequest(path, options = {}) {
   return data;
 }
 
-export async function fetchBanks() {
-  const data = await paymentRequest('/api/payments/banks');
+export async function fetchBanks(country = 'NG') {
+  const data = await paymentRequest(`/api/payments/banks?country=${encodeURIComponent(country)}`);
   return data.banks || [];
 }
 
 export async function fetchPayoutDetails() {
   try {
     const data = await paymentRequest('/api/payments/subaccount');
-    if (data?.subaccountCode) {
+    if (data?.subaccountCode || data?.stripeAccountId) {
       storePayoutLocally(data);
       return data;
     }
   } catch (error) {
     const cached = getStoredPayout();
-    if (cached?.subaccountCode) {
+    if (cached?.subaccountCode || cached?.stripeAccountId) {
       return cached;
     }
     throw error;
   }
 
   const cached = getStoredPayout();
-  return cached || { subaccountCode: null };
+  return cached || { subaccountCode: null, stripeAccountId: null };
 }
 
 export async function createSellerSubaccount(payload) {
@@ -102,6 +102,8 @@ export async function createSellerSubaccount(payload) {
   });
 
   storePayoutLocally({
+    provider: 'paystack',
+    country: payload.country,
     subaccountCode: data.subaccountCode,
     accountName: data.accountName,
     businessName: data.businessName,
@@ -109,6 +111,22 @@ export async function createSellerSubaccount(payload) {
     accountNumber: payload.accountNumber,
   });
 
+  return data;
+}
+
+export async function startStripeConnect(country) {
+  const data = await paymentRequest('/api/payments/stripe/connect', {
+    method: 'POST',
+    body: JSON.stringify({ country }),
+  });
+  if (data?.stripeAccountId) {
+    storePayoutLocally({
+      provider: 'stripe',
+      country,
+      stripeAccountId: data.stripeAccountId,
+      stripeDetailsSubmitted: false,
+    });
+  }
   return data;
 }
 

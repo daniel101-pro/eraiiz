@@ -114,6 +114,7 @@ export default function AccountPage() {
       Sales: 'Sales',
       products: 'Uploaded Products',
       billing: 'Billing',
+      Billing: 'Billing',
       orders: 'Orders',
       notifications: 'Notifications',
     }[section];

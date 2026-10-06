@@ -16,12 +16,16 @@ const googleClientId =
 
 export default function ClientLayout({
   children,
+  initialCountry = '',
+  initialCurrency = 'USD',
 }: {
   children: ReactNode;
+  initialCountry?: string;
+  initialCurrency?: string;
 }) {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
-      <CurrencyProvider>
+      <CurrencyProvider initialCountry={initialCountry} initialCurrency={initialCurrency}>
         <CartProvider>
           <CheckoutProvider>
             <FavoritesProvider>
