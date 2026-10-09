@@ -11,6 +11,7 @@ import axios from 'axios';
 import { debounce } from 'lodash';
 import { boostProductsByPlan } from '@/lib/boostProducts';
 import { fetchNotificationFeed, addLocalInboxItem, buyerOrderNotice } from '../utils/notificationFeed';
+import { homePathForRole } from '@/lib/authRouting';
 
 // Icons from lucide-react
 import { ShoppingCart, User, ChevronDown, Search, Filter, Menu, X, LogOut, Clock, ArrowRight, Globe, Bell } from 'lucide-react';
@@ -165,7 +166,7 @@ export default function DualNavbarSell({ handleLogout }) {
   // Handle logo click to redirect based on user role
   const handleLogoClick = () => {
     if (userRole) {
-      router.push(`/dashboard/${userRole}`);
+      router.push(homePathForRole(userRole));
     } else {
       router.push('/login');
     }

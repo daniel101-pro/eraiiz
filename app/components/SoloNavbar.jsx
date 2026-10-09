@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ShoppingCart, User, ChevronDown, Search, Menu, X } from 'lucide-react';
+import { homePathForRole } from '@/lib/authRouting';
 
 export default function SoloNavbar({ handleLogout }) {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function SoloNavbar({ handleLogout }) {
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
         const role = parsedUser?.role || 'buyer'; // Default to 'buyer' if role is not found
-        router.push(`/dashboard/${role}`);
+        router.push(homePathForRole(role));
       } else {
         router.push('/login'); // Redirect to login if no user is found
       }

@@ -11,6 +11,7 @@ import HeroCarousel from '../../components/HeroCarousel';
 import ProductCarousel from '../../components/ProductCarousel';
 import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 import { boostProductsByPlan } from '@/lib/boostProducts';
+import { homePathForRole, isPendingRole } from '@/lib/authRouting';
 
 export default function UnifiedDashboard() {
   const [user, setUser] = useState(null);
@@ -52,6 +53,12 @@ export default function UnifiedDashboard() {
         router.push('/login');
         return;
       }
+
+      const urlRole = Array.isArray(role) ? role[0] : role;
+      if (isPendingRole(urlRole) || isPendingRole(localStorage.getItem('role'))) {
+        router.replace('/role-selection');
+        return;
+      }
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         if (!apiUrl) {
@@ -64,15 +71,21 @@ export default function UnifiedDashboard() {
           withCredentials: true,
         });
 
-        // Validate that the role in the URL matches the user's actual role
-        const validRoles = ['buyer', 'seller'];
-        if (!validRoles.includes(role)) {
-          router.replace('/dashboard/buyer');
+        const sessionRole = res.data.role;
+
+        if (isPendingRole(urlRole) || isPendingRole(sessionRole)) {
+          router.replace('/role-selection');
           return;
         }
 
-        if (res.data.role !== role) {
-          router.replace(`/dashboard/${res.data.role}`);
+        const validRoles = ['buyer', 'seller'];
+        if (!validRoles.includes(urlRole)) {
+          router.replace(homePathForRole(sessionRole));
+          return;
+        }
+
+        if (sessionRole !== urlRole) {
+          router.replace(homePathForRole(sessionRole));
           return;
         }
 

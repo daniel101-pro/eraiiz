@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { refreshAccessToken } from '../../utils/auth';
 import ProductCard from '../ProductCard';
 import { Heart, ShoppingBag, Sparkles, TrendingUp } from 'lucide-react';
+import { homePathForRole } from '@/lib/authRouting';
 
 export default function FavoriteItems() {
   const [favorites, setFavorites] = useState([]);
@@ -129,8 +130,7 @@ export default function FavoriteItems() {
               const storedUser = localStorage.getItem('user');
               if (storedUser) {
                 const parsedUser = JSON.parse(storedUser);
-                const role = parsedUser?.role || 'buyer';
-                router.push(`/dashboard/${role}`);
+                router.push(homePathForRole(parsedUser?.role));
               } else {
                 router.push('/login');
               }
@@ -244,8 +244,7 @@ export default function FavoriteItems() {
                     const storedUser = localStorage.getItem('user');
                     if (storedUser) {
                       const parsedUser = JSON.parse(storedUser);
-                      const role = parsedUser?.role || 'buyer';
-                      router.push(`/dashboard/${role}`);
+                      router.push(homePathForRole(parsedUser?.role));
                     } else {
                       router.push('/login');
                     }

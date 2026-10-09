@@ -33,20 +33,27 @@ export default function RoleSelection() {
   const router = useRouter();
 
   useEffect(() => {
-    const tempUser = localStorage.getItem('tempGoogleUser');
-    const tempTokens = localStorage.getItem('tempGoogleTokens');
+    const readUser = (raw) => {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    };
 
-    if (!tempUser || !tempTokens) {
+    const tempUser = readUser(localStorage.getItem('tempGoogleUser'));
+    const storedUser = readUser(localStorage.getItem('user'));
+    const hasTokens = Boolean(
+      localStorage.getItem('tempGoogleTokens') || localStorage.getItem('accessToken')
+    );
+
+    if (!hasTokens || (!tempUser && !storedUser)) {
       router.push('/login');
       return;
     }
 
-    try {
-      setUserData(JSON.parse(tempUser));
-    } catch (error) {
-      console.error('Error parsing temp user data:', error);
-      router.push('/login');
-    }
+    setUserData(tempUser || storedUser);
   }, [router]);
 
   const handleContinue = async () => {
@@ -59,11 +66,15 @@ export default function RoleSelection() {
 
     try {
       const tempTokens = localStorage.getItem('tempGoogleTokens');
-      if (!tempTokens) {
+      const tokens = tempTokens
+        ? JSON.parse(tempTokens)
+        : {
+            accessToken: localStorage.getItem('accessToken'),
+            refreshToken: localStorage.getItem('refreshToken'),
+          };
+      if (!tokens?.accessToken) {
         throw new Error('No authentication data found');
       }
-
-      const tokens = JSON.parse(tempTokens);
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/me`, {
         method: 'PATCH',
@@ -80,12 +91,17 @@ export default function RoleSelection() {
         throw new Error(errorData.message || 'Failed to update role');
       }
 
-      const updatedUser = await response.json();
+      const payload = await response.json();
+      const updatedUser = payload.user || payload;
+      const nextRole = updatedUser.role || selectedRole;
+      const nextUser = { ...updatedUser, role: nextRole };
 
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      localStorage.setItem('user', JSON.stringify(nextUser));
       localStorage.setItem('accessToken', tokens.accessToken);
-      localStorage.setItem('refreshToken', tokens.refreshToken);
-      localStorage.setItem('role', updatedUser.role);
+      if (tokens.refreshToken) {
+        localStorage.setItem('refreshToken', tokens.refreshToken);
+      }
+      localStorage.setItem('role', nextRole);
       localStorage.removeItem('tempGoogleUser');
       localStorage.removeItem('tempGoogleTokens');
 

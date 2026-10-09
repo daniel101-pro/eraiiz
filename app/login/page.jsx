@@ -8,6 +8,7 @@ import Image from 'next/image';
 import Navbar from '../components/Navbar';
 import GoogleAuthButton from '../components/GoogleAuthButton';
 import { showAuthToast } from '../utils/toast';
+import { homePathForRole } from '@/lib/authRouting';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -37,7 +38,7 @@ export default function Login() {
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('role', data.user.role);
       showAuthToast('Successfully logged in!', 'success');
-      router.push(`/dashboard/${data.user.role}`);
+      router.push(homePathForRole(data.user.role));
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
       const errorData = err.response?.data;

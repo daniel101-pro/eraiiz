@@ -6,6 +6,7 @@ import Confetti from 'react-confetti';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { Sparkles, Leaf, Globe, ArrowRight, Star, Zap, Heart, ChevronDown } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { homePathForRole } from '@/lib/authRouting';
 import BlurText from '../TextAnimations/BlurText/BlurText';
 
 export default function WelcomePage() {
@@ -42,7 +43,7 @@ export default function WelcomePage() {
 
   const handleContinue = () => {
     const role = localStorage.getItem('role') || 'buyer';
-    router.push(`/dashboard/${role}`);
+    router.push(homePathForRole(role));
   };
 
   if (!name) {
