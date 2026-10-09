@@ -1,10 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { FaShoppingCart, FaStore } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { ArrowRight, Check, Leaf, ShoppingBag, Store } from 'lucide-react';
 import { showAuthToast } from '../utils/toast';
+
+const ROLES = [
+  {
+    id: 'buyer',
+    title: 'Shop',
+    subtitle: 'Buy sustainable products',
+    description: 'Browse verified eco-friendly goods, track impact, and shop with a smaller footprint.',
+    icon: ShoppingBag,
+    features: ['Sustainable marketplace', 'Carbon footprint tracking', 'Personalized picks', 'Eco community'],
+  },
+  {
+    id: 'seller',
+    title: 'Sell',
+    subtitle: 'List your products',
+    description: 'Reach buyers who care about materials, origin, and circular design.',
+    icon: Store,
+    features: ['List sustainable products', 'Reach eco-conscious buyers', 'Sales analytics', 'Build a green brand'],
+  },
+];
 
 export default function RoleSelection() {
   const [selectedRole, setSelectedRole] = useState('');
@@ -12,42 +32,11 @@ export default function RoleSelection() {
   const [userData, setUserData] = useState(null);
   const router = useRouter();
 
-  const roles = [
-    {
-      id: 'buyer',
-      title: 'I want to Buy',
-      subtitle: 'Discover sustainable products and make eco-friendly purchases',
-      icon: FaShoppingCart,
-      color: 'green',
-      features: [
-        'Browse sustainable products',
-        'Track your carbon footprint',
-        'Get personalized recommendations',
-        'Join the eco-community'
-      ]
-    },
-    {
-      id: 'seller',
-      title: 'I want to Sell',
-      subtitle: 'List and sell your sustainable products to eco-conscious buyers',
-      icon: FaStore,
-      color: 'emerald',
-      features: [
-        'Upload sustainable products',
-        'Reach eco-conscious customers',
-        'Track sales analytics',
-        'Build your green business'
-      ]
-    }
-  ];
-
   useEffect(() => {
-    // Check if user came from Google auth and has temporary data
     const tempUser = localStorage.getItem('tempGoogleUser');
     const tempTokens = localStorage.getItem('tempGoogleTokens');
-    
+
     if (!tempUser || !tempTokens) {
-      // If no temp data, redirect to login
       router.push('/login');
       return;
     }
@@ -59,10 +48,6 @@ export default function RoleSelection() {
       router.push('/login');
     }
   }, [router]);
-
-  const handleRoleSelect = (role) => {
-    setSelectedRole(role);
-  };
 
   const handleContinue = async () => {
     if (!selectedRole) {
@@ -80,12 +65,11 @@ export default function RoleSelection() {
 
       const tokens = JSON.parse(tempTokens);
 
-      // Update user role in backend
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/me`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokens.accessToken}`,
+          Authorization: `Bearer ${tokens.accessToken}`,
         },
         credentials: 'include',
         body: JSON.stringify({ role: selectedRole }),
@@ -98,21 +82,15 @@ export default function RoleSelection() {
 
       const updatedUser = await response.json();
 
-      // Store final user data and tokens
       localStorage.setItem('user', JSON.stringify(updatedUser));
       localStorage.setItem('accessToken', tokens.accessToken);
       localStorage.setItem('refreshToken', tokens.refreshToken);
       localStorage.setItem('role', updatedUser.role);
-
-      // Clean up temporary data
       localStorage.removeItem('tempGoogleUser');
       localStorage.removeItem('tempGoogleTokens');
 
       showAuthToast(`Welcome! Your ${selectedRole} account is ready.`, 'success');
-
-      // Redirect to welcome page then to dashboard
       router.push('/welcome');
-
     } catch (error) {
       console.error('Role selection error:', error);
       showAuthToast(error.message || 'Failed to set up your account', 'error');
@@ -121,191 +99,135 @@ export default function RoleSelection() {
     }
   };
 
+  const firstName = String(userData?.name || '').trim().split(' ')[0];
+
   if (!userData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-green-100 to-emerald-50 flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent"
-        />
+      <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-green-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-full border-2 border-green-900 border-t-transparent animate-spin" />
+          <p className="text-sm text-gray-500">Setting things up…</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-green-100 to-emerald-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl mx-auto">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-green-50 relative overflow-hidden">
+      <div className="pointer-events-none absolute -top-24 -left-16 h-64 w-64 rounded-full bg-emerald-100/70 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-72 w-72 rounded-full bg-green-100/80 blur-3xl" />
+
+      <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-10 flex items-center justify-between">
+          <Image src="/logo.png" alt="Eraiiz" width={110} height={36} className="h-8 w-auto" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-white/80 px-3 py-1 text-xs font-medium text-green-900 backdrop-blur">
+            <Leaf className="h-3.5 w-3.5" />
+            Account setup
+          </span>
+        </header>
+
         <motion.div
-          initial={{ opacity: 0, y: -30 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-12"
+          transition={{ duration: 0.4 }}
+          className="mb-8 max-w-2xl"
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
-          >
-            <span className="text-white text-xs sm:text-sm md:text-base font-bold">E</span>
-          </motion.div>
-          <h1 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 mb-3">
-            Welcome to Eraiiz! 👋
+          <p className="mb-2 text-sm font-medium text-green-800">
+            {firstName ? `Hi ${firstName}` : 'Welcome'}
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-green-950 sm:text-4xl">
+            How do you want to start?
           </h1>
-          <p className="text-gray-600 text-xl">
-            Hi {userData.name}, choose how you'd like to get started
+          <p className="mt-3 text-base text-gray-600 sm:text-lg">
+            Choose a role for this account. You can switch between shopping and selling later.
           </p>
         </motion.div>
 
-        {/* Role Selection Cards */}
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
-          {roles.map((role, index) => (
-            <motion.div
-              key={role.id}
-              initial={{ opacity: 0, scale: 0.8, y: 50 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.2 }}
-              whileHover={{ scale: 1.02, y: -5 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleRoleSelect(role.id)}
-              className={`relative cursor-pointer bg-white rounded-3xl p-8 shadow-xl transition-all duration-500 hover:shadow-2xl ${
-                selectedRole === role.id
-                  ? role.color === 'green' 
-                    ? 'ring-4 ring-green-500 ring-opacity-50 shadow-green-200'
-                    : 'ring-4 ring-emerald-500 ring-opacity-50 shadow-emerald-200'
-                  : 'hover:shadow-green-100'
-              }`}
-              style={{ minHeight: '500px' }}
-            >
-              {/* Selection Indicator */}
-              {selectedRole === role.id && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                  className={`absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${
-                    role.color === 'green' ? 'bg-green-500' : 'bg-emerald-500'
-                  }`}
-                >
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </motion.div>
-              )}
-
-              {/* Card Content */}
-              <div className="text-center h-full flex flex-col">
-                {/* Icon */}
-                <motion.div
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br ${
-                    role.color === 'green' 
-                      ? 'from-green-400 to-green-600' 
-                      : 'from-emerald-400 to-emerald-600'
-                  }`}
-                >
-                  <role.icon className="text-xs sm:text-sm md:text-base text-white" />
-                </motion.div>
-
-                {/* Title */}
-                <h3 className="text-xs sm:text-sm md:text-base font-bold text-gray-900 mb-4">
-                  {role.title}
-                </h3>
-
-                {/* Subtitle */}
-                <p className="text-gray-600 text-base mb-6 leading-relaxed flex-grow">
-                  {role.subtitle}
-                </p>
-
-                {/* Features */}
-                <div className="space-y-3 mb-8">
-                  {role.features.map((feature, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 + (0.1 * idx) }}
-                      className="flex items-center justify-start"
-                    >
-                      <div className={`w-2 h-2 rounded-full mr-3 flex-shrink-0 ${
-                        role.color === 'green' ? 'bg-green-500' : 'bg-emerald-500'
-                      }`} />
-                      <span className="text-gray-700 text-sm text-left">{feature}</span>
-                    </motion.div>
-                  ))}
+        <div
+          role="radiogroup"
+          aria-label="Account type"
+          className="grid flex-1 gap-4 md:grid-cols-2 md:gap-6"
+        >
+          {ROLES.map((role, index) => {
+            const selected = selectedRole === role.id;
+            const Icon = role.icon;
+            return (
+              <motion.button
+                key={role.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.08 * index }}
+                onClick={() => setSelectedRole(role.id)}
+                className={`group relative flex h-full flex-col rounded-3xl border bg-white p-6 text-left shadow-sm transition-all duration-200 sm:p-8 ${
+                  selected
+                    ? 'border-green-900 ring-2 ring-green-900/20 shadow-lg'
+                    : 'border-gray-200 hover:border-green-300 hover:shadow-md'
+                }`}
+              >
+                <div className="mb-5 flex items-start justify-between">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                      selected ? 'bg-green-900 text-white' : 'bg-green-50 text-green-900'
+                    }`}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-full border ${
+                      selected ? 'border-green-900 bg-green-900 text-white' : 'border-gray-300 bg-white'
+                    }`}
+                  >
+                    {selected ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+                  </span>
                 </div>
 
-                {/* Select Button */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleRoleSelect(role.id)}
-                  className={`w-full py-4 px-6 rounded-2xl font-semibold text-lg transition-all duration-300 ${
-                    selectedRole === role.id
-                      ? role.color === 'green'
-                        ? 'bg-green-600 text-white shadow-lg'
-                        : 'bg-emerald-600 text-white shadow-lg'
-                      : role.color === 'green'
-                        ? 'bg-green-50 text-green-600 hover:bg-green-100 border-2 border-green-200'
-                        : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-2 border-emerald-200'
-                  }`}
-                >
-                  {selectedRole === role.id ? 'Selected ✓' : 'Select This Option'}
-                </motion.button>
-              </div>
-            </motion.div>
-          ))}
+                <h2 className="text-2xl font-bold text-green-950">{role.title}</h2>
+                <p className="mt-1 text-sm font-medium text-green-800">{role.subtitle}</p>
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">{role.description}</p>
+
+                <ul className="mt-6 space-y-2.5">
+                  {role.features.map((feature) => (
+                    <li key={feature} className="flex items-center gap-2.5 text-sm text-gray-700">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-800">
+                        <Check className="h-3 w-3" />
+                      </span>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </motion.button>
+            );
+          })}
         </div>
 
-        {/* Continue Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="text-center"
-        >
-          <motion.button
-            whileHover={{ scale: selectedRole ? 1.02 : 1 }}
-            whileTap={{ scale: selectedRole ? 0.98 : 1 }}
-            onClick={handleContinue}
-            disabled={!selectedRole || isLoading}
-            className={`w-full max-w-md py-4 px-8 rounded-2xl font-semibold text-lg transition-all duration-300 ${
-              selectedRole && !isLoading
-                ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-xl hover:shadow-2xl'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-6 h-6 border-t-2 border-b-2 border-white rounded-full mr-2"
-                />
-                Setting up your account...
-              </div>
-            ) : selectedRole ? (
-              `Continue as ${selectedRole === 'buyer' ? 'Buyer' : 'Seller'} →`
-            ) : (
-              'Select a role to continue'
-            )}
-          </motion.button>
-        </motion.div>
-
-        {/* Bottom Note */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-          className="text-center mt-8"
-        >
-          <p className="text-sm text-gray-500">
-            Don't worry! You can always switch between buyer and seller modes later in your account settings.
-          </p>
-        </motion.div>
+        <div className="sticky bottom-0 mt-8 bg-gradient-to-t from-white via-white/95 to-transparent pb-2 pt-4">
+          <div className="mx-auto flex max-w-md flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={handleContinue}
+              disabled={!selectedRole || isLoading}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-900 px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
+            >
+              {isLoading ? (
+                'Setting up your account…'
+              ) : selectedRole ? (
+                <>
+                  Continue as {selectedRole === 'buyer' ? 'buyer' : 'seller'}
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              ) : (
+                'Select a role to continue'
+              )}
+            </button>
+            <p className="text-center text-xs text-gray-500">
+              You can change this later in account settings.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
-} 
+}

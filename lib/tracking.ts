@@ -88,7 +88,7 @@ export function detectCourier(trackingNumber: string): DetectedCourier {
   return {
     id: 'courier',
     label: 'Courier',
-    trackingUrl: `https://www.aftership.com/track/${encodeURIComponent(value)}`,
+    trackingUrl: `https://t.17track.net/en#nums=${encodeURIComponent(value)}`,
   };
 }
 

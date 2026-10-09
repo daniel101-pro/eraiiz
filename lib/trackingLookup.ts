@@ -15,58 +15,6 @@ export type ShipmentLookup = {
   events: TrackingEvent[];
 };
 
-async function aftershipLookup(trackingNumber: string) {
-  const key = process.env.AFTERSHIP_API_KEY;
-  if (!key) return null;
-
-  const headers = {
-    'as-api-key': key,
-    'Content-Type': 'application/json',
-  };
-
-  const detected = await fetch('https://api.aftership.com/tracking/2024-04/couriers/detect', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ tracking_number: trackingNumber }),
-    cache: 'no-store',
-  });
-  if (!detected.ok) return null;
-  const detectedPayload = await detected.json();
-  const courier = detectedPayload?.data?.couriers?.[0];
-  const slug = String(courier?.slug || '');
-  const name = String(courier?.name || '');
-  if (!slug) return null;
-
-  await fetch('https://api.aftership.com/tracking/2024-04/trackings', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ tracking_number: trackingNumber, slug }),
-    cache: 'no-store',
-  }).catch(() => null);
-
-  const tracked = await fetch(
-    `https://api.aftership.com/tracking/2024-04/trackings/${encodeURIComponent(slug)}/${encodeURIComponent(trackingNumber)}`,
-    { headers, cache: 'no-store' }
-  );
-  const trackedPayload = tracked.ok ? await tracked.json() : null;
-  const tracking = trackedPayload?.data?.tracking || {};
-  const checkpoints = Array.isArray(tracking.checkpoints) ? tracking.checkpoints : [];
-
-  return {
-    courierName: name || slug,
-    courierId: slug,
-    trackingUrl: `https://www.aftership.com/track/${slug}/${trackingNumber}`,
-    statusText: tracking.tag || tracking.subtag_message || tracking.shipment_status,
-    estimatedDelivery: tracking.expected_delivery || tracking.scheduled_delivery_date,
-    events: checkpoints.slice(-6).map((item: Record<string, string>) => ({
-      status: item.tag || 'update',
-      at: item.checkpoint_time || new Date().toISOString(),
-      title: item.message || item.tag || 'Update',
-      detail: [item.location, item.city, item.country_name].filter(Boolean).join(', '),
-    })),
-  };
-}
-
 async function easyshipLookup(trackingNumber: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -107,27 +55,18 @@ export async function lookupShipment(trackingNumber: string): Promise<ShipmentLo
   const verified = verifyTrackingNumber(trackingNumber);
   if (!verified.ok) return verified;
 
-  const [aftership, easyship] = await Promise.all([
-    aftershipLookup(verified.trackingNumber).catch(() => null),
-    easyshipLookup(verified.trackingNumber).catch(() => null),
-  ]);
-
-  const courierName = aftership?.courierName || easyship?.courierName || verified.courierName;
-  const trackingUrl =
-    aftership?.trackingUrl ||
-    easyship?.trackingUrl ||
-    verified.trackingUrl;
+  const easyship = await easyshipLookup(verified.trackingNumber).catch(() => null);
 
   return {
     ok: true,
     trackingNumber: verified.trackingNumber,
-    courierId: aftership?.courierId || verified.courierId,
-    courierName,
-    trackingUrl,
-    statusText: aftership?.statusText || easyship?.statusText,
-    estimatedDelivery: aftership?.estimatedDelivery || easyship?.estimatedDelivery,
+    courierId: verified.courierId,
+    courierName: easyship?.courierName || verified.courierName,
+    trackingUrl: easyship?.trackingUrl || verified.trackingUrl,
+    statusText: easyship?.statusText,
+    estimatedDelivery: easyship?.estimatedDelivery,
     origin: easyship?.origin,
     destination: easyship?.destination,
-    events: [...(aftership?.events || []), ...(easyship?.events || [])],
+    events: easyship?.events || [],
   };
 }
