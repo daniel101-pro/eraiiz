@@ -833,7 +833,6 @@ const ProductUploadForm = () => {
                     </button>
                   </div>
                 </div>
-              </div>
             </div>
 
             <div className="space-y-8">
