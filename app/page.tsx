@@ -6,7 +6,7 @@ import GridComponent from "./components/GridComponent";
 import Opposite from "./components/Opposite";
 import Footer from "./components/Footer";
 import CallToAction from "./components/CallToAction";
-import FaqSection from "./faqs/page";
+import FaqList from "./components/FaqList";
 import BlogCarousel from "./components/BlogCarousel";
 import Navbar from "./components/Navbar";
 import Masonry from './components/Masonry/Masonry';
@@ -352,7 +352,9 @@ const Page = () => {
             </div>
           </div>
 
-          <FaqSection />
+          <div className="w-full max-w-3xl mx-auto px-6 mb-20">
+            <FaqList compact />
+          </div>
           <CallToAction />
           <Footer />
         </div>

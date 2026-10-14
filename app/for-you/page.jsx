@@ -1,16 +1,36 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { ArrowLeft } from 'lucide-react';
 import DualNavbarSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
 import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 import { boostProductsByPlan } from '@/lib/boostProducts';
+import { homePathForRole } from '@/lib/authRouting';
 
 export default function ForYouPage() {
+  const router = useRouter();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const goBack = () => {
+    try {
+      const referrer = document.referrer;
+      if (referrer) {
+        const from = new URL(referrer);
+        if (from.origin === window.location.origin && from.pathname !== '/for-you') {
+          router.back();
+          return;
+        }
+      }
+    } catch {
+      // ignore bad referrer
+    }
+    router.push(homePathForRole(localStorage.getItem('role')));
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -38,9 +58,14 @@ export default function ForYouPage() {
       <DualNavbarSell />
       <main className="flex-1">
         <div className="px-4 md:px-8 lg:px-16 py-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Products for You</h2>
-          </div>
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="Go back"
+            className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-green-950 transition hover:border-green-900 hover:bg-green-50"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
 
           {loading && (
             <div className="flex items-center justify-center min-h-[300px]">

@@ -15,9 +15,9 @@ export const metadata = {
 
 export default function UploadProductPage() {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-white">
       <DualNavbarSell />
-      <main className="container mx-auto py-8 mt-20">
+      <main>
         <ProductUploadForm />
       </main>
     </div>

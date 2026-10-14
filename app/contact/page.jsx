@@ -264,7 +264,13 @@ export default function ContactSupport() {
             </div>
             <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
               <h3 className="font-medium mb-2">How can I become a seller?</h3>
-              <p className="text-gray-600">Visit our 'Become a Seller' page to learn about our requirements and application process.</p>
+              <p className="text-gray-600">
+                Upgrade from a buyer account.{' '}
+                <Link href="/supplier/migrate" className="text-green-700 underline">
+                  Become a seller
+                </Link>
+                . This cannot be reversed.
+              </p>
             </div>
           </div>
         </div>

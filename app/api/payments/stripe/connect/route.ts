@@ -5,6 +5,7 @@ import {
   createStripeAccountLink,
   createStripeConnectAccount,
   retrieveStripeAccount,
+  userFacingStripeError,
 } from '@/lib/stripeConnect';
 import {
   getIdentityFromAuthHeader,
@@ -103,16 +104,17 @@ export async function GET(request: NextRequest) {
     await persistStripePayout(authHeader, updated);
     return NextResponse.json(payoutPayload(updated));
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load Stripe payout';
-    return NextResponse.json({ message }, { status: 500 });
+    console.error('Stripe payout status failed', error);
+    return NextResponse.json(payoutPayload(payout));
   }
 }
 
 export async function POST(request: NextRequest) {
+  let country = '';
   try {
     if (!isStripeConfigured) {
       return NextResponse.json(
-        { message: 'Stripe payouts are not configured yet. Add STRIPE_SECRET_KEY to enable them.' },
+        { message: 'Payout setup is temporarily unavailable. Please try again later.' },
         { status: 503 }
       );
     }
@@ -128,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const country = String(body.country || '').trim().toUpperCase();
+    country = String(body.country || '').trim().toUpperCase();
     if (!country || country.length !== 2) {
       return NextResponse.json({ message: 'Choose your country first' }, { status: 400 });
     }
@@ -172,7 +174,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: link.url, stripeAccountId: accountId });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to start Stripe payout setup';
-    return NextResponse.json({ message }, { status: 500 });
+    console.error('Stripe connect failed', error);
+    const { message, status } = userFacingStripeError(error, country);
+    return NextResponse.json({ message }, { status });
   }
 }

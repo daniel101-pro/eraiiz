@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { isSellerRole } from '@/lib/authRouting';
 
 const BUYER = [
   'Browse and buy products',
@@ -19,6 +21,7 @@ const SELLER = [
 ];
 
 export default function MigratePage() {
+  const router = useRouter();
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,7 +88,15 @@ export default function MigratePage() {
 
   useEffect(() => {
     handleScroll();
-  }, []);
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      if (isSellerRole(stored.role) || isSellerRole(localStorage.getItem('role'))) {
+        router.replace('/dashboard/seller');
+      }
+    } catch {
+      // ignore
+    }
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-white text-green-950">
@@ -100,7 +111,7 @@ export default function MigratePage() {
         <p className="text-sm font-medium text-green-800">Seller upgrade</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Become a seller</h1>
         <p className="mt-3 max-w-xl text-base text-gray-600">
-          Keep shopping as a buyer, and start listing products. Read the agreement, then confirm.
+          You can still shop after this. You cannot switch the account back to buyer. Read the agreement, then confirm.
         </p>
 
         <div className="mt-10 grid gap-8 border-y border-gray-200 py-8 sm:grid-cols-2">
@@ -423,6 +434,7 @@ export default function MigratePage() {
             >
               {isLoading ? 'Updating account…' : 'Accept and continue'}
             </button>
+            <p className="mt-3 text-sm text-gray-500">This cannot be reversed. Seller accounts cannot switch back to buyer.</p>
             {!isScrolledToBottom && (
               <p className="mt-3 text-sm text-gray-500">Read the agreement to the end before continuing.</p>
             )}

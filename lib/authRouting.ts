@@ -6,6 +6,10 @@ export function isPendingRole(role?: string | null) {
   return normalizeRole(role) === 'pending';
 }
 
+export function isSellerRole(role?: string | null) {
+  return normalizeRole(role) === 'seller';
+}
+
 export function homePathForRole(role?: string | null) {
   const value = normalizeRole(role);
   if (value === 'seller') return '/dashboard/seller';

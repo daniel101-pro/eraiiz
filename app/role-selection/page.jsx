@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowRight, Check, Leaf, ShoppingBag, Store } from 'lucide-react';
 import { showAuthToast } from '../utils/toast';
+import { homePathForRole, isSellerRole } from '@/lib/authRouting';
 
 const ROLES = [
   {
@@ -53,12 +54,24 @@ export default function RoleSelection() {
       return;
     }
 
-    setUserData(tempUser || storedUser);
+    const nextUser = tempUser || storedUser;
+    if (isSellerRole(nextUser?.role) || isSellerRole(localStorage.getItem('role'))) {
+      router.replace('/dashboard/seller');
+      return;
+    }
+
+    setUserData(nextUser);
   }, [router]);
 
   const handleContinue = async () => {
     if (!selectedRole) {
       showAuthToast('Please select a role to continue', 'error');
+      return;
+    }
+
+    if (isSellerRole(userData?.role) && selectedRole === 'buyer') {
+      showAuthToast('Seller accounts cannot switch back to buyer.', 'error');
+      router.replace('/dashboard/seller');
       return;
     }
 
@@ -155,7 +168,7 @@ export default function RoleSelection() {
             How do you want to start?
           </h1>
           <p className="mt-3 text-base text-gray-600 sm:text-lg">
-            Choose a role for this account. You can switch between shopping and selling later.
+            Choose how this account starts. Buyers can upgrade to selling later. Sellers cannot switch back to buyer.
           </p>
         </motion.div>
 
@@ -239,7 +252,7 @@ export default function RoleSelection() {
               )}
             </button>
             <p className="text-center text-xs text-gray-500">
-              You can change this later in account settings.
+              Buyer accounts can become sellers later. Seller accounts stay sellers.
             </p>
           </div>
         </div>

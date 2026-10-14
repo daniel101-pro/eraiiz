@@ -1,14 +1,13 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import axios from 'axios';
-import Image from 'next/image';
-import { Toaster } from 'react-hot-toast';
-import { showProductToast, showError, showSuccess } from '../utils/toast';
+import { showProductToast, showError } from '../utils/toast';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '../context/CurrencyContext';
 import { getValidAccessToken, refreshAccessToken } from '../utils/auth';
-import { ChevronDown, Globe, DollarSign, Info, Upload, X, Plus, Minus, Package, Camera, Star, ShoppingBag, Leaf, Award } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Plus, Minus, X } from 'lucide-react';
+import CrazyLoader from './CrazyLoader';
+import { homePathForRole } from '@/lib/authRouting';
 
 const ProductUploadForm = () => {
   const { getCurrencyInfo, convertPriceExplicit, formatPrice, exchangeRates, selectedCurrency } = useCurrency();
@@ -563,132 +562,118 @@ const ProductUploadForm = () => {
 
       setSuccess('Product uploaded successfully!');
       showProductToast('Product uploaded successfully!', 'success');
-      
-      // Redirect to success page with product ID
-      setTimeout(() => {
-        router.push(`/dashboard/seller/upload/success?productId=${response.data.productId}`);
-      }, 2000);
-
+      router.push(`/dashboard/seller/upload/success?productId=${response.data.productId}`);
     } catch (err) {
       console.error('Upload error:', err);
       const errorMessage = err.response?.data?.message || 'Upload failed. Please try again.';
       setError(errorMessage);
       showError(errorMessage);
-    } finally {
       setIsSubmitting(false);
     }
   };
 
+  const fieldClass =
+    'w-full border border-gray-200 bg-white px-4 py-3 text-green-950 placeholder:text-gray-400 focus:border-green-900 focus:outline-none';
+
+  const goBack = () => {
+    try {
+      const referrer = document.referrer;
+      if (referrer) {
+        const from = new URL(referrer);
+        if (from.origin === window.location.origin && !from.pathname.includes('/upload')) {
+          router.back();
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    router.push(homePathForRole(localStorage.getItem('role') || 'seller'));
+  };
+
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
+    return <CrazyLoader title="Loading upload" subtitle="Checking your seller session" />;
   }
 
   if (!session) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex min-h-[50vh] items-center justify-center px-4">
         <div className="text-center">
-          <h2 className="text-xs sm:text-sm md:text-base font-bold text-gray-900">Access Denied</h2>
-          <p className="text-gray-600 mt-2">Please log in to access this page.</p>
+          <h2 className="text-xl font-semibold text-green-950">Sign in required</h2>
+          <p className="mt-2 text-sm text-gray-600">Log in as a seller to upload a product.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white md:bg-gradient-to-br md:from-green-50 md:via-white md:to-blue-50 p-0 md:py-12 md:px-4">
+    <div className="bg-white text-green-950">
+      {isSubmitting ? (
+        <CrazyLoader fullscreen title="Uploading product" subtitle="Do not close this tab" />
+      ) : null}
 
-      
-      <div className="max-w-6xl mx-auto m-0 md:mt-0">
-        {/* Header Section */}
-        <div className="text-center mb-2 md:mb-12">
-          <div className="hidden md:inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full mb-6 shadow-lg">
-            <Upload className="h-10 w-10 text-white" />
-          </div>
-          <h1 className="text-xs sm:text-sm md:text-base lg:text-sm xl:text-base font-bold text-gray-900 mb-2 md:mb-4">Upload New Product</h1>
-          <p className="text-sm md:text-xl text-gray-600 max-w-3xl mx-auto">
-            Create your product listing with all the essential details to attract customers and boost sales
-          </p>
-        </div>
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          onClick={goBack}
+          aria-label="Go back"
+          className="mb-8 inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-green-950 transition hover:border-green-900 hover:bg-green-50"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
 
-        {/* Alert Messages */}
-        {success && (
-          <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-xl">
-            <p className="text-green-800 flex items-center gap-2">
-              <Award className="h-5 w-5" />
-              {success}
-            </p>
-          </div>
-        )}
-        {error && (
-          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-red-800 flex items-center gap-2">
-              <X className="h-5 w-5" />
-              {error}
-            </p>
-          </div>
-        )}
+        <p className="text-sm font-medium text-green-800">Seller</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">New product</h1>
+        <p className="mt-2 max-w-xl text-sm text-gray-600">
+          Name, photos, price, and impact details. Required fields must be filled before you can list.
+        </p>
 
-        {/* Main Form */}
-        <form onSubmit={handleSubmit} className="bg-white md:rounded-3xl md:shadow-2xl overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-            
-            {/* Left Column */}
-            <div className="p-8 lg:p-12 space-y-8">
-              {/* Basic Information */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Info className="h-5 w-5 text-green-600" />
-                  </div>
-                  <h2 className="text-xs sm:text-sm md:text-base font-bold text-gray-900">Basic Information</h2>
-                </div>
+        {success && <p className="mt-6 text-sm text-green-800">{success}</p>}
+        {error && <p className="mt-6 text-sm text-red-700">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="mt-10">
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold">Details</h2>
 
                 {/* Product Name */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Product Name</label>
+                  <label className="mb-2 block text-sm font-medium">Product name</label>
                   <input
                     type="text"
                     name="name"
                     value={product.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Enter a catchy product name..."
+                    className={fieldClass}
+                    placeholder="Product name"
                     required
                   />
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                  <label className="mb-2 block text-sm font-medium">Description</label>
                   <textarea
                     name="description"
                     value={product.description}
                     onChange={handleInputChange}
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Describe what makes your product special..."
+                    className={fieldClass}
+                    placeholder="What is this product, and how was it made?"
                     required
                   />
                 </div>
 
                 {/* Price and Currency */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    <DollarSign className="inline h-4 w-4 mr-1" />
-                    Price & Currency
-                  </label>
+                  <label className="mb-2 block text-sm font-medium">Price</label>
                   
                   <div className="flex gap-3">
-                    {/* Currency Selector */}
                     <div className="relative w-40">
                       <button
                         type="button"
                         onClick={() => setIsCurrencyOpen(!isCurrencyOpen)}
-                        className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors duration-200"
+                        className="flex w-full items-center justify-between border border-gray-200 bg-white p-3 text-left hover:border-green-900"
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{getCurrencyInfo(product.currency).flag}</span>
@@ -704,7 +689,7 @@ const ProductUploadForm = () => {
                             className="fixed inset-0 z-10"
                             onClick={() => setIsCurrencyOpen(false)}
                           />
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto">
+                          <div className="absolute top-full left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto border border-gray-200 bg-white shadow-lg">
                             {currencies.map((currency) => (
                               <button
                                 key={currency.code}
@@ -740,7 +725,7 @@ const ProductUploadForm = () => {
                         name="price"
                         value={product.price}
                         onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                        className={`${fieldClass} pl-10`}
                         placeholder="0.00"
                         min="0"
                         step="0.01"
@@ -757,32 +742,22 @@ const ProductUploadForm = () => {
                   )}
                   
                   {/* Price Info */}
-                  <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
-                    <div className="flex items-start gap-2">
-                      <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-xs text-blue-700">
-                        <p className="font-medium mb-1">Pricing:</p>
-                        <ul className="list-disc list-inside space-y-1">
-                          <li>Enter the price in the currency you want buyers to see (e.g. €9.10)</li>
-                          <li>Eraiiz converts it to naira for checkout and shows your original price on the storefront</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Enter the price buyers should see. Checkout in Africa still settles in naira.
+                  </p>
                 </div>
 
                 {/* Category */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                  <label className="mb-2 block text-sm font-medium">Category</label>
                   <select
                     name="category"
                     value={product.category}
                     onChange={(e) => {
                       handleInputChange(e);
-                      // Reset subcategory when category changes
                       setProduct(prev => ({ ...prev, subcategory: '' }));
                     }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                    className={fieldClass}
                     required
                   >
                     <option value="">Select a category...</option>
@@ -795,12 +770,12 @@ const ProductUploadForm = () => {
                 {/* Subcategory */}
                 {product.category && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Subcategory</label>
+                    <label className="mb-2 block text-sm font-medium">Subcategory</label>
                     <select
                       name="subcategory"
                       value={product.subcategory}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                      className={fieldClass}
                       required
                     >
                       <option value="">Select a subcategory...</option>
@@ -813,21 +788,21 @@ const ProductUploadForm = () => {
 
                 {/* Material */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Material</label>
+                  <label className="mb-2 block text-sm font-medium">Material</label>
                   <input
                     type="text"
                     name="material"
                     value={product.material}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                    placeholder="e.g., Recycled plastic, Bamboo, Organic cotton..."
+                    className={fieldClass}
+                    placeholder="Recycled plastic, bamboo, organic cotton"
                     required
                   />
                 </div>
 
                 {/* Product Details */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Product Details</label>
+                  <label className="mb-2 block text-sm font-medium">Extra details</label>
                   <div className="space-y-2">
                     {product.details.map((detail, index) => (
                       <div key={index} className="flex gap-2">
@@ -835,16 +810,16 @@ const ProductUploadForm = () => {
                           type="text"
                           value={detail}
                           onChange={(e) => handleDetailChange(index, e.target.value)}
-                          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                          placeholder="Enter product detail..."
+                          className={`flex-1 ${fieldClass}`}
+                          placeholder="Size notes, care, origin"
                         />
                         {index > 0 && (
                           <button
                             type="button"
                             onClick={() => removeDetail(index)}
-                            className="p-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors duration-200"
+                            className="border border-gray-200 px-3 text-gray-500 hover:border-red-700 hover:text-red-700"
                           >
-                            <Minus className="h-5 w-5" />
+                            <Minus className="h-4 w-4" />
                           </button>
                         )}
                       </div>
@@ -852,28 +827,19 @@ const ProductUploadForm = () => {
                     <button
                       type="button"
                       onClick={addDetail}
-                      className="flex items-center gap-2 text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded-xl transition-colors duration-200"
+                      className="text-sm text-green-800 underline"
                     >
-                      <Plus className="h-4 w-4" />
-                      Add Detail
+                      Add detail
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column */}
-            <div className="bg-gray-50 p-8 lg:p-12 space-y-8">
-              {/* Product Images */}
+            <div className="space-y-8">
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Camera className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <h2 className="text-xs sm:text-sm md:text-base font-bold text-gray-900">Product Images</h2>
-                </div>
-
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-green-400 transition-colors duration-200">
+                <h2 className="mb-4 text-lg font-semibold">Photos</h2>
+                <div className="border border-dashed border-gray-300 p-8 text-center hover:border-green-900">
                   <input
                     type="file"
                     multiple
@@ -883,9 +849,8 @@ const ProductUploadForm = () => {
                     id="image-upload"
                   />
                   <label htmlFor="image-upload" className="cursor-pointer">
-                    <Camera className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                    <p className="text-lg font-medium text-gray-700 mb-2">Upload Product Images</p>
-                    <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each</p>
+                    <p className="font-medium">Add images</p>
+                    <p className="mt-1 text-sm text-gray-500">PNG or JPG, up to 10MB each</p>
                   </label>
                 </div>
 
@@ -897,12 +862,12 @@ const ProductUploadForm = () => {
                         <img
                           src={URL.createObjectURL(image)}
                           alt={`Preview ${index + 1}`}
-                          className="h-32 w-full object-cover rounded-xl"
+                          className="h-32 w-full object-cover"
                         />
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          className="absolute right-2 top-2 bg-white/90 p-1 text-green-950 opacity-0 group-hover:opacity-100"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -912,19 +877,13 @@ const ProductUploadForm = () => {
                 )}
               </div>
 
-              {/* Sizes */}
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Package className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <h2 className="text-xs sm:text-sm md:text-base font-bold text-gray-900">Available Sizes</h2>
-                  <span className="text-gray-500 text-sm font-medium">(Optional)</span>
-                </div>
+                <h2 className="mb-1 text-lg font-semibold">Sizes</h2>
+                <p className="mb-4 text-sm text-gray-500">Optional. Skip if the product has no sizes.</p>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   {Object.keys(product.sizes).map((size) => (
-                    <div key={size} className="border border-gray-200 rounded-xl p-4">
+                    <div key={size} className="border border-gray-200 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <label className="flex items-center gap-2">
                           <input
@@ -942,7 +901,7 @@ const ProductUploadForm = () => {
                           placeholder="Stock"
                           value={product.sizes[size].stock}
                           onChange={(e) => handleSizeStockChange(size, e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className={fieldClass}
                           min="0"
                         />
                       )}
@@ -950,30 +909,10 @@ const ProductUploadForm = () => {
                   ))}
                 </div>
                 
-                {/* Optional note */}
-                <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                    <div className="text-xs text-gray-600">
-                      <p className="font-medium mb-1">💡 Size Information:</p>
-                      <ul className="list-disc list-inside space-y-1">
-                        <li>Sizes are optional - you can skip this section if your product doesn't have sizes</li>
-                        <li>Only select sizes that are available for your product</li>
-                        <li>Stock quantities help customers know availability</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
               </div>
 
-              {/* Bonus Offers */}
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <Star className="h-5 w-5 text-yellow-600" />
-                  </div>
-                  <h2 className="text-xs sm:text-sm md:text-base font-bold text-gray-900">Bonus Offers</h2>
-                </div>
+                <h2 className="mb-4 text-lg font-semibold">Bonus</h2>
 
                 <div className="space-y-4">
                   <label className="flex items-center gap-3">
@@ -991,16 +930,16 @@ const ProductUploadForm = () => {
                       <select
                         value={product.bonus.type}
                         onChange={(e) => handleBonusChange('type', e.target.value)}
-                        className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className={fieldClass}
                       >
                         <option value="percentage">Percentage</option>
-                        <option value="fixed">Fixed Amount</option>
+                        <option value="fixed">Fixed amount</option>
                       </select>
                       <input
                         type="number"
                         value={product.bonus.value}
                         onChange={(e) => handleBonusChange('value', e.target.value)}
-                        className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className={fieldClass}
                         placeholder={product.bonus.type === 'percentage' ? '10' : '50'}
                         min="0"
                       />
@@ -1009,48 +948,32 @@ const ProductUploadForm = () => {
                 </div>
               </div>
 
-              {/* Sustainability Toggle */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowSustainability(!showSustainability)}
-                  className="flex items-center gap-3 w-full p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors duration-200"
-                >
-                  <Leaf className="h-6 w-6 text-red-600" />
-                  <div className="text-left">
-                    <h3 className="font-semibold text-red-800">Sustainability Information</h3>
-                    <p className="text-sm text-red-600">Required environmental impact data</p>
-                  </div>
-                  <ChevronDown className={`h-5 w-5 text-red-600 ml-auto transition-transform duration-200 ${showSustainability ? 'rotate-180' : ''}`} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowSustainability(!showSustainability)}
+                className="flex w-full items-center justify-between border border-gray-200 px-4 py-3 text-left hover:border-green-900"
+              >
+                <span>
+                  <span className="block font-medium">Impact details</span>
+                  <span className="text-sm text-gray-500">Required before you can list</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 transition ${showSustainability ? 'rotate-180' : ''}`} />
+              </button>
             </div>
           </div>
 
-                     {/* Sustainability Section (Full Width) */}
            {showSustainability && (
-             <div className="border-t border-gray-200 p-8 lg:p-12 bg-white">
-               <div className="max-w-6xl mx-auto space-y-8">
-                 <div className="text-center mb-8">
-                   <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full mb-4">
-                     <Leaf className="h-8 w-8 text-white" />
-                   </div>
-                   <h2 className="text-xs sm:text-sm md:text-base lg:text-sm font-bold text-gray-900 mb-2">Sustainability Information</h2>
-                   <p className="text-gray-600">Help customers understand the environmental impact of your product</p>
+             <div className="mt-12 space-y-8 border-t border-gray-200 pt-10">
+                 <div>
+                   <h2 className="text-lg font-semibold">Impact</h2>
+                   <p className="mt-1 text-sm text-gray-500">Used to estimate carbon footprint for the listing.</p>
                  </div>
 
-                 {/* Materials Section */}
-                 <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                                        <div className="flex items-center gap-3 mb-6">
-                       <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                         <Package className="h-5 w-5 text-red-600" />
-                       </div>
-                       <h3 className="text-xl font-bold text-gray-900">Materials Used</h3>
-                       <span className="text-red-500 text-sm font-semibold">*Required</span>
-                     </div>
+                 <div>
+                       <h3 className="mb-4 text-base font-semibold">Materials</h3>
                    
                    {product.sustainability.materials.map((material, index) => (
-                     <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4 p-4 bg-gray-50 rounded-xl">
+                     <div key={index} className="mb-4 grid grid-cols-1 items-end gap-4 border border-gray-200 p-4 md:grid-cols-4">
                        <div>
                          <label className="block text-sm font-medium text-gray-700 mb-2">Material Name</label>
                          <input
@@ -1058,16 +981,16 @@ const ProductUploadForm = () => {
                            placeholder="e.g., Recycled Plastic"
                            value={material.name}
                            onChange={(e) => updateMaterial(index, 'name', e.target.value)}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                           className={fieldClass}
                            required
                          />
                        </div>
                        <div>
-                         <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                         <label className="mb-2 block text-sm font-medium">Type</label>
                          <select
                            value={material.type}
                            onChange={(e) => updateMaterial(index, 'type', e.target.value)}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           className={fieldClass}
                          >
                            {materialTypes.map(type => (
                              <option key={type.value} value={type.value}>{type.label}</option>
@@ -1081,7 +1004,7 @@ const ProductUploadForm = () => {
                            placeholder="100"
                            value={material.percentage}
                            onChange={(e) => updateMaterial(index, 'percentage', Number(e.target.value))}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           className={fieldClass}
                            min="0"
                            max="100"
                          />
@@ -1090,7 +1013,7 @@ const ProductUploadForm = () => {
                          <button
                            type="button"
                            onClick={() => removeMaterial(index)}
-                           className="flex items-center justify-center px-4 py-3 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-xl transition-colors duration-200"
+                           className="border border-gray-200 px-4 py-3 text-gray-500 hover:border-red-700 hover:text-red-700"
                          >
                            <Minus className="h-5 w-5" />
                          </button>
@@ -1100,22 +1023,15 @@ const ProductUploadForm = () => {
                    <button
                      type="button"
                      onClick={addMaterial}
-                     className="flex items-center gap-2 text-green-600 hover:text-green-700 p-3 hover:bg-green-50 rounded-xl transition-colors duration-200"
+                     className="text-sm text-green-800 underline"
                    >
-                     <Plus className="h-4 w-4" />
-                     Add Material
+                     Add material
                    </button>
                  </div>
 
-                 {/* Weight and Energy Section */}
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                   <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                     <div className="flex items-center gap-3 mb-6">
-                       <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                         <Star className="h-5 w-5 text-blue-600" />
-                       </div>
-                       <h3 className="text-xl font-bold text-gray-900">Product Details</h3>
-                     </div>
+                 <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                   <div>
+                     <h3 className="mb-4 text-base font-semibold">Weight</h3>
                      
                      <div className="space-y-4">
                        <div>
@@ -1132,7 +1048,7 @@ const ProductUploadForm = () => {
                              ...product.sustainability.weight, 
                              value: Number(e.target.value) 
                            })}
-                           className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                           className={`flex-1 ${fieldClass}`}
                            required
                          />
                            <select
@@ -1141,7 +1057,7 @@ const ProductUploadForm = () => {
                                ...product.sustainability.weight, 
                                unit: e.target.value 
                              })}
-                             className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                             className={fieldClass}
                            >
                              <option value="kg">kg</option>
                              <option value="g">g</option>
@@ -1153,20 +1069,14 @@ const ProductUploadForm = () => {
                      </div>
                    </div>
 
-                   <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                     <div className="flex items-center gap-3 mb-6">
-                       <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                         <Globe className="h-5 w-5 text-yellow-600" />
-                       </div>
-                       <h3 className="text-xl font-bold text-gray-900">Production Energy</h3>
-                     </div>
-                     
+                   <div>
+                     <h3 className="mb-4 text-base font-semibold">Production energy</h3>
                      <div>
-                       <label className="block text-sm font-medium text-gray-700 mb-2">Energy Source</label>
+                       <label className="mb-2 block text-sm font-medium">Energy source</label>
                        <select
                          value={product.sustainability.productionEnergySource}
                          onChange={(e) => updateSustainability('productionEnergySource', e.target.value)}
-                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                         className={fieldClass}
                        >
                          {energySources.map(source => (
                            <option key={source.value} value={source.value}>{source.label}</option>
@@ -1176,55 +1086,42 @@ const ProductUploadForm = () => {
                    </div>
                  </div>
 
-                 {/* Manufacturing Location */}
-                 <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                   <div className="flex items-center gap-3 mb-6">
-                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                       <Globe className="h-5 w-5 text-purple-600" />
-                     </div>
-                     <h3 className="text-xl font-bold text-gray-900">Manufacturing Location</h3>
-                   </div>
-                   
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div>
+                   <h3 className="mb-4 text-base font-semibold">Made in</h3>
+                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                      <div>
-                       <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                       <label className="mb-2 block text-sm font-medium">Country</label>
                        <input
                          type="text"
-                         placeholder="e.g., Nigeria"
+                         placeholder="Nigeria"
                          value={product.sustainability.manufacturingLocation.country}
                          onChange={(e) => updateSustainability('manufacturingLocation', { 
                            ...product.sustainability.manufacturingLocation, 
                            country: e.target.value 
                          })}
-                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                         className={fieldClass}
                          required
                        />
                      </div>
                      <div>
-                       <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                       <label className="mb-2 block text-sm font-medium">City</label>
                        <input
                          type="text"
-                         placeholder="e.g., Lagos"
+                         placeholder="Lagos"
                          value={product.sustainability.manufacturingLocation.city}
                          onChange={(e) => updateSustainability('manufacturingLocation', { 
                            ...product.sustainability.manufacturingLocation, 
                            city: e.target.value 
                          })}
-                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                         className={fieldClass}
                          required
                        />
                      </div>
                    </div>
                  </div>
 
-                 {/* Shipping Information */}
-                 <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                   <div className="flex items-center gap-3 mb-6">
-                     <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                       <Package className="h-5 w-5 text-indigo-600" />
-                     </div>
-                     <h3 className="text-xl font-bold text-gray-900">Shipping Information</h3>
-                   </div>
+                 <div>
+                   <h3 className="mb-4 text-base font-semibold">Shipping</h3>
                    
                    <div className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1235,18 +1132,18 @@ const ProductUploadForm = () => {
                            placeholder="Origin Country"
                            value={product.sustainability.shipping.origin.country}
                            onChange={(e) => updateShippingLocation('origin', 'country', e.target.value)}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                           className={fieldClass}
                            required
                          />
                        </div>
                        <div>
-                         <label className="block text-sm font-medium text-gray-700 mb-2">Origin City</label>
+                         <label className="mb-2 block text-sm font-medium">Origin city</label>
                          <input
                            type="text"
-                           placeholder="Origin City"
+                           placeholder="Origin city"
                            value={product.sustainability.shipping.origin.city}
                            onChange={(e) => updateShippingLocation('origin', 'city', e.target.value)}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                           className={fieldClass}
                            required
                          />
                        </div>
@@ -1258,7 +1155,7 @@ const ProductUploadForm = () => {
                          <select
                            value={product.sustainability.shipping.method}
                            onChange={(e) => updateShipping('method', e.target.value)}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           className={fieldClass}
                          >
                            {shippingMethods.map(method => (
                              <option key={method.value} value={method.value}>{method.label}</option>
@@ -1266,23 +1163,23 @@ const ProductUploadForm = () => {
                          </select>
                        </div>
                        <div>
-                         <label className="block text-sm font-medium text-gray-700 mb-2">Distance (km)</label>
+                         <label className="mb-2 block text-sm font-medium">Distance (km)</label>
                          <input
                            type="number"
                            placeholder="0"
                            value={product.sustainability.shipping.distance}
                            onChange={(e) => updateShipping('distance', Number(e.target.value))}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                           className={fieldClass}
                            min="0"
                            required
                          />
                        </div>
                        <div>
-                         <label className="block text-sm font-medium text-gray-700 mb-2">Packaging Type</label>
+                         <label className="mb-2 block text-sm font-medium">Packaging</label>
                          <select
                            value={product.sustainability.shipping.packagingType}
                            onChange={(e) => updateShipping('packagingType', e.target.value)}
-                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           className={fieldClass}
                          >
                            {packagingTypes.map(type => (
                              <option key={type.value} value={type.value}>{type.label}</option>
@@ -1293,103 +1190,63 @@ const ProductUploadForm = () => {
                    </div>
                  </div>
 
-                 {/* Carbon Footprint Calculation */}
-                 <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                   <div className="text-center">
-                     <div className="mb-4">
-                       <h3 className="text-xl font-bold text-gray-900 mb-2">
-                         Calculate Carbon Footprint <span className="text-red-500">*Required</span>
-                       </h3>
-                       <p className="text-gray-600">
-                         Calculate your product's environmental impact based on the information provided
-                       </p>
-                     </div>
-                     
+                 <div className="border-t border-gray-200 pt-8">
+                       <h3 className="text-base font-semibold">Carbon footprint</h3>
+                       <p className="mt-1 text-sm text-gray-500">Required. Uses the impact details above.</p>
                      <button
                        type="button"
                        onClick={calculateCarbonFootprint}
                        disabled={isCalculating}
-                       className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white text-lg font-semibold rounded-xl hover:from-green-700 hover:to-green-800 disabled:opacity-50 transition-all duration-200 shadow-lg hover:shadow-xl"
+                       className="mt-4 bg-green-900 px-6 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:bg-gray-300"
                      >
-                       {isCalculating ? (
-                         <>
-                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                           Calculating Carbon Footprint...
-                         </>
-                       ) : (
-                         <>
-                           <Leaf className="h-5 w-5" />
-                           Calculate Carbon Footprint (Required)
-                         </>
-                       )}
+                       {isCalculating ? 'Calculating…' : 'Calculate footprint'}
                      </button>
 
                      {carbonFootprint && (
-                       <div className="mt-8 p-6 bg-white rounded-xl border border-gray-200">
-                         <h4 className="text-lg font-semibold text-green-800 mb-4">🌱 Carbon Footprint Results</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                           <div className="text-center bg-gray-50 rounded-lg p-4 border border-gray-200">
-                             <div className="text-xs sm:text-sm md:text-base font-bold text-green-600">
+                       <div className="mt-6 grid grid-cols-2 gap-4 border-t border-gray-200 pt-6 lg:grid-cols-4">
+                           <div>
+                             <div className="text-xl font-bold">
                                {carbonFootprint?.total || '0'}
                              </div>
-                             <div className="text-sm text-gray-600">kg CO₂e Total</div>
+                             <div className="text-sm text-gray-500">kg CO₂e</div>
                            </div>
-                           <div className="text-center bg-gray-50 rounded-lg p-4 border border-gray-200">
-                             <div className="text-xs sm:text-sm md:text-base font-bold text-blue-600">
+                           <div>
+                             <div className="text-xl font-bold">
                                {carbonFootprint?.impactScore || 'Medium'}
                              </div>
-                             <div className="text-sm text-gray-600">Impact Score</div>
+                             <div className="text-sm text-gray-500">Impact</div>
                            </div>
-                           <div className="text-center bg-gray-50 rounded-lg p-4 border border-gray-200">
-                             <div className="text-xs sm:text-sm md:text-base font-bold text-purple-600">
+                           <div>
+                             <div className="text-xl font-bold">
                                {carbonFootprint?.treesToOffset || '0 trees'}
                              </div>
-                             <div className="text-sm text-gray-600">Trees to Offset</div>
+                             <div className="text-sm text-gray-500">Trees to offset</div>
                            </div>
-                           <div className="text-center bg-gray-50 rounded-lg p-4 border border-gray-200">
-                             <div className="text-xs sm:text-sm md:text-base font-bold text-orange-600">
+                           <div>
+                             <div className="text-xl font-bold">
                                {carbonFootprint?.equivalentCarRide || '0 km'}
                              </div>
-                             <div className="text-sm text-gray-600">Car Ride Equivalent</div>
+                             <div className="text-sm text-gray-500">Car-ride equivalent</div>
                            </div>
-                         </div>
-                         
                          {carbonFootprint?.savingsVsConventional && (
-                           <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                             <p className="text-sm text-green-700 font-medium">
-                               💚 {carbonFootprint.savingsVsConventional}
+                             <p className="col-span-full text-sm text-green-800">
+                               {carbonFootprint.savingsVsConventional}
                              </p>
-                           </div>
                          )}
                        </div>
                      )}
-                   </div>
                  </div>
-               </div>
              </div>
            )}
 
-          {/* Submit Button */}
-          <div className="border-t border-gray-200 p-8 lg:p-12 bg-white">
-            <div className="text-center">
+          <div className="mt-12 border-t border-gray-200 pt-8">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white text-lg font-semibold rounded-xl hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="bg-green-900 px-6 py-3.5 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Uploading Product...
-                  </>
-                ) : (
-                  <>
-                    <ShoppingBag className="h-5 w-5" />
-                    Upload Product
-                  </>
-                )}
+                {isSubmitting ? 'Uploading…' : 'List product'}
               </button>
-            </div>
           </div>
         </form>
       </div>

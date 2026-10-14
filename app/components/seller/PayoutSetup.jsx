@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, CheckCircle, CreditCard, Globe, Loader2 } from 'lucide-react';
+import { Building2, CheckCircle, CreditCard, Globe } from 'lucide-react';
+import CrazyLoader from '../CrazyLoader';
 import {
   createSellerSubaccount,
   fetchBanks,
@@ -29,6 +30,7 @@ export default function PayoutSetup({ user }) {
   const [existing, setExisting] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [setupError, setSetupError] = useState('');
   const [country, setCountry] = useState('');
   const [form, setForm] = useState({
     businessName: user?.name || '',
@@ -94,8 +96,13 @@ export default function PayoutSetup({ user }) {
             if (stripeStatus.country) setCountry(stripeStatus.country);
           }
           if (stripeParam === 'refresh' && !stripeStatus?.connected) {
+            setIsSubmitting(true);
             const started = await startStripeConnect(nextCountry || country || 'GB');
-            if (started?.url) window.location.href = started.url;
+            if (started?.url) {
+              window.location.assign(started.url);
+              return;
+            }
+            setIsSubmitting(false);
           }
         }
       } catch (error) {
@@ -165,30 +172,35 @@ export default function PayoutSetup({ user }) {
 
   const handleStripeConnect = async () => {
     if (!country) {
-      showError('Choose your country first');
+      const message = 'Choose your country first';
+      setSetupError(message);
+      showError(message);
       return;
     }
     try {
+      setSetupError('');
       setIsSubmitting(true);
       const result = await startStripeConnect(country);
       if (result?.url) {
-        window.location.href = result.url;
+        window.location.assign(result.url);
         return;
       }
-      showError('Could not start Stripe payout setup');
+      const message = 'We could not open payout setup. Try again.';
+      setSetupError(message);
+      showError(message);
+      setIsSubmitting(false);
     } catch (error) {
-      showError(error.message || 'Failed to start Stripe payout setup');
-    } finally {
+      const message =
+        error.message || 'We could not set up payouts. Try again, or contact Eraiiz support.';
+      setSetupError(message);
+      showError(message);
       setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-gray-600">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading payout setup...
-      </div>
+      <CrazyLoader title="Loading payouts" subtitle="Fetching your payout setup" />
     );
   }
 
@@ -196,6 +208,13 @@ export default function PayoutSetup({ user }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+      {isSubmitting ? (
+        <CrazyLoader
+          fullscreen
+          title={provider === 'paystack' ? 'Connecting bank' : 'Connecting Stripe'}
+          subtitle="Do not close this tab"
+        />
+      ) : null}
       <h2 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-green-600" />
         Payout setup
@@ -247,7 +266,10 @@ export default function PayoutSetup({ user }) {
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <select
                 value={country}
-                onChange={(event) => setCountry(event.target.value)}
+                onChange={(event) => {
+                  setSetupError('');
+                  setCountry(event.target.value);
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 bg-white"
               >
                 <option value="">Select country</option>
@@ -330,20 +352,23 @@ export default function PayoutSetup({ user }) {
                 disabled={isSubmitting}
                 className="w-full sm:w-auto px-6 py-3 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
               >
-                {isSubmitting ? 'Connecting account...' : 'Connect payout account'}
+                {isSubmitting ? 'Connecting…' : 'Connect payout account'}
               </button>
             </form>
           )}
 
           {provider === 'stripe' && (
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleStripeConnect}
-              className="w-full sm:w-auto px-6 py-3 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
-            >
-              {isSubmitting ? 'Opening Stripe...' : existing?.stripeAccountId ? 'Continue Stripe setup' : 'Connect with Stripe'}
-            </button>
+            <div className="space-y-3">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleStripeConnect}
+                className="w-full sm:w-auto px-6 py-3 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                {isSubmitting ? 'Opening Stripe...' : existing?.stripeAccountId ? 'Continue Stripe setup' : 'Connect with Stripe'}
+              </button>
+              {setupError ? <p className="text-sm text-red-700">{setupError}</p> : null}
+            </div>
           )}
         </div>
       )}
