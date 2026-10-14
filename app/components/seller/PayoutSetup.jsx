@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, CheckCircle, CreditCard, Globe } from 'lucide-react';
 import CrazyLoader from '../CrazyLoader';
 import {
   createSellerSubaccount,
@@ -206,118 +205,97 @@ export default function PayoutSetup({ user }) {
 
   const connected = isConnected(existing);
 
+  const fieldClass =
+    'w-full border border-gray-200 bg-white px-4 py-3 text-green-950 placeholder:text-gray-400 focus:border-green-900 focus:outline-none';
+
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-      {isSubmitting ? (
-        <CrazyLoader fullscreen />
-      ) : null}
-      <h2 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
-        <CreditCard className="h-5 w-5 text-green-600" />
-        Payout setup
-      </h2>
-      <p className="text-sm text-gray-600 mb-6">
-        Choose your country first. African sellers get paid with Paystack. Everyone else uses Stripe.
+    <section>
+      {isSubmitting ? <CrazyLoader fullscreen /> : null}
+      <h2 className="text-lg font-semibold">Payouts</h2>
+      <p className="mt-1 text-sm text-gray-600">
+        African sellers get paid with Paystack. Everyone else uses Stripe.
       </p>
 
       {connected ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-          <div className="flex items-start gap-3">
-            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-            <div>
-              <p className="font-medium text-green-900">Payout account connected</p>
-              <p className="text-sm text-green-800 mt-1">
-                {[
-                  existing.country ? countryName(existing.country) : '',
-                  existing.provider === 'stripe' ? 'Stripe' : 'Paystack',
-                  existing.businessName || existing.accountName,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-              {existing.accountNumber ? (
-                <p className="text-sm text-green-800">
-                  Account ending in {String(existing.accountNumber).slice(-4)}
-                </p>
-              ) : existing.stripeAccountId ? (
-                <p className="text-sm text-green-800 mt-1">
-                  {existing.stripePayoutsEnabled
-                    ? 'Stripe payouts are enabled.'
-                    : 'Stripe account connected. Payouts turn on after Stripe finishes reviewing your details.'}
-                </p>
-              ) : (
-                <p className="text-sm text-green-800 mt-1">
-                  Your payout account is connected.
-                </p>
-              )}
-            </div>
-          </div>
+        <div className="mt-6 border border-gray-200 px-4 py-4">
+          <p className="text-sm font-medium">Connected</p>
+          <p className="mt-1 text-sm text-gray-600">
+            {[
+              existing.country ? countryName(existing.country) : '',
+              existing.provider === 'stripe' ? 'Stripe' : 'Paystack',
+              existing.businessName || existing.accountName,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+          {existing.accountNumber ? (
+            <p className="mt-1 text-sm text-gray-600">
+              Account ending in {String(existing.accountNumber).slice(-4)}
+            </p>
+          ) : existing.stripeAccountId ? (
+            <p className="mt-1 text-sm text-gray-600">
+              {existing.stripePayoutsEnabled
+                ? 'Stripe payouts are enabled.'
+                : 'Stripe is connected. Payouts turn on after Stripe finishes review.'}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-600">Your payout account is connected.</p>
+          )}
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="mt-6 max-w-xl space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Country
-            </label>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <select
-                value={country}
-                onChange={(event) => {
-                  setSetupError('');
-                  setCountry(event.target.value);
-                }}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 bg-white"
-              >
-                <option value="">Select country</option>
-                {countryOptions.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <label className="mb-2 block text-sm font-medium">Country</label>
+            <select
+              value={country}
+              onChange={(event) => {
+                setSetupError('');
+                setCountry(event.target.value);
+              }}
+              className={fieldClass}
+            >
+              <option value="">Select country</option>
+              {countryOptions.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {provider && (
+          {provider ? (
             <p className="text-sm text-gray-600">
               {provider === 'paystack'
                 ? 'Paystack will be used for payouts in this country.'
                 : 'Stripe will be used for payouts in this country.'}
             </p>
-          )}
+          ) : null}
 
-          {existing?.stripeAccountId && !existing?.stripeDetailsSubmitted && provider === 'stripe' && (
-            <p className="text-sm text-amber-700">Finish Stripe onboarding to enable payouts.</p>
-          )}
+          {existing?.stripeAccountId && !existing?.stripeDetailsSubmitted && provider === 'stripe' ? (
+            <p className="text-sm text-gray-600">Finish Stripe onboarding to enable payouts.</p>
+          ) : null}
 
           {provider === 'paystack' && (
             <form onSubmit={handlePaystackSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Business name
-                </label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    name="businessName"
-                    value={form.businessName}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
-                    placeholder="Registered business name"
-                  />
-                </div>
+                <label className="mb-2 block text-sm font-medium">Business name</label>
+                <input
+                  type="text"
+                  name="businessName"
+                  value={form.businessName}
+                  onChange={handleChange}
+                  className={fieldClass}
+                  placeholder="Registered business name"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Bank
-                </label>
+                <label className="mb-2 block text-sm font-medium">Bank</label>
                 <select
                   name="bankCode"
                   value={form.bankCode}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                  className={fieldClass}
                 >
                   <option value="">Select bank</option>
                   {banks.map((bank) => (
@@ -329,16 +307,14 @@ export default function PayoutSetup({ user }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Account number
-                </label>
+                <label className="mb-2 block text-sm font-medium">Account number</label>
                 <input
                   type="text"
                   name="accountNumber"
                   value={form.accountNumber}
                   onChange={handleChange}
                   maxLength={country === 'NG' ? 10 : 20}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                  className={fieldClass}
                   placeholder={country === 'NG' ? '10-digit account number' : 'Bank account number'}
                 />
               </div>
@@ -346,7 +322,7 @@ export default function PayoutSetup({ user }) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full sm:w-auto px-6 py-3 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                className="bg-green-900 px-6 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:bg-gray-300"
               >
                 {isSubmitting ? 'Connecting…' : 'Connect payout account'}
               </button>
@@ -359,15 +335,15 @@ export default function PayoutSetup({ user }) {
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleStripeConnect}
-                className="w-full sm:w-auto px-6 py-3 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                className="bg-green-900 px-6 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:bg-gray-300"
               >
-                {isSubmitting ? 'Opening Stripe...' : existing?.stripeAccountId ? 'Continue Stripe setup' : 'Connect with Stripe'}
+                {isSubmitting ? 'Opening Stripe…' : existing?.stripeAccountId ? 'Continue Stripe setup' : 'Connect with Stripe'}
               </button>
               {setupError ? <p className="text-sm text-red-700">{setupError}</p> : null}
             </div>
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

@@ -104,9 +104,8 @@ export default function AccountPage() {
   }, [router]);
 
   useEffect(() => {
-    const section = new URLSearchParams(window.location.search).get('section');
-    if (!section) return;
-
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get('section');
     const mapped = {
       shipping: 'Shipping',
       Shipping: 'Shipping',
@@ -119,7 +118,14 @@ export default function AccountPage() {
       notifications: 'Notifications',
     }[section];
 
-    if (mapped) setActiveSection(mapped);
+    if (mapped) {
+      setActiveSection(mapped);
+      return;
+    }
+
+    if (params.get('billing') || params.get('stripe') || params.get('plan')) {
+      setActiveSection('Billing');
+    }
   }, []);
 
   const handleLogout = () => {

@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       email,
       amountKobo: toKobo(plan.amountNgn),
       reference,
-      callbackUrl: `${request.nextUrl.origin}/account?billing=success&plan=${plan.id}`,
+      callbackUrl: `${request.nextUrl.origin}/account?section=Billing&billing=success&plan=${plan.id}`,
       plan: paystackPlan.plan_code,
       metadata: {
         type: 'seller_plan',
