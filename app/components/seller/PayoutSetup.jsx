@@ -200,7 +200,7 @@ export default function PayoutSetup({ user }) {
 
   if (isLoading) {
     return (
-      <CrazyLoader title="Loading payouts" subtitle="Fetching your payout setup" />
+      <CrazyLoader />
     );
   }
 
@@ -209,11 +209,7 @@ export default function PayoutSetup({ user }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
       {isSubmitting ? (
-        <CrazyLoader
-          fullscreen
-          title={provider === 'paystack' ? 'Connecting bank' : 'Connecting Stripe'}
-          subtitle="Do not close this tab"
-        />
+        <CrazyLoader fullscreen />
       ) : null}
       <h2 className="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-green-600" />

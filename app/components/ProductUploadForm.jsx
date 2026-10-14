@@ -592,7 +592,7 @@ const ProductUploadForm = () => {
   };
 
   if (isLoading) {
-    return <CrazyLoader title="Loading upload" subtitle="Checking your seller session" />;
+    return <CrazyLoader />;
   }
 
   if (!session) {
@@ -609,7 +609,7 @@ const ProductUploadForm = () => {
   return (
     <div className="bg-white text-green-950">
       {isSubmitting ? (
-        <CrazyLoader fullscreen title="Uploading product" subtitle="Do not close this tab" />
+        <CrazyLoader fullscreen />
       ) : null}
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
