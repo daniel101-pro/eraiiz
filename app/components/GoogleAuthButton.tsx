@@ -23,10 +23,9 @@ export default function GoogleAuthButton({ text, onSuccess }: GoogleAuthButtonPr
     onSuccess: async (codeResponse) => {
       try {
         setIsLoading(true);
-        const { data } = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`,
-          { code: codeResponse.code }
-        );
+        const { data } = await axios.post('/api/auth/google', {
+          code: codeResponse.code,
+        });
 
         console.log('=== GOOGLE AUTH RESPONSE ===');
         console.log('Full response data:', data);
