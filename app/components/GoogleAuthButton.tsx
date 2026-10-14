@@ -5,33 +5,52 @@ import axios from 'axios';
 import { showAuthToast } from '../utils/toast';
 import { useState } from 'react';
 import { homePathForRole, isPendingRole } from '@/lib/authRouting';
+import { GOOGLE_CLIENT_ID } from '@/lib/googleClient';
 
 interface GoogleAuthButtonProps {
   text: string;
   onSuccess?: () => void;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function GoogleAuthButton({ text, onSuccess }: GoogleAuthButtonProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-
-  // Check if Google Client ID is configured
-  const isGoogleConfigured = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const isGoogleConfigured = !!GOOGLE_CLIENT_ID;
 
   const handleGoogleLogin = useGoogleLogin({
     flow: 'auth-code',
+    ux_mode: 'popup',
     onSuccess: async (codeResponse) => {
       try {
         setIsLoading(true);
-        const { data } = await axios.post('/api/auth/google', {
-          code: codeResponse.code,
-        });
 
-        console.log('=== GOOGLE AUTH RESPONSE ===');
-        console.log('Full response data:', data);
-        console.log('isNewUser:', data.isNewUser);
-        console.log('user role:', data.user?.role);
-        console.log('============================');
+        let data;
+        let lastError: unknown;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const response = await axios.post(
+              '/api/auth/google',
+              {
+                code: codeResponse.code,
+                redirectUri: 'postmessage',
+              },
+              { timeout: 45000 }
+            );
+            data = response.data;
+            lastError = null;
+            break;
+          } catch (error) {
+            lastError = error;
+            const status = axios.isAxiosError(error) ? error.response?.status : 0;
+            if (status && status < 500 && status !== 429) throw error;
+            if (attempt < 3) await sleep(1500 * attempt);
+          }
+        }
+        if (lastError) throw lastError;
 
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('accessToken', data.accessToken);
@@ -53,16 +72,19 @@ export default function GoogleAuthButton({ text, onSuccess }: GoogleAuthButtonPr
         showAuthToast('Successfully signed in with Google!', 'success');
         onSuccess?.();
         router.push(homePathForRole(data.user.role));
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Google auth error:', error);
-        showAuthToast(error.response?.data?.message || 'Failed to sign in with Google. Please try again.', 'error');
+        const message = axios.isAxiosError(error)
+          ? error.response?.data?.message || error.message
+          : 'Failed to sign in with Google. Please try again.';
+        showAuthToast(message, 'error');
       } finally {
         setIsLoading(false);
       }
     },
     onError: (errorResponse) => {
       console.error('Google login error:', errorResponse);
-      showAuthToast('Google sign in failed. Please try again.', 'error');
+      showAuthToast(errorResponse?.error_description || 'Google sign in failed. Please try again.', 'error');
       setIsLoading(false);
     },
   });
@@ -91,9 +113,8 @@ export default function GoogleAuthButton({ text, onSuccess }: GoogleAuthButtonPr
       ) : (
         <>
           <FcGoogle className="mr-2 text-xl" /> {text}
-          {!isGoogleConfigured && <span className="ml-2 text-xs text-red-500">(Not configured)</span>}
         </>
       )}
     </button>
   );
-} 
+}

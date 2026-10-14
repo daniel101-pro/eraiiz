@@ -9,10 +9,7 @@ import { CheckoutProvider } from './context/CheckoutContext';
 import { Toaster } from 'react-hot-toast';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import AIAssistant from './components/AIAssistant/AIAssistant';
-
-const googleClientId =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  '429710625418-18g91vccienk7nhsvchdeehctl9dsl.apps.googleusercontent.com';
+import { GOOGLE_CLIENT_ID } from '@/lib/googleClient';
 
 export default function ClientLayout({
   children,
@@ -24,7 +21,7 @@ export default function ClientLayout({
   initialCurrency?: string;
 }) {
   return (
-    <GoogleOAuthProvider clientId={googleClientId}>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <CurrencyProvider initialCountry={initialCountry} initialCurrency={initialCurrency}>
         <CartProvider>
           <CheckoutProvider>
