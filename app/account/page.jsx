@@ -182,7 +182,7 @@ export default function AccountPage() {
 
       <DualNavbarSell handleLogout={handleLogout} />
       <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
-        <aside className="fixed left-0 top-0 w-12 md:w-64 h-screen bg-white border-r p-2 md:p-6 pt-24 md:pt-40 z-40 overflow-y-auto">
+        <aside className="fixed left-0 top-0 w-12 md:w-64 h-screen bg-gray-50 border-r border-gray-200 p-2 md:p-6 pt-24 md:pt-40 z-40 overflow-y-auto">
           <div className="mb-2 md:mb-8">
             <div
               className={`flex items-center justify-center gap-1 md:gap-2 px-1 md:px-4 py-1 md:py-2 rounded cursor-pointer ${activeSection === 'My Eraiiz Account' ? 'bg-green-50' : ''} md:justify-start`}

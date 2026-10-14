@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
 import PayoutSetup from '../seller/PayoutSetup';
 import PlanPerks from '../seller/PlanPerks';
-import CrazyLoader from '../CrazyLoader';
 import {
   cancelSellerPlan,
   fetchSellerPlan,
@@ -16,23 +14,8 @@ import {
 import { showError, showSuccess } from '../../utils/toast';
 import { SELLER_PLANS } from '@/lib/sellerPlans';
 
-const billingFaqs = [
-  {
-    q: 'When does my plan change?',
-    a: 'Growth and Pro activate after Paystack confirms payment. Commission drops on the next sale.',
-  },
-  {
-    q: 'What commission do I pay?',
-    a: 'Pay-as-you-sell is 10% per sale. Growth is 8%. Pro is 5%.',
-  },
-  {
-    q: 'Can I go back to Pay-as-you-sell?',
-    a: 'Yes. Paid billing stops renewing and new sales use 10% commission.',
-  },
-];
-
 function planActionLabel(plan, currentPlanId, isProcessing) {
-  if (isProcessing) return 'Processing…';
+  if (isProcessing) return '…';
   if (plan.id === currentPlanId) return 'Current';
   if (plan.amountNgn > 0 && currentPlanId === 'commission') return 'Upgrade';
   if (plan.amountNgn > 0) return 'Switch';
@@ -44,7 +27,6 @@ export default function Billing({ user }) {
   const [nextPaymentDate, setNextPaymentDate] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [processingPlanId, setProcessingPlanId] = useState(null);
-  const [openFaq, setOpenFaq] = useState(0);
 
   const loadPlan = async () => {
     try {
@@ -158,108 +140,63 @@ export default function Billing({ user }) {
   const currentPlan = SELLER_PLANS.find((plan) => plan.id === currentPlanId) || SELLER_PLANS[0];
 
   return (
-    <div className="min-w-0 max-w-5xl space-y-10 overflow-x-hidden bg-white text-green-950">
+    <div className="min-w-0 max-w-3xl space-y-8 text-green-950">
       <div>
-        <p className="text-sm font-medium text-green-800">Seller</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">Billing</h1>
-        <p className="mt-2 max-w-xl text-sm text-gray-600">
-          Payouts, plan, and commission. Paid plans activate after payment succeeds.
+        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          {isLoading
+            ? 'Loading plan…'
+            : `${currentPlan.name} · ${currentPlan.commissionPercent}% commission${
+                nextPaymentDate && currentPlanId !== 'commission'
+                  ? ` · renews ${new Date(nextPaymentDate).toLocaleDateString()}`
+                  : ''
+              }`}
         </p>
+        {!isLoading ? <PlanPerks planId={currentPlanId} /> : null}
       </div>
 
       <PayoutSetup user={user} />
 
       <section>
-        <h2 className="text-lg font-semibold">Plan</h2>
-        {isLoading ? (
-          <CrazyLoader />
-        ) : (
-          <>
-            <div className="mt-4 border border-gray-200 px-4 py-4">
-              <p className="text-sm text-gray-500">Current</p>
-              <p className="mt-1 text-xl font-semibold">{currentPlan.name}</p>
-              <p className="mt-1 text-sm text-gray-600">
-                {currentPlan.commissionPercent}% commission
-                {nextPaymentDate && currentPlanId !== 'commission' ? (
-                  <> · Next billing {new Date(nextPaymentDate).toLocaleDateString()}</>
-                ) : null}
-              </p>
-            </div>
+        <h2 className="text-base font-semibold">Change plan</h2>
+        <div className="mt-3 divide-y divide-gray-200 border-y border-gray-200">
+          {SELLER_PLANS.map((plan) => {
+            const isCurrent = plan.id === currentPlanId;
+            const isProcessing = processingPlanId === plan.id;
 
-            <div className="mt-6">
-              <PlanPerks planId={currentPlanId} />
-            </div>
-
-            <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-              {SELLER_PLANS.map((plan) => {
-                const isCurrent = plan.id === currentPlanId;
-                const isProcessing = processingPlanId === plan.id;
-
-                return (
-                  <div
-                    key={plan.id}
-                    className={`flex min-w-0 flex-col border p-5 ${isCurrent ? 'border-green-900' : 'border-gray-200'}`}
-                  >
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                      {isCurrent ? 'Current' : plan.amountNgn > 0 ? 'Paid' : 'Free'}
-                    </p>
-                    <h3 className="mt-2 text-lg font-semibold">{plan.name}</h3>
-                    <p className="mt-1 text-sm text-gray-600">{plan.description}</p>
-                    <p className="mt-4 text-base font-semibold">{plan.priceLabel}</p>
-                    <p className="text-sm text-gray-500">{plan.commissionPercent}% commission</p>
-
-                    <ul className="mt-4 space-y-2 text-sm text-gray-700">
-                      {plan.features.map((feat) => (
-                        <li key={feat}>{feat}</li>
-                      ))}
-                    </ul>
-
-                    <div className="mt-auto pt-6">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectPlan(plan.id)}
-                        disabled={isCurrent || Boolean(processingPlanId)}
-                        className={`w-full px-4 py-3 text-sm font-semibold ${
-                          isCurrent
-                            ? 'border border-gray-200 text-gray-400'
-                            : 'bg-green-900 text-white hover:bg-green-800 disabled:bg-gray-300'
-                        }`}
-                      >
-                        {planActionLabel(plan, currentPlanId, isProcessing)}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </section>
-
-      <section>
-        <h2 className="text-lg font-semibold">Questions</h2>
-        <div className="mt-4 border-t border-gray-200">
-          {billingFaqs.map((faq, index) => {
-            const open = openFaq === index;
             return (
-              <div key={faq.q} className="border-b border-gray-200">
+              <div
+                key={plan.id}
+                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    {plan.name}
+                    {isCurrent ? <span className="ml-2 text-sm font-normal text-gray-500">Current</span> : null}
+                  </p>
+                  <p className="mt-0.5 text-sm text-gray-600">
+                    {plan.priceLabel} · {plan.commissionPercent}% commission
+                  </p>
+                </div>
                 <button
                   type="button"
-                  aria-expanded={open}
-                  onClick={() => setOpenFaq(open ? null : index)}
-                  className="flex w-full items-center justify-between gap-4 py-4 text-left"
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={isCurrent || Boolean(processingPlanId)}
+                  className={`shrink-0 px-4 py-2 text-sm font-semibold ${
+                    isCurrent
+                      ? 'text-gray-400'
+                      : 'bg-green-900 text-white hover:bg-green-800 disabled:bg-gray-300'
+                  }`}
                 >
-                  <span className="text-base font-medium">{faq.q}</span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 text-gray-500 transition ${open ? 'rotate-180' : ''}`} />
+                  {planActionLabel(plan, currentPlanId, isProcessing)}
                 </button>
-                {open ? <p className="pb-4 text-sm leading-relaxed text-gray-600">{faq.a}</p> : null}
               </div>
             );
           })}
         </div>
-        <p className="mt-6 text-sm text-gray-600">
-          Need a custom plan?{' '}
-          <Link href="/contact" className="font-medium text-green-900 underline hover:text-green-950">
+        <p className="mt-4 text-sm text-gray-600">
+          Questions?{' '}
+          <Link href="/contact" className="underline hover:text-green-950">
             Contact us
           </Link>
           .

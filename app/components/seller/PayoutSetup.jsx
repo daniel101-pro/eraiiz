@@ -199,7 +199,10 @@ export default function PayoutSetup({ user }) {
 
   if (isLoading) {
     return (
-      <CrazyLoader />
+      <section>
+        <h2 className="text-base font-semibold">Payouts</h2>
+        <p className="mt-1 text-sm text-gray-500">Loading…</p>
+      </section>
     );
   }
 
@@ -211,37 +214,22 @@ export default function PayoutSetup({ user }) {
   return (
     <section>
       {isSubmitting ? <CrazyLoader fullscreen /> : null}
-      <h2 className="text-lg font-semibold">Payouts</h2>
+      <h2 className="text-base font-semibold">Payouts</h2>
       <p className="mt-1 text-sm text-gray-600">
         African sellers get paid with Paystack. Everyone else uses Stripe.
       </p>
 
       {connected ? (
-        <div className="mt-6 border border-gray-200 px-4 py-4">
-          <p className="text-sm font-medium">Connected</p>
-          <p className="mt-1 text-sm text-gray-600">
-            {[
-              existing.country ? countryName(existing.country) : '',
-              existing.provider === 'stripe' ? 'Stripe' : 'Paystack',
-              existing.businessName || existing.accountName,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-          {existing.accountNumber ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Account ending in {String(existing.accountNumber).slice(-4)}
-            </p>
-          ) : existing.stripeAccountId ? (
-            <p className="mt-1 text-sm text-gray-600">
-              {existing.stripePayoutsEnabled
-                ? 'Stripe payouts are enabled.'
-                : 'Stripe is connected. Payouts turn on after Stripe finishes review.'}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-gray-600">Your payout account is connected.</p>
-          )}
-        </div>
+        <p className="mt-3 text-sm text-gray-600">
+          Connected · {[
+            existing.provider === 'stripe' ? 'Stripe' : 'Paystack',
+            existing.businessName || existing.accountName,
+            existing.accountNumber ? `••${String(existing.accountNumber).slice(-4)}` : null,
+            existing.stripeAccountId && !existing.stripePayoutsEnabled ? 'review pending' : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
       ) : (
         <div className="mt-6 max-w-xl space-y-5">
           <div>
