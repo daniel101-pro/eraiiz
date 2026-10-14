@@ -33,10 +33,10 @@ const billingFaqs = [
 
 function planActionLabel(plan, currentPlanId, isProcessing) {
   if (isProcessing) return 'Processing…';
-  if (plan.id === currentPlanId) return 'Current plan';
-  if (plan.amountNgn > 0 && currentPlanId === 'commission') return `Upgrade · ${plan.priceLabel}`;
-  if (plan.amountNgn > 0) return `Switch · ${plan.priceLabel}`;
-  return 'Switch to Pay-as-you-sell';
+  if (plan.id === currentPlanId) return 'Current';
+  if (plan.amountNgn > 0 && currentPlanId === 'commission') return 'Upgrade';
+  if (plan.amountNgn > 0) return 'Switch';
+  return 'Downgrade';
 }
 
 export default function Billing({ user }) {
@@ -158,7 +158,7 @@ export default function Billing({ user }) {
   const currentPlan = SELLER_PLANS.find((plan) => plan.id === currentPlanId) || SELLER_PLANS[0];
 
   return (
-    <div className="space-y-16 bg-white text-green-950">
+    <div className="min-w-0 max-w-5xl space-y-10 overflow-x-hidden bg-white text-green-950">
       <div>
         <p className="text-sm font-medium text-green-800">Seller</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">Billing</h1>
@@ -190,7 +190,7 @@ export default function Billing({ user }) {
               <PlanPerks planId={currentPlanId} />
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {SELLER_PLANS.map((plan) => {
                 const isCurrent = plan.id === currentPlanId;
                 const isProcessing = processingPlanId === plan.id;
@@ -198,15 +198,15 @@ export default function Billing({ user }) {
                 return (
                   <div
                     key={plan.id}
-                    className={`border p-5 ${isCurrent ? 'border-green-900' : 'border-gray-200'}`}
+                    className={`flex min-w-0 flex-col border p-5 ${isCurrent ? 'border-green-900' : 'border-gray-200'}`}
                   >
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                      {isCurrent ? 'Current' : plan.amountNgn > 0 ? 'Upgrade' : 'Free'}
+                      {isCurrent ? 'Current' : plan.amountNgn > 0 ? 'Paid' : 'Free'}
                     </p>
                     <h3 className="mt-2 text-lg font-semibold">{plan.name}</h3>
                     <p className="mt-1 text-sm text-gray-600">{plan.description}</p>
                     <p className="mt-4 text-base font-semibold">{plan.priceLabel}</p>
-                    <p className="text-sm text-gray-500">{plan.commissionPercent}% per sale</p>
+                    <p className="text-sm text-gray-500">{plan.commissionPercent}% commission</p>
 
                     <ul className="mt-4 space-y-2 text-sm text-gray-700">
                       {plan.features.map((feat) => (
@@ -214,18 +214,20 @@ export default function Billing({ user }) {
                       ))}
                     </ul>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelectPlan(plan.id)}
-                      disabled={isCurrent || Boolean(processingPlanId)}
-                      className={`mt-6 w-full px-4 py-3 text-sm font-semibold ${
-                        isCurrent
-                          ? 'border border-gray-200 text-gray-400'
-                          : 'bg-green-900 text-white hover:bg-green-800 disabled:bg-gray-300'
-                      }`}
-                    >
-                      {planActionLabel(plan, currentPlanId, isProcessing)}
-                    </button>
+                    <div className="mt-auto pt-6">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPlan(plan.id)}
+                        disabled={isCurrent || Boolean(processingPlanId)}
+                        className={`w-full px-4 py-3 text-sm font-semibold ${
+                          isCurrent
+                            ? 'border border-gray-200 text-gray-400'
+                            : 'bg-green-900 text-white hover:bg-green-800 disabled:bg-gray-300'
+                        }`}
+                      >
+                        {planActionLabel(plan, currentPlanId, isProcessing)}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
