@@ -199,9 +199,8 @@ export default function PayoutSetup({ user }) {
 
   if (isLoading) {
     return (
-      <section>
-        <h2 className="text-base font-semibold">Payouts</h2>
-        <p className="mt-1 text-sm text-gray-500">Loading…</p>
+      <section className="bg-white border border-gray-200 p-5 sm:p-6">
+        <CrazyLoader />
       </section>
     );
   }
@@ -212,26 +211,41 @@ export default function PayoutSetup({ user }) {
     'w-full border border-gray-200 bg-white px-4 py-3 text-green-950 placeholder:text-gray-400 focus:border-green-900 focus:outline-none';
 
   return (
-    <section>
+    <section className="bg-white border border-gray-200 p-5 sm:p-6">
       {isSubmitting ? <CrazyLoader fullscreen /> : null}
-      <h2 className="text-base font-semibold">Payouts</h2>
-      <p className="mt-1 text-sm text-gray-600">
+      <h2 className="text-base font-semibold text-gray-900">Payouts</h2>
+      <p className="mt-1 text-sm text-gray-500">
         African sellers get paid with Paystack. Everyone else uses Stripe.
       </p>
 
       {connected ? (
-        <p className="mt-3 text-sm text-gray-600">
-          Connected · {[
-            existing.provider === 'stripe' ? 'Stripe' : 'Paystack',
-            existing.businessName || existing.accountName,
-            existing.accountNumber ? `••${String(existing.accountNumber).slice(-4)}` : null,
-            existing.stripeAccountId && !existing.stripePayoutsEnabled ? 'review pending' : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+        <div className="mt-4">
+          <p className="text-sm font-medium text-gray-900">Connected</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {[
+              existing.country ? countryName(existing.country) : '',
+              existing.provider === 'stripe' ? 'Stripe' : 'Paystack',
+              existing.businessName || existing.accountName,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+          {existing.accountNumber ? (
+            <p className="mt-1 text-sm text-gray-500">
+              Account ending in {String(existing.accountNumber).slice(-4)}
+            </p>
+          ) : existing.stripeAccountId ? (
+            <p className="mt-1 text-sm text-gray-500">
+              {existing.stripePayoutsEnabled
+                ? 'Stripe payouts are enabled.'
+                : 'Stripe is connected. Payouts turn on after Stripe finishes review.'}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-500">Your payout account is connected.</p>
+          )}
+        </div>
       ) : (
-        <div className="mt-6 max-w-xl space-y-5">
+        <div className="mt-5 max-w-xl space-y-5">
           <div>
             <label className="mb-2 block text-sm font-medium">Country</label>
             <select
