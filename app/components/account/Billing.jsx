@@ -161,9 +161,6 @@ export default function Billing({ user }) {
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 p-5 sm:p-6">
         <h1 className="text-base font-semibold text-gray-900">Billing</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage payouts and your seller plan.
-        </p>
       </div>
 
       <PayoutSetup user={user} />

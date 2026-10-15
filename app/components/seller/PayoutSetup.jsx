@@ -214,9 +214,6 @@ export default function PayoutSetup({ user }) {
     <section className="bg-white border border-gray-200 p-5 sm:p-6">
       {isSubmitting ? <CrazyLoader fullscreen /> : null}
       <h2 className="text-base font-semibold text-gray-900">Payouts</h2>
-      <p className="mt-1 text-sm text-gray-500">
-        African sellers get paid with Paystack. Everyone else uses Stripe.
-      </p>
 
       {connected ? (
         <div className="mt-4">
@@ -264,18 +261,6 @@ export default function PayoutSetup({ user }) {
               ))}
             </select>
           </div>
-
-          {provider ? (
-            <p className="text-sm text-gray-600">
-              {provider === 'paystack'
-                ? 'Paystack will be used for payouts in this country.'
-                : 'Stripe will be used for payouts in this country.'}
-            </p>
-          ) : null}
-
-          {existing?.stripeAccountId && !existing?.stripeDetailsSubmitted && provider === 'stripe' ? (
-            <p className="text-sm text-gray-600">Finish Stripe onboarding to enable payouts.</p>
-          ) : null}
 
           {provider === 'paystack' && (
             <form onSubmit={handlePaystackSubmit} className="space-y-4">
