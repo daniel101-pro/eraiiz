@@ -71,7 +71,7 @@ export default function GoogleAuthButton({ text, onSuccess }: GoogleAuthButtonPr
 
         showAuthToast('Successfully signed in with Google!', 'success');
         onSuccess?.();
-        router.push(homePathForRole(data.user.role));
+        router.push(homePathForRole(data.user.role, data.user.email));
       } catch (error: unknown) {
         console.error('Google auth error:', error);
         const message = axios.isAxiosError(error)

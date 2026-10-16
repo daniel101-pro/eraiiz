@@ -135,6 +135,19 @@ export async function getBuyerOrders(buyerKeys: Array<string | null | undefined>
   );
 }
 
+export async function getAllSellerOrders() {
+  const store = await readStore();
+  const merged = new Map<string, SellerOrder>();
+  for (const list of Object.values(store)) {
+    for (const item of list || []) {
+      if (item?._id) merged.set(item._id, item);
+    }
+  }
+  return [...merged.values()].sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+}
+
 export async function getOrderById(orderId: string) {
   const store = await readStore();
   for (const list of Object.values(store)) {

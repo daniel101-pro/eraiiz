@@ -166,7 +166,13 @@ export default function DualNavbarSell({ handleLogout }) {
   // Handle logo click to redirect based on user role
   const handleLogoClick = () => {
     if (userRole) {
-      router.push(homePathForRole(userRole));
+      let email = '';
+      try {
+        email = JSON.parse(localStorage.getItem('user') || '{}')?.email || '';
+      } catch {
+        email = '';
+      }
+      router.push(homePathForRole(userRole, email));
     } else {
       router.push('/login');
     }

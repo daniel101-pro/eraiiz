@@ -187,6 +187,9 @@ export function decodeAuthToken(authHeader?: string | null) {
       _id?: string;
       sub?: string;
       email?: string;
+      role?: string;
+      name?: string;
+      exp?: number;
     };
   } catch {
     return null;

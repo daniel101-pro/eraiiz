@@ -38,7 +38,7 @@ export default function Login() {
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('role', data.user.role);
       showAuthToast('Successfully logged in!', 'success');
-      router.push(homePathForRole(data.user.role));
+      router.push(homePathForRole(data.user.role, data.user.email));
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
       const errorData = err.response?.data;

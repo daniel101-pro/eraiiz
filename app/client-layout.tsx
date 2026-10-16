@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import './globals.css';
 import { CartProvider } from './context/CartContext';
 import { CurrencyProvider } from './context/CurrencyContext';
@@ -20,6 +21,9 @@ export default function ClientLayout({
   initialCountry?: string;
   initialCurrency?: string;
 }) {
+  const pathname = usePathname();
+  const isAdmin = pathname?.startsWith('/admin');
+
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <CurrencyProvider initialCountry={initialCountry} initialCurrency={initialCurrency}>
@@ -49,7 +53,7 @@ export default function ClientLayout({
                 top: 20,
               }}
             />
-            <AIAssistant />
+            {isAdmin ? null : <AIAssistant />}
             </FavoritesProvider>
           </CheckoutProvider>
         </CartProvider>

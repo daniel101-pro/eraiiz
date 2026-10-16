@@ -82,7 +82,7 @@ export default function ReportModal({ isOpen, onClose, productId, productName })
       }
 
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/reports`,
+        '/api/reports',
         {
           productId,
           reason: selectedReason,

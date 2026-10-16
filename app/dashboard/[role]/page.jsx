@@ -11,7 +11,7 @@ import HeroCarousel from '../../components/HeroCarousel';
 import ProductCarousel from '../../components/ProductCarousel';
 import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 import { boostProductsByPlan } from '@/lib/boostProducts';
-import { homePathForRole, isPendingRole } from '@/lib/authRouting';
+import { homePathForRole, isAdminAccount, isPendingRole } from '@/lib/authRouting';
 
 export default function UnifiedDashboard() {
   const [user, setUser] = useState(null);
@@ -72,6 +72,11 @@ export default function UnifiedDashboard() {
         });
 
         const sessionRole = res.data.role;
+
+        if (isAdminAccount({ role: sessionRole, email: res.data.email }) || isAdminAccount({ role: urlRole, email: res.data.email })) {
+          router.replace('/admin');
+          return;
+        }
 
         if (isPendingRole(urlRole) || isPendingRole(sessionRole)) {
           router.replace('/role-selection');

@@ -16,7 +16,7 @@ export default function DualNavbar({ handleLogout }) {
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
         const role = parsedUser?.role || 'buyer'; // Default to 'buyer' if role is not found
-        router.push(homePathForRole(role));
+        router.push(homePathForRole(role, parsedUser?.email));
       } else {
         router.push('/login'); // Redirect to login if no user is found
       }
