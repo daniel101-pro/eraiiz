@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const { session, error } = await requireAdmin(request);
-  if (error || !session) return error;
+  if (error) return error;
 
   const body = await request.json().catch(() => ({}));
   const to = String(body.to || '').trim().toLowerCase();

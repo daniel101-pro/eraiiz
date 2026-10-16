@@ -45,13 +45,15 @@ export async function resolveAdminSession(authHeader?: string | null): Promise<A
   return { id, email, name, role: role || 'admin' };
 }
 
-export async function requireAdmin(request: NextRequest) {
+export async function requireAdmin(request: NextRequest): Promise<
+  { session: AdminSession; error: null } | { session: null; error: NextResponse }
+> {
   const session = await resolveAdminSession(request.headers.get('authorization'));
   if (!session) {
     return {
-      session: null as AdminSession | null,
+      session: null,
       error: NextResponse.json({ message: 'Admin access required' }, { status: 403 }),
     };
   }
-  return { session, error: null as NextResponse | null };
+  return { session, error: null };
 }
