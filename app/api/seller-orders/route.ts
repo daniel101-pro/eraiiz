@@ -125,6 +125,9 @@ export async function GET(request: NextRequest) {
   }
 
   const keys = await expandIdentityKeys(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const stored = await getSellerOrders(keys);
   const storedIds = new Set(stored.map((order) => order._id));
   const fromPaystack = await sellerOrdersFromPaystack(keys).catch((error) => {
@@ -149,51 +152,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ orders });
 }
 
-export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
-  const body = await request.json();
-  const keys = await expandIdentityKeys(authHeader);
-  const items = Array.isArray(body.items) ? body.items : [];
-  const quantity = items.reduce((sum: number, item: { quantity?: number }) => sum + Number(item.quantity || 1), 0);
-  const order: SellerOrder = {
-    _id: String(body._id || `sale_${Date.now()}`),
-    sellerId: keys[0],
-    reference: String(body.reference || ''),
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    buyer: {
-      name: String(body.buyer?.name || body.billing?.fullName || 'Customer'),
-      email: String(body.buyer?.email || body.billing?.email || ''),
-      phone: body.buyer?.phone || body.billing?.phone,
-    },
-    shippingAddress: {
-      fullName: String(body.billing?.fullName || body.shippingAddress?.fullName || ''),
-      address: String(body.billing?.address || body.shippingAddress?.address || ''),
-      city: String(body.billing?.city || body.shippingAddress?.city || ''),
-      state: String(body.billing?.state || body.shippingAddress?.state || ''),
-      postalCode: String(body.billing?.postalCode || body.shippingAddress?.postalCode || ''),
-      phone: body.billing?.phone || body.shippingAddress?.phone,
-    },
-    items: items.map((item: Record<string, unknown>) => ({
-      productId: String(item.productId || item._id || ''),
-      name: String(item.name || 'Product'),
-      quantity: Number(item.quantity || 1),
-      selectedSize: item.selectedSize ? String(item.selectedSize) : undefined,
-      price: Number(item.price || 0),
-      currency: item.currency ? String(item.currency) : undefined,
-    })),
-    quantity,
-    amountNgn: Number(body.amountNgn || 0),
-  };
-
-  await addSellerOrder(keys, order);
-  return NextResponse.json(order);
-}
-
 export async function PATCH(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -208,6 +166,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   const keys = await expandIdentityKeys(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const current = await getOrderById(id);
   if (!current) {
     return NextResponse.json({ message: 'Order not found' }, { status: 404 });
@@ -251,8 +212,10 @@ export async function PATCH(request: NextRequest) {
     patch.status = 'delivered';
     patch.deliveredAt = deliveredAt;
     patch.timeline = appendTimeline(current.timeline, deliveredEvent(deliveredAt));
-  } else if (status) {
+  } else if (status === 'cancelled' || status === 'pending') {
     patch.status = status;
+  } else if (status) {
+    return NextResponse.json({ message: 'Invalid status' }, { status: 400 });
   }
 
   const updated = await updateSellerOrder(keys, id, patch);

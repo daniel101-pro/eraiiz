@@ -8,7 +8,7 @@ import { ChevronDown } from 'lucide-react';
 export default function VerifyEmail() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [message, setMessage] = useState('');
-  const [email, setEmail] = useState('johndoe45@gmail.com'); // Default to match image
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const inputRefs = useRef([]);
@@ -36,30 +36,40 @@ export default function VerifyEmail() {
   };
 
   const handleVerify = async () => {
+    if (!email) {
+      router.push('/signup');
+      return;
+    }
     setIsLoading(true);
     const otpCode = otp.join('');
     try {
-      console.log('Sending verify request:', { email, otp: otpCode });
       const res = await axios.post(process.env.NEXT_PUBLIC_API_URL + '/api/auth/verify-email', {
         email,
         code: otpCode,
       });
       setMessage(res.data.message);
       if (res.data.message === 'Email verified successfully') {
-        console.log('Verification successful, logging in user');
+        const tempPassword = localStorage.getItem('tempPassword');
+        if (!tempPassword) {
+          localStorage.removeItem('verifyingEmail');
+          router.push('/login');
+          return;
+        }
 
-        // Fetch user data and tokens after verification
         const userRes = await axios.post(process.env.NEXT_PUBLIC_API_URL + '/api/auth/login', {
           email,
-          password: localStorage.getItem('tempPassword'), // Store password temporarily during signup
+          password: tempPassword,
         });
 
         const { accessToken, refreshToken, user } = userRes.data;
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', refreshToken);
+        if (user?.role) localStorage.setItem('role', user.role);
         localStorage.removeItem('verifyingEmail');
         localStorage.removeItem('tempPassword'); // Clean up
+        localStorage.removeItem('userId');
+        window.dispatchEvent(new Event('eraiiz:auth-changed'));
 
         console.log('User logged in, redirecting to welcome page');
         router.push('/welcome');
@@ -74,9 +84,12 @@ export default function VerifyEmail() {
   };
 
   const handleResend = async () => {
+    if (!email) {
+      router.push('/signup');
+      return;
+    }
     setIsLoading(true);
     try {
-      console.log('Sending resend request:', { email });
       const res = await axios.post(process.env.NEXT_PUBLIC_API_URL + '/api/auth/resend-otp', { email });
       setMessage(res.data.message);
     } catch (err) {

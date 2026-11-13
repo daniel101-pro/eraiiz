@@ -8,11 +8,9 @@ type Overview = {
   orders: number;
   revenue: number;
   unread: number;
-  support: number;
   reports: number;
   listings: number;
   sellers: number;
-  paidPlans: number;
   recent: Array<{
     id: string;
     reference: string;
@@ -36,7 +34,7 @@ export default function AdminOverviewPage() {
 
   if (!data) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-[50vh] items-center justify-center">
         <div className="h-6 w-6 rounded-full border border-gray-200 border-t-green-950 animate-spin" />
       </div>
     );
@@ -52,35 +50,35 @@ export default function AdminOverviewPage() {
   ];
 
   return (
-    <div className="p-6">
-      <h1 className="text-base font-semibold">Overview</h1>
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
+    <div className="p-4 md:p-6">
+      <h1 className="hidden text-base font-semibold md:block">Overview</h1>
+      <div className="grid grid-cols-2 gap-2 md:mt-6 md:grid-cols-3 md:gap-3 lg:grid-cols-6">
         {cards.map((card) => (
-          <Link key={card.label} href={card.href} className="border border-gray-200 bg-white p-4 hover:border-green-800">
+          <Link key={card.label} href={card.href} className="border border-gray-200 bg-white p-3 md:p-4">
             <p className="text-xs text-gray-500">{card.label}</p>
-            <p className="mt-2 text-xl font-semibold tracking-tight">{card.value}</p>
+            <p className="mt-1 text-lg font-semibold tracking-tight md:mt-2 md:text-xl">{card.value}</p>
           </Link>
         ))}
       </div>
 
-      <div className="mt-8 border border-gray-200 bg-white">
+      <div className="mt-4 border border-gray-200 bg-white md:mt-8">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold">Latest orders</h2>
-          <Link href="/admin/orders" className="text-sm text-green-800 underline">
+          <Link href="/admin/orders" className="text-sm text-green-800">
             All
           </Link>
         </div>
         {data.recent.length === 0 ? (
-          <p className="px-4 py-8 text-sm text-gray-500">No orders yet.</p>
+          <p className="px-4 py-8 text-sm text-gray-500">Empty</p>
         ) : (
           <ul>
             {data.recent.map((order) => (
-              <li key={order.id} className="flex items-center justify-between border-b border-gray-100 px-4 py-3 text-sm last:border-0">
-                <div>
-                  <p className="font-medium">{order.reference || order.id}</p>
-                  <p className="text-gray-500">{order.buyer}</p>
+              <li key={order.id} className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-sm last:border-0">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{order.reference || order.id}</p>
+                  <p className="truncate text-gray-500">{order.buyer}</p>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p>{money(order.amount)}</p>
                   <p className="text-gray-500">{order.status}</p>
                 </div>

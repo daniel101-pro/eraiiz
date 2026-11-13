@@ -4,8 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { FiMenu, FiX } from "react-icons/fi";
-import SplashCursor from "../Animations/SplashCursor/SplashCursor";
-
 const navLinks = [
   { label: "About Eraiiz", href: "/about" },
   { label: "Products", href: "/login" },

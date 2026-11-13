@@ -4,7 +4,7 @@ const DEFAULT_ADMIN_EMAILS = [
 ];
 
 function adminAllowlist() {
-  const extra = String(process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+  const extra = String(process.env.ADMIN_EMAILS || '')
     .split(/[,\s]+/)
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);

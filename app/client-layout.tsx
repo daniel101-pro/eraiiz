@@ -1,16 +1,17 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import './globals.css';
 import { CartProvider } from './context/CartContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { FavoritesProvider } from './context/FavoritesContext';
-import { CheckoutProvider } from './context/CheckoutContext';
 import { Toaster } from 'react-hot-toast';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import AIAssistant from './components/AIAssistant/AIAssistant';
 import { GOOGLE_CLIENT_ID } from '@/lib/googleClient';
+
+const AIAssistant = dynamic(() => import('./components/AIAssistant/AIAssistant'), { ssr: false });
 
 export default function ClientLayout({
   children,
@@ -28,7 +29,6 @@ export default function ClientLayout({
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <CurrencyProvider initialCountry={initialCountry} initialCurrency={initialCurrency}>
         <CartProvider>
-          <CheckoutProvider>
             <FavoritesProvider>
             {children}
             <Toaster
@@ -55,7 +55,6 @@ export default function ClientLayout({
             />
             {isAdmin ? null : <AIAssistant />}
             </FavoritesProvider>
-          </CheckoutProvider>
         </CartProvider>
       </CurrencyProvider>
     </GoogleOAuthProvider>

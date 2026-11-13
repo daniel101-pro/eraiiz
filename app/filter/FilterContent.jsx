@@ -43,11 +43,12 @@ export default function FilterContent() {
           timeout: 30000,
         });
 
-        if (!res.data || !res.data.products || !Array.isArray(res.data.products)) {
+        const list = Array.isArray(res.data) ? res.data : res.data?.products;
+        if (!Array.isArray(list)) {
           throw new Error('No products found or invalid response');
         }
 
-        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(res.data.products)));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(list)));
       } catch (err) {
         console.error('Error fetching filtered products:', err);
         setError('Failed to fetch filtered products. Please try again.');

@@ -77,14 +77,19 @@ export async function addSellerOrder(
   sellerKeys: Array<string | null | undefined>,
   order: SellerOrder
 ) {
-  const withTimeline: SellerOrder = {
-    ...order,
-    timeline: order.timeline?.length ? order.timeline : initialTimeline(order.createdAt),
-  };
+  const store = await readStore();
+  const previous = Object.values(store)
+    .flat()
+    .find((item) => item._id === order._id);
+  const withTimeline: SellerOrder = previous
+    ? { ...order, ...previous }
+    : {
+        ...order,
+        timeline: order.timeline?.length ? order.timeline : initialTimeline(order.createdAt),
+      };
   const keys = uniqueIds([...sellerKeys, withTimeline.buyer?.email ? `buyer:${withTimeline.buyer.email}` : '']);
   if (keys.length === 0) return withTimeline;
 
-  const store = await readStore();
   for (const key of keys) {
     const existing = store[key] || [];
     store[key] = [withTimeline, ...existing.filter((item) => item._id !== withTimeline._id)].slice(0, 200);
@@ -95,12 +100,13 @@ export async function addSellerOrder(
 
 export async function getSellerOrders(sellerKeys: Array<string | null | undefined>) {
   const keys = uniqueIds(sellerKeys);
+  const keySet = new Set(keys);
   const store = await readStore();
   const merged = new Map<string, SellerOrder>();
 
   for (const key of keys) {
     for (const item of store[key] || []) {
-      merged.set(item._id, item);
+      if (keySet.has(normalizeKey(item.sellerId))) merged.set(item._id, item);
     }
   }
 
@@ -173,10 +179,7 @@ export async function updateSellerOrder(
   const current = await getOrderById(orderId);
   if (!current) return null;
 
-  const owned =
-    keySet.has(normalizeKey(current.sellerId)) ||
-    keys.some((key) => (store[key] || []).some((item) => item._id === orderId));
-  if (!owned) return null;
+  if (!keySet.has(normalizeKey(current.sellerId))) return null;
 
   const updated: SellerOrder = { ...current, ...patch };
 

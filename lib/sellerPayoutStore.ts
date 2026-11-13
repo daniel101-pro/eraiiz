@@ -196,20 +196,41 @@ export function decodeAuthToken(authHeader?: string | null) {
   }
 }
 
-export function getUserIdFromAuthHeader(authHeader?: string | null) {
-  const payload = decodeAuthToken(authHeader);
-  if (!payload) return null;
-  return String(payload.id || payload.userId || payload._id || payload.sub || '') || null;
+const AUTH_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
+const VERIFIED_TTL_MS = 60_000;
+const verifiedCache = new Map<string, { user: Record<string, unknown>; expires: number }>();
+
+export async function getVerifiedUser(authHeader?: string | null): Promise<Record<string, unknown> | null> {
+  if (!authHeader?.startsWith('Bearer ') || authHeader.length < 20) return null;
+
+  const cached = verifiedCache.get(authHeader);
+  if (cached && cached.expires > Date.now()) return cached.user;
+
+  try {
+    const response = await fetch(`${AUTH_API_URL}/api/users/me`, {
+      headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(8000),
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const user = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!user || typeof user !== 'object') return null;
+    if (verifiedCache.size > 500) verifiedCache.clear();
+    verifiedCache.set(authHeader, { user, expires: Date.now() + VERIFIED_TTL_MS });
+    return user;
+  } catch {
+    return null;
+  }
 }
 
-export function getIdentityFromAuthHeader(authHeader?: string | null): SellerIdentity {
-  const payload = decodeAuthToken(authHeader);
-  if (!payload) return { ids: [] };
+export async function getIdentityFromAuthHeader(authHeader?: string | null): Promise<SellerIdentity> {
+  const user = await getVerifiedUser(authHeader);
+  if (!user) return { ids: [] };
 
   return {
-    ids: uniqueIds([payload.id, payload.userId, payload._id, payload.sub]),
-    email: payload.email,
-    name: undefined,
+    ids: uniqueIds([user._id as string, user.id as string, user.userId as string]),
+    email: typeof user.email === 'string' ? user.email : undefined,
+    name: typeof user.name === 'string' ? user.name : undefined,
   };
 }
 

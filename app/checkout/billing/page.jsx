@@ -29,13 +29,16 @@ export default function BillingPage() {
   const { formatPrice, convertPrice } = useCurrency();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [editableNames] = useState(
+    () => new Set(fields.filter((field) => !hasValue(billing[field.name])).map((field) => field.name))
+  );
   const knownFields = useMemo(
-    () => fields.filter((field) => hasValue(billing[field.name])),
-    [billing]
+    () => fields.filter((field) => !editableNames.has(field.name) && hasValue(billing[field.name])),
+    [billing, editableNames]
   );
   const missingFields = useMemo(
-    () => fields.filter((field) => !hasValue(billing[field.name])),
-    [billing]
+    () => fields.filter((field) => editableNames.has(field.name)),
+    [editableNames]
   );
 
   useEffect(() => {

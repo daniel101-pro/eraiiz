@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import Image from 'next/image';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -53,11 +54,17 @@ const GridComponent = () => {
       {items.map((item, index) => (
         <div 
           key={item.id} 
-          className="relative h-64 bg-cover bg-center text-white flex items-end p-4 rounded-md"
-          style={{ backgroundImage: `url(${item.image})` }}
+          className="relative h-64 overflow-hidden text-white flex items-end p-4 rounded-md"
         >
+          <Image
+            src={item.image}
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 25vw, 50vw"
+            className="object-cover"
+          />
           <div 
-            className="bg-black/50 p-2 rounded w-full text-center"
+            className="relative bg-black/50 p-2 rounded w-full text-center"
             ref={el => { textRefs.current[index] = el; }}
           >
             <p className="text-sm font-bold">{item.text}</p>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { refreshAccessToken } from '../../utils/auth';
 import { Bell, Lock, Trash2, Save, Shield, User, Mail, AlertTriangle } from 'lucide-react';
 
@@ -8,6 +8,17 @@ export default function Settings() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (typeof user?.emailNotifications === 'boolean') {
+        setSettings((prev) => ({ ...prev, emailNotifications: user.emailNotifications }));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -62,29 +73,38 @@ export default function Settings() {
 
       if (!res.ok) {
         if (res.status === 401) {
+          let newToken;
           try {
-            const newToken = await refreshAccessToken();
-            const retryRes = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${newToken}`,
-              },
-              credentials: 'include',
-              body: JSON.stringify(payload),
-            });
-            if (!retryRes.ok) throw new Error('Failed to update settings');
-          } catch (refreshErr) {
+            newToken = await refreshAccessToken();
+          } catch {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             window.location.href = '/login';
             return;
           }
+          const retryRes = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${newToken}`,
+            },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
+          if (!retryRes.ok) throw new Error('Failed to update settings');
         } else {
           throw new Error('Failed to update settings');
         }
       }
 
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (user) {
+          localStorage.setItem('user', JSON.stringify({ ...user, emailNotifications: settings.emailNotifications }));
+        }
+      } catch {
+        // ignore
+      }
       setSettings({ ...settings, newPassword: '', confirmPassword: '' });
       setSuccess('Settings updated successfully!');
     } catch (err) {

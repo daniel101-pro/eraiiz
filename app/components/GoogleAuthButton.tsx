@@ -56,6 +56,8 @@ export default function GoogleAuthButton({ text, onSuccess }: GoogleAuthButtonPr
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('role', data.user.role);
+        localStorage.removeItem('userId');
+        window.dispatchEvent(new Event('eraiiz:auth-changed'));
 
         if (isPendingRole(data.user?.role)) {
           localStorage.setItem('tempGoogleUser', JSON.stringify(data.user));

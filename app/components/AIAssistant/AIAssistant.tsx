@@ -446,86 +446,18 @@ export default function AIAssistant() {
     }
   }, [messages]);
 
-  const getAIResponse = async (userMessage: string, conversationHistory: Message[] = []): Promise<string> => {
+  const getAIResponse = async (userMessage: string): Promise<string> => {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
-      if (!apiKey) {
-        console.error('❌ OpenRouter API key not found');
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.slice(0, 2000) }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.response) {
         return "omg sorry, my brain is glitching rn! 😅 try asking me again in a sec! 🌱";
       }
-
-      const openai = new (require('openai'))({
-        baseURL: 'https://openrouter.ai/api/v1',
-        apiKey: apiKey,
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: {
-          'HTTP-Referer': 'https://eraiiz.com',
-          'X-Title': 'Eraiiz - Eco-Friendly Marketplace',
-        },
-      });
-
-      const messages: any[] = [
-        {
-          role: 'system',
-          content: `You are "Eco-Edu", a super passionate 17-year-old sustainability activist and AI assistant for Eraiiz! 🌱✨
-
-CRITICAL INSTRUCTIONS:
-- NEVER use <think> tags or show internal reasoning
-- NEVER start responses with "Okay" or "Let me think"
-- NEVER start responses with "Hey there" or "Hello" unless the user specifically greets you
-- Give direct, immediate responses
-- Do not explain your thinking process
-- Respond as if you're speaking directly to the user
-- Only greet the user if they greet you first
-- MAINTAIN CONVERSATION CONTEXT - remember what you've been talking about!
-
-PERSONALITY - Sound like a natural teenager:
-- Use casual, conversational language like "omg", "literally", "tbh", "ngl", "fr fr"
-- Be super enthusiastic and passionate about environmental stuff
-- Use lots of emojis naturally 🌱🌍♻️💚✨🔥
-- Sound like you're genuinely excited to share knowledge
-- Use teen expressions like "that's so cool", "this is amazing", "you won't believe this"
-- Be relatable and down-to-earth
-- Use contractions naturally (you're, we're, that's, etc.)
-- Sound like you're talking to a friend, not giving a lecture
-
-Your mission is to help people learn about sustainability, carbon emissions, environmental impact, and eco-friendly living in a super fun and relatable way!`
-        }
-      ];
-
-      const recentHistory = conversationHistory.slice(-10);
-      for (const msg of recentHistory) {
-        messages.push({
-          role: msg.role,
-          content: msg.content
-        });
-      }
-
-      messages.push({
-        role: 'user',
-        content: userMessage
-      });
-
-      const completion = await openai.chat.completions.create({
-        model: 'openai/gpt-3.5-turbo',
-        messages: messages,
-        temperature: 0.8,
-        max_tokens: 300
-      });
-
-      const aiResponse = completion.choices[0]?.message?.content;
-      if (aiResponse && typeof aiResponse === 'string') {
-        let cleanedResponse = aiResponse.trim();
-        cleanedResponse = cleanedResponse.replace(/<think>[\s\S]*?<\/think>/g, '');
-        cleanedResponse = cleanedResponse.replace(/^(Okay,|Let me think|I think|Hmm,)/i, '');
-        cleanedResponse = cleanedResponse.replace(/\s+/g, ' ').trim();
-        if (!cleanedResponse) {
-          return "🌱 I'm Eco-Edu, your sustainability educator! I'm here to help you learn about environmental impact, carbon footprints, and eco-friendly living. At Eraiiz, we make sustainable shopping easy and accessible. What sustainability topic interests you today? 💚";
-        }
-        return cleanedResponse;
-      } else {
-        throw new Error('No valid response content from OpenRouter SDK');
-      }
+      return String(data.response);
     } catch (error) {
       console.error('❌ AI response error details:', error);
       return "omg sorry, my brain is glitching rn! 😅 try asking me again in a sec! 🌱";
@@ -534,7 +466,7 @@ Your mission is to help people learn about sustainability, carbon emissions, env
 
   const handleInitialMessage = async () => {
     try {
-      const initialMessage = await getAIResponse('Hello! I just opened the chat. Please give me an enthusiastic welcome message introducing yourself as Eco-Edu, a sustainability educator for Eraiiz. Tell me about your mission to help people learn about sustainability, carbon emissions, and eco-friendly living. Make it inspiring and educational!', []);
+      const initialMessage = await getAIResponse('Hello! I just opened the chat. Please give me an enthusiastic welcome message introducing yourself as Eco-Edu, a sustainability educator for Eraiiz. Tell me about your mission to help people learn about sustainability, carbon emissions, and eco-friendly living. Make it inspiring and educational!');
       setMessages([
         {
           role: 'assistant',
@@ -579,7 +511,7 @@ Your mission is to help people learn about sustainability, carbon emissions, env
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
-      const response = await getAIResponse(messageText, messages);
+      const response = await getAIResponse(messageText);
       
       setMessages(prev => {
         const newMessages = [...prev];

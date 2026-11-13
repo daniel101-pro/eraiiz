@@ -148,11 +148,12 @@ export function sellerOrdersFromPayment(input: {
 
   const items = expandItems(meta);
   const billing = billingFromMeta(meta);
-  const sellerIds = unique([
-    ...(Array.isArray(meta.sellerIds) ? meta.sellerIds.map((id) => String(id)) : []),
-    ...items.map((item) => item.sellerId),
-    ...(input.sellerIds || []),
-  ]);
+  const sellerIds = input.sellerIds?.length
+    ? unique(input.sellerIds)
+    : unique([
+        ...(Array.isArray(meta.sellerIds) ? meta.sellerIds.map((id) => String(id)) : []),
+        ...items.map((item) => item.sellerId),
+      ]);
 
   if (!sellerIds.length) return [];
 

@@ -11,11 +11,6 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
-function inboxKeys(authHeader: string | null) {
-  const identity = getIdentityFromAuthHeader(authHeader);
-  return [...identity.ids, identity.email];
-}
-
 function mergeNotifications(...lists: InboxNotification[][]) {
   const merged = new Map<string, InboxNotification>();
   for (const list of lists) {
@@ -29,17 +24,9 @@ function mergeNotifications(...lists: InboxNotification[][]) {
   );
 }
 
-async function expandKeys(authHeader: string, keys: Array<string | null | undefined>) {
-  try {
-    const response = await axios.get(`${API_URL}/api/users/me`, {
-      headers: { Authorization: authHeader },
-      timeout: 4000,
-    });
-    const user = response.data || {};
-    return [...keys, user._id, user.id, user.userId, user.email];
-  } catch {
-    return keys;
-  }
+async function inboxKeysFor(authHeader: string) {
+  const identity = await getIdentityFromAuthHeader(authHeader);
+  return [...identity.ids, identity.email].filter((key): key is string => Boolean(key));
 }
 
 async function notificationsFromOrders(authHeader: string): Promise<InboxNotification[]> {
@@ -110,7 +97,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  const keys = await expandKeys(authHeader, inboxKeys(authHeader));
+  const keys = await inboxKeysFor(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const stored = await getInboxForUsers(keys);
   const fromOrders = await notificationsFromOrders(authHeader);
   const fromSales = await notificationsFromSellerSales(authHeader);
@@ -130,7 +120,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Message is required' }, { status: 400 });
   }
 
-  const keys = await expandKeys(authHeader, inboxKeys(authHeader));
+  const keys = await inboxKeysFor(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const created = await addInboxNotification(keys, {
     _id: String(body._id || `inbox_${Date.now()}`),
     type: String(body.type || 'order'),
@@ -160,7 +153,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: 'Notification id is required' }, { status: 400 });
   }
 
-  const keys = await expandKeys(authHeader, inboxKeys(authHeader));
+  const keys = await inboxKeysFor(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const updated = await markInboxRead(keys, id, body.read !== false);
   return NextResponse.json(updated || { _id: id, read: true });
 }
@@ -171,7 +167,10 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  const keys = await expandKeys(authHeader, inboxKeys(authHeader));
+  const keys = await inboxKeysFor(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   await clearInboxForUsers(keys);
   return NextResponse.json({ success: true });
 }

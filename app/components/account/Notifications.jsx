@@ -166,16 +166,13 @@ export default function Notifications() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
-    let userId = localStorage.getItem('userId');
-    if (!userId) {
-      // Fallback: Extract userId from accessToken
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        const decoded = decodeJwt(token);
-        if (decoded && decoded.id) {
-          userId = decoded.id;
-          localStorage.setItem('userId', userId);
-        }
+    let userId = null;
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      const decoded = decodeJwt(token);
+      if (decoded && decoded.id) {
+        userId = decoded.id;
+        localStorage.setItem('userId', userId);
       }
     }
 

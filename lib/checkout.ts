@@ -159,6 +159,11 @@ export async function validateCheckoutInput(input: {
   const sellerTotals = new Map<string, number>();
 
   for (const item of items) {
+    const quantity = Number(item.quantity ?? 1);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      throw new Error('Invalid quantity in cart');
+    }
+    item.quantity = quantity;
     const product = await fetchProduct(item._id);
     const sellerId =
       typeof product.sellerId === 'object'
@@ -260,8 +265,10 @@ export async function createBackendOrders(input: {
   authHeader?: string;
   origin?: string;
   buyerEmail?: string;
+  createOrders?: boolean;
+  notify?: boolean;
 }) {
-  if (input.authHeader) {
+  if (input.authHeader && input.createOrders !== false) {
     for (const item of input.items) {
       try {
         await axios.post(
@@ -292,6 +299,7 @@ export async function createBackendOrders(input: {
     }
   }
 
+  if (input.notify === false) return;
   await notifyBuyerOfOrder(input);
   await notifySellersOfOrder(input);
 }
@@ -308,7 +316,7 @@ export async function notifyBuyerOfOrder(input: {
   const summary =
     names.length === 1 ? names[0] : names.length > 1 ? `${names.length} items` : 'your order';
   const message = `Your order for ${summary} is confirmed. You can track it from Orders.`;
-  const identity = getIdentityFromAuthHeader(input.authHeader);
+  const identity = await getIdentityFromAuthHeader(input.authHeader);
   const buyerEmail =
     input.buyerEmail ||
     input.billing?.email ||

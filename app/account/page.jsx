@@ -115,7 +115,9 @@ export default function AccountPage() {
       billing: 'Billing',
       Billing: 'Billing',
       orders: 'Orders',
+      Orders: 'Orders',
       notifications: 'Notifications',
+      Notifications: 'Notifications',
     }[section];
 
     if (mapped) {

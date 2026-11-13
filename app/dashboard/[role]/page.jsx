@@ -47,7 +47,7 @@ export default function UnifiedDashboard() {
   ];
 
   useEffect(() => {
-    const fetchSession = async () => {
+    const fetchSession = async (retried = false) => {
       const token = localStorage.getItem('accessToken');
       if (!token) {
         router.push('/login');
@@ -104,8 +104,8 @@ export default function UnifiedDashboard() {
           status: err.response?.status,
           statusText: err.response?.statusText,
         });
-        if (err.response?.status === 401) {
-          await refreshToken();
+        if (err.response?.status === 401 && !retried) {
+          if (await refreshToken()) await fetchSession(true);
         } else {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
@@ -129,12 +129,16 @@ export default function UnifiedDashboard() {
       });
 
       const newAccessToken = res.data.accessToken;
+      if (!newAccessToken) throw new Error('No access token received');
       localStorage.setItem('accessToken', newAccessToken);
-      await fetchSession();
+      return true;
     } catch (err) {
       console.error('Token refresh error:', err);
-      localStorage.clear();
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
       router.push('/login');
+      return false;
     }
   };
 
@@ -184,42 +188,28 @@ export default function UnifiedDashboard() {
           status: err.response?.status,
           statusText: err.response?.statusText,
         });
-        
-        // Check if it's an authentication error
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          // Clear tokens and redirect to login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          router.push('/login');
-          return;
-        }
-        
-        // For other errors, just silently fail without showing error message
         setFavoritedProducts(new Map());
       }
     };
     fetchFavorites();
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = async (tokenOverride) => {
+    const token = typeof tokenOverride === 'string' ? tokenOverride : localStorage.getItem('accessToken');
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (!apiUrl) {
-        throw new Error('NEXT_PUBLIC_API_URL is not defined in environment variables');
+      if (token) {
+        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 10000,
+        });
       }
-
-      await axios.post(`${apiUrl}/api/auth/logout`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-        timeout: 30000,
-      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
       localStorage.removeItem('user');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       router.push('/login');
-    } catch (err) {
-      console.error('Logout error:', err);
-      alert('Failed to log out. Please try again.');
     }
   };
 

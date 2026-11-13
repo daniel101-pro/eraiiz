@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
   }
 
   const keys = await expandIdentityKeys(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const keySet = new Set(keys);
   const storedOrders = await getSellerOrders(keys);
   const fromPaystack = await sellerOrdersFromPaystack(keys).catch(() => []);

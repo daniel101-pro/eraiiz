@@ -7,6 +7,7 @@ import {
   type AdminMailFolder,
 } from '@/lib/adminMailStore';
 import { sendEraiizEmail, escapeHtml } from '@/lib/email';
+import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 const FOLDERS: AdminMailFolder[] = ['inbox', 'sent', 'support', 'reports', 'starred', 'archived'];
 
@@ -25,6 +26,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const { session, error } = await requireAdmin(request);
   if (error) return error;
+
+  const limited = rateLimit(`admin-mail:${session.email || clientIp(request)}`, 30, 60 * 60_000);
+  if (!limited.ok) {
+    return NextResponse.json({ message: 'Too many emails. Try again later.' }, { status: 429 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const to = String(body.to || '').trim().toLowerCase();

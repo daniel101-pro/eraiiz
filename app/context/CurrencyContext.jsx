@@ -12,6 +12,8 @@ import {
 const CurrencyContext = createContext();
 const MANUAL_KEY = 'eraiiz_currency_manual';
 const PREFERRED_KEY = 'preferredCurrency';
+const RATES_KEY = 'eraiiz_rates';
+const RATES_TTL = 3600000;
 
 function readCookie(name) {
   if (typeof document === 'undefined') return '';
@@ -67,6 +69,7 @@ export function CurrencyProvider({ children, initialCurrency = '', initialCountr
       return undefined;
     }
     if (started.currency) setSelectedCurrencyState(started.currency);
+    if (started.country) return undefined;
 
     let cancelled = false;
     const applyGeo = (country, currency) => {
@@ -99,11 +102,27 @@ export function CurrencyProvider({ children, initialCurrency = '', initialCountr
   useEffect(() => {
     const fetchExchangeRates = async () => {
       try {
+        const cached = JSON.parse(localStorage.getItem(RATES_KEY) || 'null');
+        if (cached?.rates && Date.now() - cached.at < RATES_TTL) {
+          setExchangeRates(cached.rates);
+          setLastUpdated(new Date(cached.at).toISOString());
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      try {
         const response = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`);
         const data = await response.json();
         setExchangeRates(data.rates);
         setLastUpdated(new Date().toISOString());
         setLoading(false);
+        try {
+          localStorage.setItem(RATES_KEY, JSON.stringify({ rates: data.rates, at: Date.now() }));
+        } catch {
+          // ignore
+        }
       } catch (error) {
         console.error('Error fetching exchange rates:', error);
         const fallbackRates = {

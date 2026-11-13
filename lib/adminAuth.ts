@@ -14,26 +14,26 @@ export type AdminSession = {
 export async function resolveAdminSession(authHeader?: string | null): Promise<AdminSession | null> {
   if (!authHeader?.startsWith('Bearer ')) return null;
 
-  const payload = decodeAuthToken(authHeader) as
+  const payload = decodeAuthToken(authHeader
+  ) as
     | (ReturnType<typeof decodeAuthToken> & { role?: string; name?: string; exp?: number })
     | null;
 
   if (payload?.exp && payload.exp * 1000 < Date.now()) return null;
 
-  let user: Record<string, unknown> = {};
+  let user: Record<string, unknown> | null = null;
   try {
     const response = await fetch(`${API_URL}/api/users/me`, {
       headers: { Authorization: authHeader },
       signal: AbortSignal.timeout(8000),
     });
-    if (response.ok) {
-      user = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-    } else if (response.status === 401 || response.status === 403) {
-      return null;
-    }
+    if (!response.ok) return null;
+    user = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   } catch {
-    user = {};
+    return null;
   }
+
+  if (!user) return null;
 
   const email = String(user.email || payload?.email || '').trim().toLowerCase();
   const role = String(user.role || payload?.role || '').trim().toLowerCase();

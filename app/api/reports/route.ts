@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAdminMail } from '@/lib/adminMailStore';
-import { decodeAuthToken } from '@/lib/sellerPayoutStore';
+import { getVerifiedUser } from '@/lib/sellerPayoutStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -19,8 +19,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Reason and a detailed description are required' }, { status: 400 });
   }
 
-  const identity = decodeAuthToken(authHeader);
-  const email = String(identity?.email || 'unknown@eraiiz.com');
+  const user = await getVerifiedUser(authHeader);
+  if (!user) {
+    return NextResponse.json({ message: 'Please log in to submit a report' }, { status: 401 });
+  }
+  const email = String(user.email || 'unknown@eraiiz.com');
 
   await addAdminMail({
     folder: 'reports',

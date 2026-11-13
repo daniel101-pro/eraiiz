@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAdminMail } from '@/lib/adminMailStore';
 import { sendEraiizEmail, escapeHtml } from '@/lib/email';
+import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = rateLimit(`contact:${clientIp(request)}`, 8, 10 * 60_000);
+    if (!limited.ok) {
+      return NextResponse.json({ error: 'Too many messages. Try again later.' }, { status: 429 });
+    }
+
     const data = await request.json();
     const name = String(data.name || '').trim();
     const email = String(data.email || '').trim().toLowerCase();

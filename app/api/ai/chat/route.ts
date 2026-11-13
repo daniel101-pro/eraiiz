@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { openRouterKey } from '@/lib/aiKey';
+import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = rateLimit(`ai-chat:${clientIp(request)}`, 20, 60_000);
+    if (!limited.ok) {
+      return NextResponse.json({ error: 'rate_limited', message: 'Too many requests' }, { status: 429 });
+    }
+
     const { message } = await request.json();
 
-    if (!message || typeof message !== 'string') {
+    if (!message || typeof message !== 'string' || message.length > 2000) {
       return NextResponse.json({ 
         error: 'invalid_message',
         message: 'Invalid message provided'
       }, { status: 400 });
     }
 
-    console.log('💬 Chat request received:', message.substring(0, 50) + '...');
-
-    // Initialize OpenAI client for OpenRouter
-    const apiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+    const apiKey = openRouterKey();
     if (!apiKey) {
       console.error('❌ OpenRouter API key not found');
       return NextResponse.json({ 

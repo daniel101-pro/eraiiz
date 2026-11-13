@@ -1,42 +1,20 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import GridComponent from "./components/GridComponent";
-import Opposite from "./components/Opposite";
-import Footer from "./components/Footer";
-import CallToAction from "./components/CallToAction";
-import FaqList from "./components/FaqList";
-import BlogCarousel from "./components/BlogCarousel";
 import Navbar from "./components/Navbar";
-import Masonry from './components/Masonry/Masonry';
-import TrueFocus from "./TextAnimations/TrueFocus/TrueFocus";
-import SplashCursor from "./Animations/SplashCursor/SplashCursor";
 import BlurText from "./TextAnimations/BlurText/BlurText";
+
+const Opposite = dynamic(() => import("./components/Opposite"), { ssr: false });
+const TrueFocus = dynamic(() => import("./TextAnimations/TrueFocus/TrueFocus"), { ssr: false });
+const FaqList = dynamic(() => import("./components/FaqList"));
+const CallToAction = dynamic(() => import("./components/CallToAction"));
+const Footer = dynamic(() => import("./components/Footer"));
 
 const Page = () => {
   const textRef = useRef<HTMLHeadingElement>(null);
-  const [backgroundImage, setBackgroundImage] = useState("/Hero.png");
-
-  useEffect(() => {
-    // Check screen size to determine which background image to use
-    const handleResize = () => {
-      if (window.innerWidth <= 768) {
-        setBackgroundImage("/Hero2.png"); // For mobile devices
-      } else {
-        setBackgroundImage("/Hero.png"); // For larger screens
-      }
-    };
-
-    // Initial check
-    handleResize();
-
-    // Listen for window resize
-    window.addEventListener("resize", handleResize);
-
-    // Clean up event listener on unmount
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   useEffect(() => {
     const mainText = "Erase Waste By Shopping Quality Recycled";
@@ -78,81 +56,6 @@ const Page = () => {
     typeWriterAnimation();
   }, []);
 
-  const items = [
-    {
-      id: "1",
-      img: "https://picsum.photos/id/1015/600/900?grayscale",
-      url: "https://example.com/one",
-      height: 400,
-    },
-    {
-      id: "2",
-      img: "https://picsum.photos/id/1011/600/750?grayscale",
-      url: "https://example.com/two",
-      height: 250,
-    },
-    {
-      id: "3",
-      img: "https://picsum.photos/id/1020/600/800?grayscale",
-      url: "https://example.com/three",
-      height: 600,
-    },
-    {
-      id: "4",
-      img: "https://picsum.photos/id/1025/600/800?grayscale",
-      url: "https://example.com/four",
-      height: 300,
-    },
-    {
-      id: "5",
-      img: "https://picsum.photos/id/1035/600/800?grayscale",
-      url: "https://example.com/five",
-      height: 500,
-    },
-    {
-      id: "6",
-      img: "https://picsum.photos/id/1040/600/800?grayscale",
-      url: "https://example.com/six",
-      height: 450,
-    },
-    {
-      id: "7",
-      img: "https://picsum.photos/id/1045/600/800?grayscale",
-      url: "https://example.com/seven",
-      height: 350,
-    },
-    {
-      id: "8",
-      img: "https://picsum.photos/id/1050/600/800?grayscale",
-      url: "https://example.com/eight",
-      height: 550,
-    },
-    {
-      id: "9",
-      img: "https://picsum.photos/id/1055/600/800?grayscale",
-      url: "https://example.com/nine",
-      height: 400,
-    },
-    {
-      id: "10",
-      img: "https://picsum.photos/id/1060/600/800?grayscale",
-      url: "https://example.com/ten",
-      height: 480,
-    },
-    {
-      id: "11",
-      img: "https://picsum.photos/id/1065/600/800?grayscale",
-      url: "https://example.com/eleven",
-      height: 520,
-    },
-    {
-      id: "12",
-      img: "https://picsum.photos/id/1070/600/800?grayscale",
-      url: "https://example.com/twelve",
-      height: 420,
-    }
-  ];
-
   return (
     <>
 
@@ -160,10 +63,7 @@ const Page = () => {
         <Navbar />
       </div>
 
-      <div
-        className="h-screen bg-no-repeat bg-top bg-contain"
-        style={{ backgroundImage: `url('${backgroundImage}')` }}
-      >
+      <div className="h-screen bg-no-repeat bg-top bg-contain bg-[url('/Hero2.png')] md:bg-[url('/Hero.png')]">
         <div className="flex justify-center">
           <Image
             src="/oneone.png"
@@ -280,24 +180,6 @@ const Page = () => {
               pauseBetweenAnimations={0.8}
             />
           </div>
-          <div className="relative w-full max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-16 mb-20">
-            <div className="h-[600px] md:h-[800px] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-              <div className="min-h-full pb-8">
-                <Masonry
-                  items={items}
-                  ease="power3.out"
-                  duration={0.6}
-                  stagger={0.05}
-                  animateFrom="bottom"
-                  scaleOnHover={true}
-                  hoverScale={0.95}
-                  blurToFocus={true}
-                  colorShiftOnHover={false}
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Blog Section */}
           <div className="w-full max-w-[1400px] mx-auto px-8 sm:px-12 lg:px-16 mb-20">
             <div className="flex flex-col gap-8">
@@ -314,6 +196,7 @@ const Page = () => {
                     src="/recycled-products.png"
                     alt="Blog post"
                     fill
+                    sizes="(min-width: 768px) 50vw, 100vw"
                     className="object-cover"
                   />
                 </div>

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef } from "react";
+import Image from "next/image";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/all";
 
@@ -63,14 +64,16 @@ const Opposite = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Left side - Large Image */}
         <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-gray-100 group">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <img
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <Image
             ref={largeImageRef}
             src="/largeimage.png"
             alt="Featured Product"
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            fill
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
           />
-          <div className="absolute bottom-0 left-0 right-0 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+          <div className="absolute bottom-0 left-0 right-0 z-20 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
             <p className="text-white text-sm font-medium">Discover our sustainable collection</p>
           </div>
         </div>
@@ -79,14 +82,16 @@ const Opposite = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 lg:mt-0">
           {/* First Image */}
           <div className="group relative aspect-[4/3] rounded-2xl overflow-hidden bg-gray-800 order-1 lg:order-1">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <img
+            <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <Image
               ref={(el) => {
                 smallImageRefs.current[0] = el;
               }}
               src="/side1.png"
               alt="Product View"
-              className="w-full h-full object-cover grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-105"
+              fill
+              sizes="(min-width: 1024px) 25vw, 100vw"
+              className="object-cover grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-105"
             />
           </div>
 
@@ -106,14 +111,16 @@ const Opposite = () => {
 
           {/* Second Image */}
           <div className="group relative aspect-[4/3] rounded-2xl overflow-hidden order-3 lg:order-4">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-200 to-purple-200 opacity-75 group-hover:opacity-90 transition-opacity duration-300" />
-            <img
+            <div className="absolute inset-0 z-10 bg-gradient-to-br from-blue-200 to-purple-200 opacity-75 group-hover:opacity-90 transition-opacity duration-300" />
+            <Image
               ref={(el) => {
                 smallImageRefs.current[1] = el;
               }}
               src="/slide2.png"
               alt="Product Showcase"
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              fill
+              sizes="(min-width: 1024px) 25vw, 100vw"
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
             />
           </div>
 

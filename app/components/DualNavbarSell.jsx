@@ -8,7 +8,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import Image from 'next/image';
 import axios from 'axios';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import { boostProductsByPlan } from '@/lib/boostProducts';
 import { fetchNotificationFeed, addLocalInboxItem, buyerOrderNotice } from '../utils/notificationFeed';
 import { homePathForRole } from '@/lib/authRouting';
@@ -180,14 +180,17 @@ export default function DualNavbarSell({ handleLogout }) {
 
   // Handle logout
   const onLogout = () => {
+    const token = localStorage.getItem('accessToken');
     clearCart();
     localStorage.removeItem('user');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('role');
+    localStorage.removeItem('userId');
+    window.dispatchEvent(new Event('eraiiz:auth-changed'));
 
     if (handleLogout) {
-      handleLogout();
+      handleLogout(token);
     }
 
     router.push('/login');

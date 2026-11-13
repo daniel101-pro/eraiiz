@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { CartItem } from '../cart/types';
 import axios from 'axios';
 import { useCurrency } from './CurrencyContext';
@@ -19,18 +19,35 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function mergeProduct(item: CartItem, fullProduct: any): CartItem {
+  const sellerId =
+    typeof fullProduct.sellerId === 'object'
+      ? fullProduct.sellerId?._id || fullProduct.sellerId?.id
+      : fullProduct.sellerId;
+
+  return {
+    ...item,
+    carbonFootprint: fullProduct.carbonFootprint,
+    sustainability: fullProduct.sustainability,
+    material: fullProduct.material,
+    details: fullProduct.details,
+    bonus: fullProduct.bonus,
+    name: fullProduct.name || item.name,
+    price: getListingPrice(fullProduct) || item.price,
+    currency: getProductCurrency(fullProduct) || item.currency || 'NGN',
+    images: fullProduct.images || item.images,
+    sellerId: sellerId ? String(sellerId) : item.sellerId,
+  } as CartItem;
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { convertPrice } = useCurrency();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [enrichedCartItems, setEnrichedCartItems] = useState<CartItem[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
-  
-  console.log('=== TYPESCRIPT CART PROVIDER ACTIVE ===');
-  console.log('Cart items:', cartItems);
-  console.log('Enriched cart items:', enrichedCartItems);
+  const productCache = useRef(new Map<string, any>());
 
-  // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
@@ -44,124 +61,55 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setIsInitialized(true);
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     if (isInitialized) {
       localStorage.setItem('cart', JSON.stringify(cartItems));
     }
   }, [cartItems, isInitialized]);
 
-  // Enrich cart items with full product data including carbon footprint
-  const enrichCartItems = async () => {
-    if (cartItems.length === 0) {
+  useEffect(() => {
+    if (!isInitialized || cartItems.length === 0) {
       setEnrichedCartItems([]);
       return;
     }
 
-    setIsEnriching(true);
-    console.log('=== ENRICHING CART ITEMS ===');
-    
-    try {
-      const enrichedItems = await Promise.all(
-        cartItems.map(async (item) => {
-          try {
-            console.log(`Fetching full data for product: ${item._id}`);
-            
-            // Use the new public product detail endpoint to get full product data including carbon footprint
-            const response = await axios.get(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/products/${item._id}/public`,
-              {
-                timeout: 10000, // 10 second timeout
-              }
-            );
-            
-            console.log(`Response status: ${response.status}`);
-            console.log(`Response data structure:`, response.data);
-            
-            const fullProduct = response.data;
-            
-            if (!fullProduct) {
-              console.warn(`Product ${item._id} not found, using cart item data`);
-              return item;
-            }
-            
-            console.log(`Full product data for ${item._id}:`, fullProduct);
-            console.log(`Carbon footprint for ${item._id}:`, fullProduct.carbonFootprint);
-            console.log(`Sustainability for ${item._id}:`, fullProduct.sustainability);
-            
-            // Merge cart item data with full product data
-            const sellerId =
-              typeof fullProduct.sellerId === 'object'
-                ? fullProduct.sellerId?._id || fullProduct.sellerId?.id
-                : fullProduct.sellerId;
+    let cancelled = false;
+    const cache = productCache.current;
+    const missing = Array.from(new Set(cartItems.map((item) => item._id))).filter((id) => !cache.has(id));
 
-            const enrichedItem = {
-              ...item,
-              carbonFootprint: fullProduct.carbonFootprint,
-              sustainability: fullProduct.sustainability,
-              material: fullProduct.material,
-              details: fullProduct.details,
-              bonus: fullProduct.bonus,
-              name: fullProduct.name || item.name,
-              price: getListingPrice(fullProduct) || item.price,
-              currency: getProductCurrency(fullProduct) || item.currency || 'NGN',
-              images: fullProduct.images || item.images,
-              sellerId: sellerId ? String(sellerId) : item.sellerId,
-            };
-            
-            console.log(`Enriched item for ${item._id}:`, {
-              id: enrichedItem._id,
-              name: enrichedItem.name,
-              hasCarbonFootprint: !!enrichedItem.carbonFootprint,
-              hasSustainability: !!enrichedItem.sustainability,
-              carbonFootprint: enrichedItem.carbonFootprint,
-              sustainability: enrichedItem.sustainability
-            });
-            
-            return enrichedItem;
-          } catch (error: any) {
-            console.error(`Error fetching product ${item._id}:`, error);
-            console.error(`Error details:`, {
-              message: error.message,
-              status: error.response?.status,
-              statusText: error.response?.statusText,
-              data: error.response?.data
-            });
-            
-            // Return original item if fetch fails
-            return item;
-          }
+    const apply = () => {
+      if (cancelled) return;
+      setEnrichedCartItems(
+        cartItems.map((item) => {
+          const fullProduct = cache.get(item._id);
+          return fullProduct ? mergeProduct(item, fullProduct) : item;
         })
       );
-      
-      console.log('=== ENRICHED CART ITEMS ===', enrichedItems);
-      console.log('=== ENRICHED ITEMS CARBON FOOTPRINT CHECK ===');
-      enrichedItems.forEach((item, index) => {
-        console.log(`Item ${index + 1} (${item._id}):`, {
-          name: item.name,
-          hasCarbonFootprint: !!item.carbonFootprint,
-          carbonFootprint: item.carbonFootprint,
-          hasSustainability: !!item.sustainability,
-          sustainability: item.sustainability
-        });
-      });
-      
-      setEnrichedCartItems(enrichedItems);
-    } catch (error) {
-      console.error('Error enriching cart items:', error);
-      setEnrichedCartItems(cartItems); // Fallback to original items
-    } finally {
-      setIsEnriching(false);
-    }
-  };
+    };
 
-  // Enrich cart items whenever cartItems change
-  useEffect(() => {
-    if (isInitialized && cartItems.length > 0) {
-      enrichCartItems();
-    } else {
-      setEnrichedCartItems([]);
+    if (missing.length === 0) {
+      apply();
+      return;
     }
+
+    setIsEnriching(true);
+    Promise.all(
+      missing.map((id) =>
+        axios
+          .get(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}/public`, { timeout: 10000 })
+          .then((response) => {
+            if (response.data) cache.set(id, response.data);
+          })
+          .catch((error) => console.error(`Error fetching product ${id}:`, error?.message))
+      )
+    ).finally(() => {
+      apply();
+      if (!cancelled) setIsEnriching(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [cartItems, isInitialized]);
 
   const addToCart = (item: CartItem) => {
@@ -213,15 +161,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('cart');
   };
 
-    // Don't render children until cart is initialized from localStorage
-  if (!isInitialized) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
   return (
     <CartContext.Provider
       value={{
@@ -246,4 +185,4 @@ export function useCart() {
     throw new Error('useCart must be used within a CartProvider');
   }
   return context;
-} 
+}

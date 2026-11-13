@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
 
-    const authIdentity = getIdentityFromAuthHeader(authHeader);
+    const authIdentity = await getIdentityFromAuthHeader(authHeader);
     if (authIdentity.ids.length === 0) {
       return NextResponse.json({ message: 'Invalid auth token' }, { status: 401 });
     }
@@ -299,7 +299,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
 
-    const identity = getIdentityFromAuthHeader(authHeader);
+    const identity = await getIdentityFromAuthHeader(authHeader);
     if (identity.ids.length === 0) {
       return NextResponse.json({ message: 'Invalid auth token' }, { status: 401 });
     }

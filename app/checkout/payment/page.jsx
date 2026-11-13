@@ -146,7 +146,7 @@ export default function PaymentPage() {
               </div>
               <div className="flex justify-between text-lg font-semibold text-gray-900 pt-3 border-t">
                 <span>Total due</span>
-                <span>{formatPrice(paymentInit?.amount || orderTotal)}</span>
+                <span>{formatPrice(paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal)}</span>
               </div>
             </div>
 
@@ -162,7 +162,7 @@ export default function PaymentPage() {
               disabled={isProcessing}
               className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 disabled:opacity-60"
             >
-              {isProcessing ? 'Opening Paystack...' : `Pay ${formatPrice(paymentInit?.amount || orderTotal)}`}
+              {isProcessing ? 'Opening Paystack...' : `Pay ${formatPrice(paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal)}`}
             </button>
           </div>
         </div>

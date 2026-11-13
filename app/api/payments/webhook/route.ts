@@ -7,6 +7,7 @@ import {
   sellerOrdersFromPayment,
 } from '@/lib/marketplaceOrders';
 import { addSellerOrder, type SellerOrder } from '@/lib/sellerOrderStore';
+import { claimPaymentReference, releasePaymentReference } from '@/lib/processedPayments';
 import { notifyBuyerOfOrder, notifySellersOfOrder, type CheckoutCartItem, type CheckoutBilling } from '@/lib/checkout';
 
 function toCartItems(orders: SellerOrder[]): CheckoutCartItem[] {
@@ -45,6 +46,7 @@ function planFromMetadata(metadata?: Record<string, unknown>): SellerPlanId | nu
 }
 
 export async function POST(request: NextRequest) {
+  let claimedReference = '';
   try {
     const rawBody = await request.text();
     const signature = request.headers.get('x-paystack-signature');
@@ -83,7 +85,8 @@ export async function POST(request: NextRequest) {
           },
           sellerIds
         );
-      } else {
+      } else if (transaction.status === 'success' && (await claimPaymentReference(`notify:${transaction.reference}`))) {
+        claimedReference = `notify:${transaction.reference}`;
         const orders = sellerOrdersFromPayment({
           reference: transaction.reference,
           amountKobo: transaction.amount,
@@ -92,7 +95,14 @@ export async function POST(request: NextRequest) {
           customerEmail: transaction.customer?.email,
         });
         for (const order of orders) {
-          await addSellerOrder([order.sellerId, ...sellerEmails], order);
+          const index = sellerIds.indexOf(order.sellerId);
+          const sellerEmail =
+            sellerEmails.length === sellerIds.length && index >= 0
+              ? sellerEmails[index]
+              : orders.length === 1
+                ? sellerEmails[0]
+                : undefined;
+          await addSellerOrder([order.sellerId, sellerEmail], order);
         }
         try {
           if (orders.length) {
@@ -125,6 +135,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Paystack webhook error:', error);
-    return NextResponse.json({ received: true });
+    if (claimedReference) await releasePaymentReference(claimedReference).catch(() => {});
+    return NextResponse.json({ received: false }, { status: 500 });
   }
 }

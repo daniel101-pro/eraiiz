@@ -44,6 +44,9 @@ export async function GET(request: NextRequest) {
   }
 
   const keys = await expandIdentityKeys(authHeader);
+  if (keys.length === 0) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   const stored = await getBuyerOrders(keys);
   const merged = new Map<string, ReturnType<typeof toBuyerOrder>>();
 

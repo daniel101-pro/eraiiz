@@ -6,6 +6,7 @@ import {
 } from '@/lib/checkout';
 import { verifyTransaction } from '@/lib/paystack';
 import { isPaystackConfigured } from '@/lib/paymentConfig';
+import { claimPaymentReference, releasePaymentReference } from '@/lib/processedPayments';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,18 +44,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await createBackendOrders({
-      items: checkout.items,
-      billing: {
-        ...checkout.billing,
-        email: checkout.billing.email || checkout.email || transaction.customer?.email || '',
-      },
-      reference,
-      amountNgn: checkout.amountNgn,
-      authHeader,
-      origin: request.nextUrl.origin,
-      buyerEmail: checkout.email || checkout.billing.email || transaction.customer?.email,
-    });
+    const createOrders = await claimPaymentReference(`backend:${reference}`);
+    const notify = await claimPaymentReference(`notify:${reference}`);
+    if (createOrders || notify) {
+      try {
+        await createBackendOrders({
+          createOrders,
+          notify,
+          items: checkout.items,
+          billing: {
+            ...checkout.billing,
+            email: checkout.billing.email || checkout.email || transaction.customer?.email || '',
+          },
+          reference,
+          amountNgn: checkout.amountNgn,
+          authHeader,
+          origin: request.nextUrl.origin,
+          buyerEmail: checkout.email || checkout.billing.email || transaction.customer?.email,
+        });
+      } catch (error) {
+        if (createOrders) await releasePaymentReference(`backend:${reference}`);
+        if (notify) await releasePaymentReference(`notify:${reference}`);
+        throw error;
+      }
+    }
 
     return NextResponse.json({
       success: true,

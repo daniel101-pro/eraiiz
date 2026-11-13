@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTransaction } from '@/lib/paystack';
-import { isPaystackConfigured } from '@/lib/paymentConfig';
+import { isPaystackConfigured, toKobo } from '@/lib/paymentConfig';
 import { getSellerPlan, type SellerPlanId } from '@/lib/sellerPlans';
 import { getIdentityFromAuthHeader } from '@/lib/sellerPayoutStore';
 import {
@@ -9,18 +9,19 @@ import {
   saveSellerSubscription,
 } from '@/lib/sellerSubscriptionStore';
 
-function planFromMetadata(metadata?: Record<string, unknown> | string | null): SellerPlanId | null {
-  const data =
-    typeof metadata === 'string'
-      ? (() => {
-          try {
-            return JSON.parse(metadata) as Record<string, unknown>;
-          } catch {
-            return {};
-          }
-        })()
-      : metadata || {};
+function parseMetadata(metadata?: Record<string, unknown> | string | null): Record<string, unknown> {
+  if (typeof metadata === 'string') {
+    try {
+      return JSON.parse(metadata) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return metadata || {};
+}
 
+function planFromMetadata(data: Record<string, unknown>): SellerPlanId | null {
+  if (data.type !== 'seller_plan') return null;
   const planId = data.planId;
   if (planId === 'growth' || planId === 'pro') return planId;
   return null;
@@ -37,12 +38,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
 
-    const identity = getIdentityFromAuthHeader(authHeader);
+    const identity = await getIdentityFromAuthHeader(authHeader);
     if (identity.ids.length === 0) {
       return NextResponse.json({ message: 'Invalid auth token' }, { status: 401 });
     }
 
-    const { reference, planId: requestedPlan } = await request.json();
+    const { reference } = await request.json();
     if (!reference) {
       return NextResponse.json({ message: 'Payment reference is required' }, { status: 400 });
     }
@@ -52,12 +53,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Plan payment was not successful' }, { status: 400 });
     }
 
-    const planId =
-      planFromMetadata(transaction.metadata) ||
-      (requestedPlan === 'growth' || requestedPlan === 'pro' ? requestedPlan : null);
-
+    const metadata = parseMetadata(transaction.metadata);
+    const planId = planFromMetadata(metadata);
     if (!planId) {
       return NextResponse.json({ message: 'Could not determine paid plan' }, { status: 400 });
+    }
+
+    if (transaction.amount < toKobo(getSellerPlan(planId).amountNgn)) {
+      return NextResponse.json({ message: 'Paid amount does not match plan price' }, { status: 400 });
+    }
+
+    const paidFor = Array.isArray(metadata.sellerIds) ? metadata.sellerIds.map(String) : [];
+    if (!paidFor.some((id) => identity.ids.includes(id))) {
+      return NextResponse.json({ message: 'This payment belongs to another account' }, { status: 403 });
     }
 
     const paystackSub = await findActivePaystackSubscription(

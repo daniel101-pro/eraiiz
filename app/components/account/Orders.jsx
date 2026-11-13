@@ -13,8 +13,11 @@ export default function Orders() {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [lastUpdate, setLastUpdate] = useState(null);
   const wsRef = useRef(null);
+  const unmountedRef = useRef(false);
+  const reconnectRef = useRef(null);
 
   const connectWebSocket = () => {
+    if (unmountedRef.current) return;
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
@@ -74,12 +77,9 @@ export default function Orders() {
         console.log('WebSocket disconnected');
         setIsConnected(false);
         setConnectionStatus('disconnected');
-        // Attempt to reconnect after 5 seconds
-        setTimeout(() => {
-          if (connectionStatus !== 'connected') {
-            connectWebSocket();
-          }
-        }, 5000);
+        if (!unmountedRef.current) {
+          reconnectRef.current = setTimeout(connectWebSocket, 5000);
+        }
       };
 
       ws.onerror = (error) => {
@@ -156,10 +156,13 @@ export default function Orders() {
   };
 
   useEffect(() => {
+    unmountedRef.current = false;
     fetchOrders();
     connectWebSocket();
 
     return () => {
+      unmountedRef.current = true;
+      clearTimeout(reconnectRef.current);
       if (wsRef.current) {
         wsRef.current.close();
       }

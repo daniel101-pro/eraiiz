@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { openRouterKey } from '@/lib/aiKey';
+import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(`ai-transcribe:${clientIp(request)}`, 20, 60_000);
+  if (!limited.ok) {
+    return NextResponse.json({ error: 'rate_limited', message: 'Too many requests' }, { status: 429 });
+  }
   try {
     const formData = await request.formData();
     const audioFile = formData.get('file') as File;
@@ -16,7 +22,7 @@ export async function POST(request: NextRequest) {
     console.log('🎤 Transcription request received:', audioFile.size, 'bytes', 'type:', audioFile.type);
 
     // Initialize OpenAI client for OpenRouter
-    const apiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+    const apiKey = openRouterKey();
     if (!apiKey) {
       console.error('❌ OpenRouter API key not found');
       return NextResponse.json({ 

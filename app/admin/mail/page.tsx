@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { adminFetch } from '../../components/admin/adminApi';
@@ -69,6 +69,11 @@ function Mailbox() {
     }
   };
 
+  const closeThread = () => {
+    setActiveId(null);
+    setThread([]);
+  };
+
   const toggleStar = async (event: React.MouseEvent, item: Mail) => {
     event.stopPropagation();
     await adminFetch(`/api/admin/mail/${item.id}`, {
@@ -84,8 +89,7 @@ function Mailbox() {
       method: 'PATCH',
       body: JSON.stringify({ folder: 'archived' }),
     });
-    setActiveId(null);
-    setThread([]);
+    closeThread();
     load().catch(() => {});
   };
 
@@ -119,8 +123,6 @@ function Mailbox() {
     }
   };
 
-  const visible = useMemo(() => messages, [messages]);
-
   const folders = [
     { id: 'inbox' as Folder, label: 'Inbox', count: counts.unread },
     { id: 'sent' as Folder, label: 'Sent', count: counts.sent },
@@ -130,9 +132,11 @@ function Mailbox() {
     { id: 'archived' as Folder, label: 'Archive', count: counts.archived },
   ];
 
+  const reading = thread.length > 0;
+
   return (
-    <div className="flex h-screen">
-      <aside className="w-48 shrink-0 border-r border-gray-200 bg-white">
+    <div className="relative flex h-[calc(100dvh-7.5rem)] md:h-screen">
+      <aside className="hidden w-48 shrink-0 border-r border-gray-200 bg-white md:block">
         <div className="p-3">
           <button
             type="button"
@@ -151,8 +155,7 @@ function Mailbox() {
             type="button"
             onClick={() => {
               setFolder(item.id);
-              setActiveId(null);
-              setThread([]);
+              closeThread();
             }}
             className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm ${
               folder === item.id ? 'bg-green-50 font-medium text-green-900' : 'text-gray-600 hover:bg-gray-50'
@@ -164,8 +167,40 @@ function Mailbox() {
         ))}
       </aside>
 
-      <section className={`min-w-0 flex-1 flex-col border-r border-gray-200 bg-white ${thread.length ? 'hidden lg:flex' : 'flex'}`}>
+      <section className={`min-w-0 flex-1 flex-col bg-white ${reading ? 'hidden lg:flex' : 'flex'}`}>
         <div className="border-b border-gray-200 p-3">
+          <div className="mb-3 flex items-center gap-2 md:hidden">
+            <div className="flex-1 overflow-x-auto">
+              <div className="flex w-max gap-1">
+                {folders.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setFolder(item.id);
+                      closeThread();
+                    }}
+                    className={`whitespace-nowrap px-3 py-1.5 text-xs ${
+                      folder === item.id ? 'bg-green-900 text-white' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {item.label}
+                    {item.count ? ` ${item.count}` : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft({ to: '', subject: '', text: '', threadId: '' });
+                setCompose(true);
+              }}
+              className="shrink-0 bg-green-900 px-3 py-1.5 text-xs font-medium text-white"
+            >
+              Compose
+            </button>
+          </div>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -174,10 +209,10 @@ function Mailbox() {
           />
         </div>
         <ul className="flex-1 overflow-y-auto">
-          {visible.length === 0 ? (
+          {messages.length === 0 ? (
             <li className="px-4 py-10 text-center text-sm text-gray-500">Empty</li>
           ) : (
-            visible.map((item) => {
+            messages.map((item) => {
               const who = folder === 'sent' ? item.toName || item.toEmail : item.fromName || item.fromEmail;
               return (
                 <li key={item.id}>
@@ -211,50 +246,44 @@ function Mailbox() {
         </ul>
       </section>
 
-      <article className={`${thread.length ? 'flex' : 'hidden'} min-w-0 flex-[1.2] flex-col bg-gray-50 lg:flex`}>
+      <article
+        className={`${
+          reading ? 'absolute inset-0 z-20 flex md:static md:flex-[1.2]' : 'hidden lg:flex'
+        } min-w-0 flex-col bg-gray-50`}
+      >
         {!thread.length ? (
           <div className="flex flex-1 items-center justify-center text-sm text-gray-400">Select a message</div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3">
-              <button
-                type="button"
-                className="mr-3 text-sm text-gray-500 underline lg:hidden"
-                onClick={() => {
-                  setActiveId(null);
-                  setThread([]);
-                }}
-              >
+            <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+              <button type="button" className="text-sm text-gray-500 lg:hidden" onClick={closeThread}>
                 Back
               </button>
-              <h1 className="truncate text-sm font-semibold">{thread[thread.length - 1]?.subject}</h1>
-              <div className="flex gap-3 text-sm">
-                <button type="button" onClick={reply} className="text-green-800 underline">
-                  Reply
-                </button>
-                <button type="button" onClick={archive} className="text-gray-500 underline">
-                  Archive
-                </button>
-              </div>
+              <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{thread[thread.length - 1]?.subject}</h1>
+              <button type="button" onClick={reply} className="text-sm text-green-800">
+                Reply
+              </button>
+              <button type="button" onClick={archive} className="text-sm text-gray-500">
+                Archive
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-4 pb-24 md:pb-5">
               {thread.map((item) => (
                 <div key={item.id} className="mb-4 border border-gray-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {item.fromName} <span className="font-normal text-gray-500">&lt;{item.fromEmail}&gt;</span>
-                      </p>
-                      <p className="text-xs text-gray-500">to {item.toEmail}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{item.fromName}</p>
+                      <p className="truncate text-xs text-gray-500">{item.fromEmail}</p>
+                      <p className="truncate text-xs text-gray-500">to {item.toEmail}</p>
                     </div>
-                    <p className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleString()}</p>
+                    <p className="shrink-0 text-xs text-gray-500">{timeLabel(item.createdAt)}</p>
                   </div>
                   {item.productId ? (
                     <p className="mt-2 text-xs text-gray-500">
                       {item.reason} · {item.productId}
                     </p>
                   ) : null}
-                  <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-gray-800">{item.text}</p>
+                  <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-800">{item.text}</p>
                 </div>
               ))}
             </div>
@@ -263,40 +292,39 @@ function Mailbox() {
       </article>
 
       {compose ? (
-        <div className="fixed bottom-4 right-4 z-40 w-full max-w-md border border-gray-300 bg-white shadow-xl">
-          <div className="flex items-center justify-between bg-green-950 px-4 py-2 text-white">
+        <div className="fixed inset-0 z-40 flex flex-col bg-white md:inset-auto md:bottom-4 md:right-4 md:h-auto md:w-full md:max-w-md md:border md:border-gray-300 md:shadow-xl">
+          <div className="flex items-center justify-between bg-green-950 px-4 py-3 text-white md:py-2">
             <p className="text-sm font-medium">New message</p>
             <button type="button" onClick={() => setCompose(false)} className="text-sm">
               Close
             </button>
           </div>
-          <form onSubmit={send} className="p-4">
+          <form onSubmit={send} className="flex flex-1 flex-col p-4">
             <input
               value={draft.to}
               onChange={(event) => setDraft((prev) => ({ ...prev, to: event.target.value }))}
               placeholder="To"
-              className="w-full border-b border-gray-200 py-2 text-sm focus:outline-none"
+              className="w-full border-b border-gray-200 py-3 text-sm focus:outline-none md:py-2"
               required
             />
             <input
               value={draft.subject}
               onChange={(event) => setDraft((prev) => ({ ...prev, subject: event.target.value }))}
               placeholder="Subject"
-              className="w-full border-b border-gray-200 py-2 text-sm focus:outline-none"
+              className="w-full border-b border-gray-200 py-3 text-sm focus:outline-none md:py-2"
               required
             />
             <textarea
               value={draft.text}
               onChange={(event) => setDraft((prev) => ({ ...prev, text: event.target.value }))}
-              rows={8}
-              className="mt-2 w-full resize-none text-sm focus:outline-none"
+              className="mt-2 min-h-[40vh] w-full flex-1 resize-none text-sm focus:outline-none md:min-h-[12rem]"
               placeholder="Write"
               required
             />
             <button
               type="submit"
               disabled={sending}
-              className="mt-3 bg-green-900 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:bg-gray-300"
+              className="mt-3 bg-green-900 px-4 py-3 text-sm font-medium text-white hover:bg-green-800 disabled:bg-gray-300 md:py-2"
             >
               {sending ? 'Sending…' : 'Send'}
             </button>
@@ -311,7 +339,7 @@ export default function AdminMailPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen items-center justify-center">
+        <div className="flex h-[50vh] items-center justify-center">
           <div className="h-6 w-6 rounded-full border border-gray-200 border-t-green-950 animate-spin" />
         </div>
       }

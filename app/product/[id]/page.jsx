@@ -12,7 +12,6 @@ import { showCartToast, showError } from '../../utils/toast';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import ImageGallery from '../../components/ImageGallery';
 import ReportModal from '../../components/ReportModal';
-import { Const } from 'three/tsl';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 
 export default function ProductDetail() {
@@ -89,33 +88,38 @@ export default function ProductDetail() {
         throw new Error('API URL is not configured');
       }
 
-      let productRes;
-      try {
-        // First try the protected endpoint with authentication
-        let token = localStorage.getItem('accessToken');
-        if (!token) {
-          token = await refreshToken();
-        }
-
-        console.log('Fetching product with auth, product ID:', id);
-        productRes = await axios.get(`${apiUrl}/api/products/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
+      axios
+        .get(`${apiUrl}/api/products/${id}/reviews`)
+        .then((reviewsRes) => setReviews(reviewsRes.data))
+        .catch((reviewErr) => {
+          console.error('Error fetching reviews:', reviewErr);
+          setReviews([]);
         });
-      } catch (authError) {
-        console.log('Auth endpoint failed, trying public endpoint:', authError.message);
-        // If auth fails, try the public endpoint
+      const ranksPromise = fetch('/api/payments/plans/ranks')
+        .then((ranksRes) => ranksRes.json())
+        .catch(() => null);
+
+      let productRes;
+      let token = localStorage.getItem('accessToken');
+      if (!token) {
+        token = await refreshToken().catch(() => null);
+      }
+      if (token) {
+        try {
+          productRes = await axios.get(`${apiUrl}/api/products/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch {
+          productRes = null;
+        }
+      }
+      if (!productRes) {
         productRes = await axios.get(`${apiUrl}/api/products/${id}/public`);
       }
-      
+
       setProduct(productRes.data);
-      
-      // Debug: Check what data we're receiving
-      console.log('PRODUCT DETAIL PAGE - Product data:', productRes.data);
-      console.log('PRODUCT DETAIL PAGE - Sizes:', productRes.data.sizes);
-      console.log('PRODUCT DETAIL PAGE - Attributes:', productRes.data.attributes);
-      console.log('PRODUCT DETAIL PAGE - Sustainability:', productRes.data.sustainability);
-      console.log('PRODUCT DETAIL PAGE - Carbon footprint:', productRes.data.carbonFootprint);
-      
+      setLoading(false);
+
       // Set initial selected attribute if available
       if (productRes.data.attributes && productRes.data.attributes.length > 0) {
         setSelectedAttribute(productRes.data.attributes[0]);
@@ -177,33 +181,19 @@ export default function ProductDetail() {
         });
       }
 
-      try {
-        const ranksRes = await fetch('/api/payments/plans/ranks');
-        const ranksData = await ranksRes.json();
-        const sellerKey =
-          typeof productRes.data.sellerId === 'object'
-            ? productRes.data.sellerId._id || productRes.data.sellerId.id
-            : productRes.data.sellerId;
-        setSellerPlan(ranksData.ranks?.[String(sellerKey)] || 'commission');
-      } catch {
-        setSellerPlan('commission');
-      }
-
-      // Fetch reviews
-      try {
-        const reviewsRes = await axios.get(`${apiUrl}/api/products/${id}/reviews`);
-        setReviews(reviewsRes.data);
-      } catch (reviewErr) {
-        console.error('Error fetching reviews:', reviewErr);
-        setReviews([]);
-      }
+      const ranksData = await ranksPromise;
+      const sellerKey =
+        typeof productRes.data.sellerId === 'object'
+          ? productRes.data.sellerId?._id || productRes.data.sellerId?.id
+          : productRes.data.sellerId;
+      setSellerPlan(ranksData?.ranks?.[String(sellerKey)] || 'commission');
     } catch (err) {
       console.error('Error in fetchProductAndReviews:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load product';
       setError(errorMessage);
       
       if (err.response?.status === 401) {
-        toast.error('Please log in to view this product');
+        showError('Please log in to view this product');
         router.push('/login');
       }
     } finally {
@@ -224,9 +214,9 @@ export default function ProductDetail() {
     e.preventDefault();
     setReviewSubmitting(true);
     setReviewError(null);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       let token = localStorage.getItem('accessToken');
 
       const formData = new FormData();

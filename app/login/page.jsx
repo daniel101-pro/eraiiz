@@ -37,6 +37,8 @@ export default function Login() {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('role', data.user.role);
+      localStorage.removeItem('userId');
+      window.dispatchEvent(new Event('eraiiz:auth-changed'));
       showAuthToast('Successfully logged in!', 'success');
       router.push(homePathForRole(data.user.role, data.user.email));
     } catch (err) {

@@ -15,17 +15,17 @@ import {
   saveSellerSubscription,
 } from '@/lib/sellerSubscriptionStore';
 
-function requireIdentity(request: NextRequest) {
+async function requireIdentity(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader) return null;
-  const identity = getIdentityFromAuthHeader(authHeader);
+  const identity = await getIdentityFromAuthHeader(authHeader);
   if (identity.ids.length === 0) return null;
   return { authHeader, identity };
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const session = requireIdentity(request);
+    const session = await requireIdentity(request);
     if (!session) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Paystack is not configured' }, { status: 503 });
     }
 
-    const session = requireIdentity(request);
+    const session = await requireIdentity(request);
     if (!session) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const session = requireIdentity(request);
+    const session = await requireIdentity(request);
     if (!session) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
