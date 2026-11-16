@@ -177,10 +177,10 @@ export async function cancelSellerPlan() {
   return data;
 }
 
-export async function verifyCheckout({ reference, items, billing }) {
+export async function verifyCheckout({ reference, items, billing, sessionId, provider }) {
   return paymentRequest('/api/payments/verify', {
     method: 'POST',
-    body: JSON.stringify({ reference, items, billing }),
+    body: JSON.stringify({ reference, items, billing, sessionId, provider }),
   });
 }
 

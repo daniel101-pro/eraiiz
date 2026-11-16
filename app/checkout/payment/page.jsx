@@ -84,7 +84,16 @@ export default function PaymentPage() {
         items: payloadItems,
         reference: initialized.reference,
         amount: initialized.amount,
+        provider: initialized.provider || 'paystack',
       });
+
+      if (initialized.provider === 'stripe') {
+        if (!initialized.authorizationUrl) {
+          throw new Error('Unable to start Stripe checkout');
+        }
+        window.location.href = initialized.authorizationUrl;
+        return;
+      }
 
       await openPaystackCheckout({
         publicKey: initialized.publicKey,
@@ -100,6 +109,7 @@ export default function PaymentPage() {
             items: payloadItems,
             reference: orderReference,
             amount: initialized.amount,
+            provider: 'paystack',
           });
           persistInboxItem(buyerOrderNotice({ reference: orderReference, items: payloadItems }));
           router.replace(`/checkout/success?reference=${orderReference}&status=success`);
@@ -107,6 +117,7 @@ export default function PaymentPage() {
             reference: orderReference,
             items: payloadItems,
             billing,
+            provider: 'paystack',
           }).catch(() => {});
         },
         onCancel: () => {
@@ -130,7 +141,7 @@ export default function PaymentPage() {
             ← Back to Billing
           </Link>
 
-          <h2 className="text-2xl font-semibold mb-6">Pay with Paystack</h2>
+          <h2 className="text-2xl font-semibold mb-6">Payment</h2>
 
           <div className="bg-white rounded-lg shadow p-6 space-y-6">
             <div className="space-y-3">
@@ -151,9 +162,9 @@ export default function PaymentPage() {
             </div>
 
             <div className="rounded-lg border p-4">
-              <p className="font-medium text-gray-900 mb-1">Card, bank transfer, and USSD</p>
+              <p className="font-medium text-gray-900 mb-1">Secure checkout</p>
               <p className="text-sm text-gray-600">
-                You&apos;ll complete payment securely on Paystack. We do not store card details on Eraiiz.
+                You&apos;ll complete payment on Paystack or Stripe. We do not store card details on Eraiiz.
               </p>
             </div>
 
@@ -162,7 +173,7 @@ export default function PaymentPage() {
               disabled={isProcessing}
               className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 disabled:opacity-60"
             >
-              {isProcessing ? 'Opening Paystack...' : `Pay ${formatPrice(paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal)}`}
+              {isProcessing ? 'Opening checkout...' : `Pay ${formatPrice(paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal)}`}
             </button>
           </div>
         </div>

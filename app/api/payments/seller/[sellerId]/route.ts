@@ -14,6 +14,7 @@ export async function GET(
       if (paystackSubaccount) {
         payout = {
           userId: sellerId,
+          provider: 'paystack',
           subaccountCode: paystackSubaccount.subaccount_code,
           accountName: paystackSubaccount.business_name,
           businessName: paystackSubaccount.business_name,
@@ -29,9 +30,14 @@ export async function GET(
     }
 
     return NextResponse.json({
-      paystackSubaccountCode: payout.subaccountCode,
+      provider: payout.provider || (payout.stripeAccountId ? 'stripe' : 'paystack'),
+      paystackSubaccountCode: payout.subaccountCode || null,
+      stripeAccountId: payout.stripeAccountId || null,
+      stripeDetailsSubmitted: Boolean(payout.stripeDetailsSubmitted),
+      stripePayoutsEnabled: Boolean(payout.stripePayoutsEnabled),
       payoutAccountName: payout.accountName,
       payoutBusinessName: payout.businessName,
+      payoutCountry: payout.country || null,
     });
   } catch (error) {
     const message =

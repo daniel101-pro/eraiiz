@@ -145,3 +145,98 @@ export async function createStripeAccountLink(input: {
 export async function retrieveStripeAccount(accountId: string): Promise<StripeConnectAccount> {
   return stripeRequest(`/accounts/${encodeURIComponent(accountId)}`);
 }
+
+export async function createMarketplaceCheckoutSession(input: {
+  reference: string;
+  email: string;
+  amountKobo: number;
+  description: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata?: Record<string, string>;
+}) {
+  const params = new URLSearchParams({
+    mode: 'payment',
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+    client_reference_id: input.reference,
+    customer_email: input.email,
+    'line_items[0][quantity]': '1',
+    'line_items[0][price_data][currency]': 'ngn',
+    'line_items[0][price_data][unit_amount]': String(input.amountKobo),
+    'line_items[0][price_data][product_data][name]': input.description.slice(0, 120),
+    'payment_intent_data[transfer_group]': input.reference,
+    'metadata[type]': 'eraiiz_order',
+    'metadata[reference]': input.reference,
+  });
+
+  for (const [key, value] of Object.entries(input.metadata || {})) {
+    if (!value) continue;
+    params.set(`metadata[${key}]`, String(value).slice(0, 500));
+  }
+
+  return stripeRequest('/checkout/sessions', {
+    method: 'POST',
+    body: params,
+  }) as Promise<{ id: string; url: string | null; payment_intent?: string }>;
+}
+
+export async function retrieveCheckoutSession(sessionId: string) {
+  return stripeRequest(
+    `/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=payment_intent`
+  ) as Promise<{
+    id: string;
+    payment_status: string;
+    status: string;
+    amount_total: number | null;
+    currency: string | null;
+    client_reference_id: string | null;
+    payment_intent?: string | { id: string };
+    metadata?: Record<string, string>;
+    customer_details?: { email?: string | null } | null;
+  }>;
+}
+
+export async function createConnectTransfer(input: {
+  amountKobo: number;
+  destination: string;
+  transferGroup: string;
+  reference: string;
+  sellerId: string;
+}) {
+  const params = new URLSearchParams({
+    amount: String(input.amountKobo),
+    currency: 'ngn',
+    destination: input.destination,
+    transfer_group: input.transferGroup,
+    'metadata[reference]': input.reference,
+    'metadata[sellerId]': input.sellerId,
+  });
+  return stripeRequest('/transfers', { method: 'POST', body: params });
+}
+
+export async function findStripeAccountForSeller(sellerId: string): Promise<StripeConnectAccount | null> {
+  if (!sellerId || !isStripeConfigured()) return null;
+  try {
+    let startingAfter = '';
+    for (let page = 0; page < 5; page += 1) {
+      const query = new URLSearchParams({ limit: '100' });
+      if (startingAfter) query.set('starting_after', startingAfter);
+      const data = (await stripeRequest(`/accounts?${query.toString()}`)) as {
+        data?: Array<StripeConnectAccount & { metadata?: Record<string, string> }>;
+        has_more?: boolean;
+      };
+      const match = (data.data || []).find(
+        (account) =>
+          account.metadata?.sellerId === sellerId ||
+          account.metadata?.eraiizSellerId === sellerId
+      );
+      if (match) return match;
+      if (!data.has_more || !(data.data || []).length) break;
+      startingAfter = data.data![data.data!.length - 1].id;
+    }
+  } catch (error) {
+    console.error('Failed to search Stripe accounts for seller', sellerId, error);
+  }
+  return null;
+}

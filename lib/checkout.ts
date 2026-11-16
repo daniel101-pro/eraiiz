@@ -10,6 +10,7 @@ import {
   generateReference,
   toKobo,
 } from '@/lib/paymentConfig';
+import { findStripeAccountForSeller } from '@/lib/stripeConnect';
 import {
   appOrigin,
   createSellerInAppNotification,
@@ -41,10 +42,14 @@ export interface CheckoutBilling {
   postalCode: string;
 }
 
+export type CheckoutProvider = 'paystack' | 'stripe';
+
 export interface SellerSplit {
   sellerId: string;
   email?: string;
-  subaccountCode: string;
+  provider: CheckoutProvider;
+  subaccountCode?: string;
+  stripeAccountId?: string;
   subtotal: number;
   sellerShare: number;
   platformShare: number;
@@ -55,12 +60,23 @@ export interface ValidatedCheckout {
   email: string;
   amountKobo: number;
   amountNgn: number;
+  provider: CheckoutProvider;
   items: CheckoutCartItem[];
   billing: CheckoutBilling;
   sellerSplits: SellerSplit[];
   splitSubaccounts: { subaccount: string; share: number }[];
   subaccount?: string;
 }
+
+export type SellerPayoutAccount = {
+  sellerId: string;
+  name?: string;
+  email?: string;
+  provider: CheckoutProvider | null;
+  paystackSubaccountCode?: string;
+  stripeAccountId?: string;
+  stripeDetailsSubmitted?: boolean;
+};
 
 async function fetchProduct(productId: string) {
   const response = await axios.get(`${API_URL}/api/products/${productId}/public`, {
@@ -69,11 +85,16 @@ async function fetchProduct(productId: string) {
   return response.data;
 }
 
-export async function fetchSellerSubaccount(sellerId: string, authHeader?: string) {
+export async function fetchSellerSubaccount(
+  sellerId: string,
+  authHeader?: string
+): Promise<SellerPayoutAccount> {
   const headers: Record<string, string> = {};
   if (authHeader) headers.Authorization = authHeader;
 
   let paystackSubaccountCode: string | undefined;
+  let stripeAccountId: string | undefined;
+  let stripeDetailsSubmitted = false;
   let name: string | undefined;
   let email: string | undefined;
 
@@ -92,17 +113,31 @@ export async function fetchSellerSubaccount(sellerId: string, authHeader?: strin
       response.data?.primaryContactEmail
     ) as string | undefined;
     paystackSubaccountCode = response.data?.paystackSubaccountCode as string | undefined;
+    stripeAccountId = response.data?.stripeAccountId as string | undefined;
+    stripeDetailsSubmitted = Boolean(response.data?.stripeDetailsSubmitted);
 
-    const nested = response.data?.sellerPayout as { paystackSubaccountCode?: string } | undefined;
+    const nested = response.data?.sellerPayout as {
+      paystackSubaccountCode?: string;
+      stripeAccountId?: string;
+      stripeDetailsSubmitted?: boolean;
+    } | undefined;
     paystackSubaccountCode =
       paystackSubaccountCode || nested?.paystackSubaccountCode;
+    stripeAccountId = stripeAccountId || nested?.stripeAccountId;
+    stripeDetailsSubmitted =
+      stripeDetailsSubmitted || Boolean(nested?.stripeDetailsSubmitted);
   } catch (error) {
     console.error(`Failed to fetch seller profile for ${sellerId}`, error);
   }
 
-  if (!paystackSubaccountCode) {
-    const localPayout = await getSellerPayout(sellerId);
-    paystackSubaccountCode = localPayout?.subaccountCode;
+  const localPayout = await getSellerPayout(sellerId);
+  if (localPayout) {
+    paystackSubaccountCode = paystackSubaccountCode || localPayout.subaccountCode;
+    stripeAccountId = stripeAccountId || localPayout.stripeAccountId;
+    stripeDetailsSubmitted =
+      stripeDetailsSubmitted || Boolean(localPayout.stripeDetailsSubmitted);
+    email = email || undefined;
+    name = name || localPayout.accountName || localPayout.businessName;
   }
 
   if (!paystackSubaccountCode) {
@@ -115,6 +150,15 @@ export async function fetchSellerSubaccount(sellerId: string, authHeader?: strin
       const marker = parseSellerMarker(paystackSubaccount);
       email = marker.email || paystackSubaccount.primary_contact_email;
       name = name || paystackSubaccount.business_name;
+    }
+  }
+
+  if (!stripeAccountId) {
+    const stripeAccount = await findStripeAccountForSeller(sellerId);
+    if (stripeAccount?.id) {
+      stripeAccountId = stripeAccount.id;
+      stripeDetailsSubmitted =
+        stripeDetailsSubmitted || Boolean(stripeAccount.details_submitted);
     }
   }
 
@@ -132,11 +176,21 @@ export async function fetchSellerSubaccount(sellerId: string, authHeader?: strin
     }
   }
 
+  const stripeReady = Boolean(stripeAccountId);
+  const provider: CheckoutProvider | null = paystackSubaccountCode
+    ? 'paystack'
+    : stripeReady
+      ? 'stripe'
+      : null;
+
   return {
     sellerId,
     name,
     email,
+    provider,
     paystackSubaccountCode,
+    stripeAccountId: stripeReady ? stripeAccountId : undefined,
+    stripeDetailsSubmitted: stripeReady,
   };
 }
 
@@ -201,12 +255,21 @@ export async function validateCheckoutInput(input: {
     uniqueSellerIds.map((sellerId) => fetchSellerSubaccount(sellerId, authHeader))
   );
 
-  const missingSubaccounts = sellerAccounts.filter((seller) => !seller.paystackSubaccountCode);
-  if (missingSubaccounts.length > 0) {
+  const missingPayouts = sellerAccounts.filter((seller) => !seller.provider);
+  if (missingPayouts.length > 0) {
     throw new Error(
       'One or more sellers have not completed payout setup. Please remove those items or try again later.'
     );
   }
+
+  const providers = new Set(sellerAccounts.map((seller) => seller.provider));
+  if (providers.size > 1) {
+    throw new Error(
+      'Your cart mixes African and international sellers. Checkout them separately.'
+    );
+  }
+
+  const provider = sellerAccounts[0].provider as CheckoutProvider;
 
   const sellerSplits: SellerSplit[] = await Promise.all(
     sellerAccounts.map(async (seller) => {
@@ -219,7 +282,9 @@ export async function validateCheckoutInput(input: {
       return {
         sellerId: seller.sellerId,
         email: seller.email,
-        subaccountCode: seller.paystackSubaccountCode!,
+        provider: seller.provider!,
+        subaccountCode: seller.paystackSubaccountCode,
+        stripeAccountId: seller.stripeAccountId,
         subtotal,
         sellerShare,
         platformShare,
@@ -231,17 +296,22 @@ export async function validateCheckoutInput(input: {
   const amountKobo = toKobo(amountNgn);
 
   if (amountKobo < 10000) {
-    throw new Error('Minimum Paystack checkout amount is ₦100');
+    throw new Error('Minimum checkout amount is ₦100');
   }
 
-  const splitSubaccounts = sellerSplits.map((split) => ({
-    subaccount: split.subaccountCode,
-    share: toKobo(split.sellerShare),
-  }));
+  const splitSubaccounts =
+    provider === 'paystack'
+      ? sellerSplits.map((split) => ({
+          subaccount: split.subaccountCode!,
+          share: toKobo(split.sellerShare),
+        }))
+      : [];
 
-  const splitShareTotal = splitSubaccounts.reduce((sum, entry) => sum + entry.share, 0);
-  if (splitShareTotal >= amountKobo) {
-    throw new Error('Invalid split configuration for this checkout');
+  if (provider === 'paystack') {
+    const splitShareTotal = splitSubaccounts.reduce((sum, entry) => sum + entry.share, 0);
+    if (splitShareTotal >= amountKobo) {
+      throw new Error('Invalid split configuration for this checkout');
+    }
   }
 
   return {
@@ -249,11 +319,15 @@ export async function validateCheckoutInput(input: {
     email: billing.email,
     amountKobo,
     amountNgn,
+    provider,
     items: pricedItems,
     billing,
     sellerSplits,
     splitSubaccounts,
-    subaccount: sellerSplits.length === 1 ? sellerSplits[0].subaccountCode : undefined,
+    subaccount:
+      provider === 'paystack' && sellerSplits.length === 1
+        ? sellerSplits[0].subaccountCode
+        : undefined,
   };
 }
 

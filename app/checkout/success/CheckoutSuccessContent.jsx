@@ -42,7 +42,13 @@ export default function CheckoutSuccessContent() {
       searchParams.get('reference') ||
       searchParams.get('trxref') ||
       searchParams.get('ref');
+    const sessionId = searchParams.get('session_id');
     const existing = readLastOrder();
+    const provider =
+      searchParams.get('provider') ||
+      (sessionId ? 'stripe' : '') ||
+      existing?.provider ||
+      'paystack';
     const snapshotBilling = existing?.billing || billing;
     const snapshotItems = existing?.items || [];
     const reference = paymentReference || existing?.reference || '';
@@ -51,7 +57,7 @@ export default function CheckoutSuccessContent() {
       snapshotItems.length > 0 ||
       Boolean(snapshotBilling?.fullName || snapshotBilling?.address || snapshotBilling?.email);
 
-    if (!reference && !hasDetails) {
+    if (!reference && !sessionId && !hasDetails) {
       setStatus('missing');
       return;
     }
@@ -61,6 +67,7 @@ export default function CheckoutSuccessContent() {
       amount: existing?.amount ?? null,
       billing: snapshotBilling,
       items: snapshotItems,
+      provider,
     };
 
     handledRef.current = true;
@@ -72,13 +79,15 @@ export default function CheckoutSuccessContent() {
     clearCheckout();
     sessionStorage.removeItem('eraiiz_last_checkout_items');
 
-    if (reference && snapshotItems.length && snapshotBilling?.email) {
+    if ((reference || sessionId) && snapshotItems.length && snapshotBilling?.email) {
       verifyCheckout({
         reference,
         items: snapshotItems,
         billing: snapshotBilling,
+        sessionId,
+        provider: nextOrder.provider,
       }).catch(() => {
-        // Payment already returned from Paystack; keep the confirmation on screen.
+        // Payment already returned from the processor; keep the confirmation on screen.
       });
     }
   }, [billing, clearCart, clearCheckout, searchParams]);
