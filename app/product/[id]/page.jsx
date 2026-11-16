@@ -14,6 +14,18 @@ import ImageGallery from '../../components/ImageGallery';
 import ReportModal from '../../components/ReportModal';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 
+function availableSizeEntries(product) {
+  if (!product?.sizes || typeof product.sizes !== 'object') return [];
+  return Object.entries(product.sizes).filter(([, sizeData]) => sizeData?.available);
+}
+
+function productHasSizes(product) {
+  if (product?.attributes?.some((attr) => Array.isArray(attr?.values) && attr.values.length > 0)) {
+    return true;
+  }
+  return availableSizeEntries(product).length > 0;
+}
+
 export default function ProductDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -35,18 +47,21 @@ export default function ProductDetail() {
   const [isInCartState, setIsInCartState] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [sellerPlan, setSellerPlan] = useState('commission');
+  const hasSizes = productHasSizes(product);
 
-  // Check if item is in cart
   const checkIsInCart = () => {
-    return cartItems.some(item => item._id === product?._id && item.selectedSize === selectedSize);
+    return cartItems.some((item) => {
+      if (item._id !== product?._id) return false;
+      if (!hasSizes) return true;
+      return item.selectedSize === selectedSize;
+    });
   };
 
-  // Update isInCartState whenever relevant dependencies change
   useEffect(() => {
-    if (product && selectedSize) {
-      setIsInCartState(checkIsInCart());
-    }
-  }, [product, selectedSize, cartItems]);
+    if (!product) return;
+    if (hasSizes && !selectedSize) return;
+    setIsInCartState(checkIsInCart());
+  }, [product, selectedSize, cartItems, hasSizes]);
 
   const refreshToken = async () => {
     try {
@@ -301,14 +316,7 @@ export default function ProductDetail() {
   };
 
   const handleAddToCart = async () => {
-    // For new size structure, only check selectedSize
-    // For old attribute structure, check both selectedSize and selectedAttribute
-    const hasValidSelection = selectedSize && (
-      (product.sizes && Object.keys(product.sizes).length > 0) || 
-      (product.attributes && product.attributes.length > 0 && selectedAttribute)
-    );
-
-    if (!hasValidSelection) {
+    if (hasSizes && !selectedSize) {
       showError('Please select a size');
       return;
     }
@@ -333,8 +341,12 @@ export default function ProductDetail() {
         price: getListingPrice(product),
         currency: getProductCurrency(product),
         quantity: quantity,
-        selectedSize: selectedSize,
-        images: product.images
+        selectedSize: hasSizes ? selectedSize : '',
+        images: product.images,
+        sellerId:
+          typeof product.sellerId === 'object'
+            ? product.sellerId?._id || product.sellerId?.id
+            : product.sellerId,
       };
 
       // Add to cart in the background
@@ -354,14 +366,7 @@ export default function ProductDetail() {
   };
 
   const handleBuyNow = async () => {
-    // For new size structure, only check selectedSize
-    // For old attribute structure, check both selectedSize and selectedAttribute
-    const hasValidSelection = selectedSize && (
-      (product.sizes && Object.keys(product.sizes).length > 0) || 
-      (product.attributes && product.attributes.length > 0 && selectedAttribute)
-    );
-
-    if (!hasValidSelection) {
+    if (hasSizes && !selectedSize) {
       showError('Please select a size');
       return;
     }
@@ -510,53 +515,19 @@ export default function ProductDetail() {
               )}
             </div>
 
-            {/* Size Selection */}
-            {product.attributes && product.attributes.length > 0 && (
+            {product.attributes?.some((attr) => Array.isArray(attr?.values) && attr.values.length > 0) && (
               <div className="mt-8">
                 <h3 className="text-[28px] font-normal text-gray-700 mb-4">Select size</h3>
                 <div className="grid grid-cols-5 gap-4">
-                  {['S', 'L', 'XL', 'XXL', 'XXXL'].map((size) => {
-                    const isAvailable = product.attributes[0].values.includes(size);
-                    return (
-                      <button
-                        key={size}
-                        onClick={() => isAvailable && setSelectedSize(size)}
-                        disabled={!isAvailable}
-                        className={`
-                          py-3 px-4 text-base font-medium rounded-xl border-2
-                          ${selectedSize === size && isAvailable
-                            ? 'border-green-600 bg-white text-green-600'
-                            : isAvailable
-                              ? 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                              : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                          }
-                        `}
-                      >
-                        {size}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* New Size Selection for updated structure */}
-            {product.sizes && Object.keys(product.sizes).length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-[28px] font-normal text-gray-700 mb-4">Select size</h3>
-                <div className="grid grid-cols-5 gap-4">
-                  {Object.entries(product.sizes).map(([size, sizeData]) => (
+                  {(product.attributes[0].values || []).map((size) => (
                     <button
                       key={size}
-                      onClick={() => sizeData.available && setSelectedSize(size)}
-                      disabled={!sizeData.available}
+                      onClick={() => setSelectedSize(size)}
                       className={`
                         py-3 px-4 text-base font-medium rounded-xl border-2
-                        ${selectedSize === size && sizeData.available
+                        ${selectedSize === size
                           ? 'border-green-600 bg-white text-green-600'
-                          : sizeData.available
-                            ? 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                            : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                         }
                       `}
                     >
@@ -567,11 +538,26 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {/* Fallback for products without size information */}
-            {(!product.attributes || product.attributes.length === 0) && (!product.sizes || Object.keys(product.sizes).length === 0) && (
+            {availableSizeEntries(product).length > 0 && (
               <div className="mt-8">
-                <h3 className="text-[28px] font-normal text-gray-700 mb-4">Size Information</h3>
-                <p className="text-gray-500">Size information not available for this product.</p>
+                <h3 className="text-[28px] font-normal text-gray-700 mb-4">Select size</h3>
+                <div className="grid grid-cols-5 gap-4">
+                  {availableSizeEntries(product).map(([size]) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`
+                        py-3 px-4 text-base font-medium rounded-xl border-2
+                        ${selectedSize === size
+                          ? 'border-green-600 bg-white text-green-600'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
