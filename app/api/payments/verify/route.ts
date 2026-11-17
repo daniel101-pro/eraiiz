@@ -4,8 +4,9 @@ import {
   summarizeVerifiedPayment,
   validateCheckoutInput,
 } from '@/lib/checkout';
+import { convertFromNgn } from '@/lib/fxRates';
 import { verifyTransaction } from '@/lib/paystack';
-import { isPaystackConfigured, toKobo } from '@/lib/paymentConfig';
+import { isPaystackConfigured, toKobo, toMinorUnits } from '@/lib/paymentConfig';
 import { claimPaymentReference, releasePaymentReference } from '@/lib/processedPayments';
 import {
   createConnectTransfer,
@@ -56,7 +57,21 @@ export async function POST(request: NextRequest) {
         reference ||
         session.id;
 
-      if (session.amount_total !== checkout.amountKobo) {
+      const chargeCurrency = String(
+        session.currency || session.metadata?.chargeCurrency || 'usd'
+      ).toLowerCase();
+      const expectedMinor = Number(
+        session.metadata?.chargeAmountMinor ||
+          toMinorUnits(
+            await convertFromNgn(checkout.amountNgn, chargeCurrency.toUpperCase()),
+            chargeCurrency.toUpperCase()
+          )
+      );
+
+      // Allow 2% FX drift when metadata is missing and we recompute.
+      const paid = Number(session.amount_total || 0);
+      const drift = Math.abs(paid - expectedMinor) / Math.max(expectedMinor, 1);
+      if (paid < 1 || drift > 0.02) {
         return NextResponse.json(
           { message: 'Paid amount does not match order total' },
           { status: 400 }
@@ -71,10 +86,15 @@ export async function POST(request: NextRequest) {
         try {
           for (const split of checkout.sellerSplits) {
             if (!split.stripeAccountId) continue;
-            const amount = toKobo(split.sellerShare);
+            const shareMajor = await convertFromNgn(
+              split.sellerShare,
+              chargeCurrency.toUpperCase()
+            );
+            const amount = toMinorUnits(shareMajor, chargeCurrency.toUpperCase());
             if (amount < 1) continue;
             await createConnectTransfer({
-              amountKobo: amount,
+              amountMinor: amount,
+              currency: chargeCurrency,
               destination: split.stripeAccountId,
               transferGroup: paidReference,
               reference: paidReference,

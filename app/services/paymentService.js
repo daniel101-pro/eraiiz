@@ -130,10 +130,10 @@ export async function startStripeConnect(country) {
   return data;
 }
 
-export async function initializeCheckout({ items, billing, callbackUrl }) {
+export async function initializeCheckout({ items, billing, callbackUrl, currency }) {
   return paymentRequest('/api/payments/initialize', {
     method: 'POST',
-    body: JSON.stringify({ items, billing, callbackUrl }),
+    body: JSON.stringify({ items, billing, callbackUrl, currency }),
   });
 }
 

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateCheckoutInput } from '@/lib/checkout';
+import { convertFromNgn } from '@/lib/fxRates';
 import { buildOrderMetadata } from '@/lib/marketplaceOrders';
 import { initializeTransaction } from '@/lib/paystack';
-import { isPaystackConfigured, paystackPublicKey } from '@/lib/paymentConfig';
+import {
+  isPaystackConfigured,
+  paystackPublicKey,
+  toMinorUnits,
+} from '@/lib/paymentConfig';
 import { createMarketplaceCheckoutSession, isStripeConfigured } from '@/lib/stripeConnect';
+import { resolveStripeChargeCurrency } from '@/lib/stripeCurrency';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +35,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const chargeCurrency = resolveStripeChargeCurrency({
+        preferredCurrency: body.currency,
+        billingCountry: billing?.country || checkout.billing?.country,
+        request,
+      });
+      const amountMajor = await convertFromNgn(checkout.amountNgn, chargeCurrency);
+      const amountMinor = toMinorUnits(amountMajor, chargeCurrency);
+
+      if (amountMinor < 1) {
+        return NextResponse.json({ message: 'Order total is too small to charge' }, { status: 400 });
+      }
+
       const names = checkout.items.map((item) => item.name).filter(Boolean);
       const description =
         names.length === 1
@@ -40,13 +58,16 @@ export async function POST(request: NextRequest) {
       const session = await createMarketplaceCheckoutSession({
         reference: checkout.reference,
         email: checkout.email,
-        amountKobo: checkout.amountKobo,
+        amountMinor,
+        currency: chargeCurrency,
         description,
         successUrl: `${origin}/checkout/success?reference=${encodeURIComponent(checkout.reference)}&session_id={CHECKOUT_SESSION_ID}&provider=stripe`,
         cancelUrl: `${origin}/checkout/payment`,
         metadata: {
           sellerIds: checkout.sellerSplits.map((split) => split.sellerId).join(',').slice(0, 500),
           amountNgn: String(checkout.amountNgn),
+          chargeCurrency: chargeCurrency.toLowerCase(),
+          chargeAmountMinor: String(amountMinor),
         },
       });
 
@@ -64,6 +85,8 @@ export async function POST(request: NextRequest) {
         sessionId: session.id,
         amount: checkout.amountNgn,
         amountKobo: checkout.amountKobo,
+        amountDisplay: amountMajor,
+        currency: chargeCurrency,
         email: checkout.email,
       });
     }
@@ -93,6 +116,7 @@ export async function POST(request: NextRequest) {
       authorizationUrl: initialized.authorization_url,
       amount: checkout.amountNgn,
       amountKobo: checkout.amountKobo,
+      currency: 'NGN',
       email: checkout.email,
     });
   } catch (error) {

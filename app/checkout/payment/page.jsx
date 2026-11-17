@@ -21,7 +21,7 @@ export default function PaymentPage() {
   const router = useRouter();
   const { cartItems, enrichedCartItems } = useCart();
   const { billing } = useCheckout();
-  const { formatPrice, convertPrice } = useCurrency();
+  const { formatPrice, convertPrice, selectedCurrency } = useCurrency();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentInit, setPaymentInit] = useState(null);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -75,6 +75,7 @@ export default function PaymentPage() {
         items: payloadItems,
         billing,
         callbackUrl: `${window.location.origin}/checkout/success`,
+        currency: selectedCurrency,
       });
 
       setPaymentInit(initialized);
@@ -157,14 +158,22 @@ export default function PaymentPage() {
               </div>
               <div className="flex justify-between text-lg font-semibold text-gray-900 pt-3 border-t">
                 <span>Total due</span>
-                <span>{formatPrice(paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal)}</span>
+                <span>
+                  {paymentInit?.amountDisplay != null && paymentInit?.currency
+                    ? formatPrice(paymentInit.amountDisplay, paymentInit.currency)
+                    : formatPrice(
+                        paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal
+                      )}
+                </span>
               </div>
             </div>
 
             <div className="rounded-lg border p-4">
               <p className="font-medium text-gray-900 mb-1">Secure checkout</p>
               <p className="text-sm text-gray-600">
-                You&apos;ll complete payment on Paystack or Stripe. We do not store card details on Eraiiz.
+                You&apos;ll complete payment on Paystack or Stripe
+                {selectedCurrency ? ` in ${selectedCurrency}` : ''}. We do not store card details on
+                Eraiiz.
               </p>
             </div>
 
@@ -173,7 +182,15 @@ export default function PaymentPage() {
               disabled={isProcessing}
               className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 disabled:opacity-60"
             >
-              {isProcessing ? 'Opening checkout...' : `Pay ${formatPrice(paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal)}`}
+              {isProcessing
+                ? 'Opening checkout...'
+                : `Pay ${
+                    paymentInit?.amountDisplay != null && paymentInit?.currency
+                      ? formatPrice(paymentInit.amountDisplay, paymentInit.currency)
+                      : formatPrice(
+                          paymentInit?.amount ? convertPrice(paymentInit.amount, 'NGN') : orderTotal
+                        )
+                  }`}
             </button>
           </div>
         </div>

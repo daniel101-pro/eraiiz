@@ -149,12 +149,14 @@ export async function retrieveStripeAccount(accountId: string): Promise<StripeCo
 export async function createMarketplaceCheckoutSession(input: {
   reference: string;
   email: string;
-  amountKobo: number;
+  amountMinor: number;
+  currency: string;
   description: string;
   successUrl: string;
   cancelUrl: string;
   metadata?: Record<string, string>;
 }) {
+  const currency = String(input.currency || 'usd').toLowerCase();
   const params = new URLSearchParams({
     mode: 'payment',
     success_url: input.successUrl,
@@ -162,12 +164,14 @@ export async function createMarketplaceCheckoutSession(input: {
     client_reference_id: input.reference,
     customer_email: input.email,
     'line_items[0][quantity]': '1',
-    'line_items[0][price_data][currency]': 'ngn',
-    'line_items[0][price_data][unit_amount]': String(input.amountKobo),
+    'line_items[0][price_data][currency]': currency,
+    'line_items[0][price_data][unit_amount]': String(input.amountMinor),
     'line_items[0][price_data][product_data][name]': input.description.slice(0, 120),
     'payment_intent_data[transfer_group]': input.reference,
     'metadata[type]': 'eraiiz_order',
     'metadata[reference]': input.reference,
+    'metadata[chargeCurrency]': currency,
+    'metadata[chargeAmountMinor]': String(input.amountMinor),
   });
 
   for (const [key, value] of Object.entries(input.metadata || {})) {
@@ -198,15 +202,16 @@ export async function retrieveCheckoutSession(sessionId: string) {
 }
 
 export async function createConnectTransfer(input: {
-  amountKobo: number;
+  amountMinor: number;
+  currency: string;
   destination: string;
   transferGroup: string;
   reference: string;
   sellerId: string;
 }) {
   const params = new URLSearchParams({
-    amount: String(input.amountKobo),
-    currency: 'ngn',
+    amount: String(input.amountMinor),
+    currency: String(input.currency || 'usd').toLowerCase(),
     destination: input.destination,
     transfer_group: input.transferGroup,
     'metadata[reference]': input.reference,

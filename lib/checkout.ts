@@ -40,6 +40,7 @@ export interface CheckoutBilling {
   city: string;
   state: string;
   postalCode: string;
+  country?: string;
 }
 
 export type CheckoutProvider = 'paystack' | 'stripe';

@@ -15,6 +15,7 @@ const defaultBilling = {
   city: '',
   state: '',
   postalCode: '',
+  country: '',
 };
 
 const CheckoutContext = createContext(null);
@@ -32,6 +33,7 @@ export function mapUserToBilling(user) {
     address: profile.houseAddress || '',
     city: profile.city || '',
     postalCode: profile.postalAddress || '',
+    country: profile.country || '',
   };
 }
 
