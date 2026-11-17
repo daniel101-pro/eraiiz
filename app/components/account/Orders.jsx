@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { refreshAccessToken, decodeToken } from '../../utils/auth';
 import { Package, Clock, Truck, CheckCircle, XCircle, Plus, Wifi, WifiOff } from 'lucide-react';
 import OrderTrackingModal from './OrderTrackingModal';
+import { useCurrency } from '../../context/CurrencyContext';
 
 export default function Orders() {
+  const { formatPrice, convertPrice } = useCurrency();
+  const money = (amount) => formatPrice(convertPrice(Number(amount || 0), 'NGN'));
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -391,7 +394,7 @@ export default function Orders() {
                 </div>
                 <div className="text-right">
                   <p className="text-lg md:text-xl font-bold text-gray-900">
-                    ₦{Number(order.price || 0).toLocaleString()}
+                    {money(order.price)}
                   </p>
                 </div>
               </div>
@@ -436,7 +439,7 @@ export default function Orders() {
             <div>
               <p className="text-xs md:text-sm text-gray-500">Total Value</p>
               <p className="text-lg md:text-2xl font-bold text-gray-900">
-                ₦{filteredOrders.reduce((sum, order) => sum + Number(order.price || 0), 0).toLocaleString()}
+                {money(filteredOrders.reduce((sum, order) => sum + Number(order.price || 0), 0))}
               </p>
             </div>
             <div>

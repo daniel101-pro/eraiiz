@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useShipping } from '../../context/ShippingContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { showSuccess, showError } from '../../utils/toast';
 import { detectCourier, verifyTrackingNumber } from '@/lib/tracking';
 import {
@@ -15,10 +16,6 @@ import {
   Copy,
   MapPin,
 } from 'lucide-react';
-
-function formatNaira(amount) {
-  return `₦${Number(amount || 0).toLocaleString()}`;
-}
 
 function formatWhen(dateString) {
   if (!dateString) return '';
@@ -55,6 +52,8 @@ export default function ShippingDashboard({ sellerId }) {
     refreshShipments,
     markOrderStatus,
   } = useShipping();
+  const { formatPrice, convertPrice } = useCurrency();
+  const formatMoney = (amount) => formatPrice(convertPrice(Number(amount || 0), 'NGN'));
 
   const [tab, setTab] = useState('pending');
   const [updatingId, setUpdatingId] = useState('');
@@ -224,7 +223,7 @@ export default function ShippingDashboard({ sellerId }) {
                       {shipment.productSummary}
                     </h3>
                     {shipment.amountNgn > 0 && (
-                      <p className="text-sm text-gray-600 mt-0.5">{formatNaira(shipment.amountNgn)}</p>
+                      <p className="text-sm text-gray-600 mt-0.5">{formatMoney(shipment.amountNgn)}</p>
                     )}
                     {shipment.trackingNumber && (
                       <p className="text-sm text-gray-600 mt-2">

@@ -5,8 +5,10 @@ import EnvironmentalImpact from './EnvironmentalImpact';
 import EcoRankBadge from './EcoRankBadge';
 import { formatDateOfBirthDisplay, profileFromUser } from '@/lib/accountProfile';
 import { applyProfileOverlay, profileSnapshot, saveProfileLocally } from '@/lib/profileOverlay';
+import { useCurrency } from '../../context/CurrencyContext';
 
 export default function MyEraiizAccount({ user, setUser }) {
+  const { formatPrice, convertPrice } = useCurrency();
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [isEditingBilling, setIsEditingBilling] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -623,7 +625,7 @@ export default function MyEraiizAccount({ user, setUser }) {
               <div>
                 <p className="text-xs font-medium text-green-900">Total Spent</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-green-900 mt-1">
-                  ₦{Number(stats.spent || 0).toLocaleString()}
+                  {formatPrice(convertPrice(Number(stats.spent || 0), 'NGN'))}
                 </p>
               </div>
               <div className="p-2 md:p-3 bg-green-200 rounded-lg">

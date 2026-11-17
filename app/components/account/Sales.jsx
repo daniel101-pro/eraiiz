@@ -37,6 +37,7 @@ import {
   PackageCheck,
   AlertTriangle
 } from 'lucide-react';
+import { useCurrency } from '../../context/CurrencyContext';
 
 import { fetchSellerPlan } from '../../services/paymentService';
 import { getPlanBenefits } from '@/lib/planBenefits';
@@ -162,6 +163,7 @@ function summarizeSellerOrders(orders) {
 }
 
 export default function Sales({ onTokenError, onUpgrade }) {
+  const { formatPrice, convertPrice } = useCurrency();
   const [salesData, setSalesData] = useState(emptySalesData());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -280,7 +282,7 @@ export default function Sales({ onTokenError, onUpgrade }) {
   };
 
   const formatCurrency = (amount) => {
-    return `₦${Number(amount || 0).toLocaleString()}`;
+    return formatPrice(convertPrice(Number(amount || 0), 'NGN'));
   };
 
   const formatNumber = (num) => {

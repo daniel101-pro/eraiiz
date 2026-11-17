@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useShipping } from '../../context/ShippingContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { Truck, Package, Clock, DollarSign, Shield } from 'lucide-react';
 
 const ShippingCalculator = ({ 
@@ -19,6 +20,7 @@ const ShippingCalculator = ({
     formatItems,
     calculatePackageDimensions
   } = useShipping();
+  const { formatPrice, convertPrice } = useCurrency();
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -83,10 +85,7 @@ const ShippingCalculator = ({
   };
 
   const formatCurrency = (amount, currency = 'NGN') => {
-    if (currency === 'NGN') {
-      return `₦${Number(amount).toLocaleString()}`;
-    }
-    return `${currency} ${Number(amount).toFixed(2)}`;
+    return formatPrice(convertPrice(Number(amount || 0), currency || 'NGN'));
   };
 
   const formatDeliveryTime = (minDays, maxDays) => {
