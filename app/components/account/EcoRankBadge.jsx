@@ -33,7 +33,7 @@ export default function EcoRankBadge({
         animate={animate ? { scale: [1, 1.02, 1] } : undefined}
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <div className="flex h-full w-full items-center justify-center rounded-full border border-gray-200 bg-white font-semibold text-green-950">
+        <div className="flex h-full w-full items-center justify-center rounded-full border border-gray-200 font-semibold text-green-950">
           {level}
         </div>
       </motion.div>
@@ -54,7 +54,7 @@ export function BadgeMedallion({ badge, compact = false }) {
 
   return (
     <div
-      className={`rounded-2xl border border-gray-200 bg-white ${compact ? 'p-3' : 'p-4'} ${
+      className={`rounded-2xl border border-gray-200 ${compact ? 'p-3' : 'p-4'} ${
         locked ? 'opacity-70' : ''
       }`}
     >
@@ -62,7 +62,7 @@ export function BadgeMedallion({ badge, compact = false }) {
         <div
           className={`${
             compact ? 'h-12 w-12 text-xl' : 'h-14 w-14 text-2xl'
-          } flex items-center justify-center rounded-full border border-gray-200 bg-white`}
+          } flex items-center justify-center rounded-full border border-gray-200`}
         >
           <span>{locked ? '—' : badge.icon}</span>
         </div>
