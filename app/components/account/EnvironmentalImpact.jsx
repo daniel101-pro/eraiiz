@@ -94,53 +94,41 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center rounded-2xl border border-gray-100 bg-[#0b1220] p-12">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+      <div className="flex items-center justify-center border border-gray-200 bg-white p-12">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-green-950 border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {/* Command header */}
+    <div className="space-y-5 bg-white text-green-950">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_left,#1a3a2a_0%,#0b1220_45%,#12081c_100%)] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:p-7"
+        className="border border-gray-200 bg-white p-5 md:p-7"
       >
-        <motion.div
-          className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-emerald-400/20 blur-3xl"
-          animate={{ opacity: [0.2, 0.45, 0.2], scale: [1, 1.15, 1] }}
-          transition={{ duration: 5, repeat: Infinity }}
-        />
-        <motion.div
-          className="pointer-events-none absolute -bottom-16 left-10 h-48 w-48 rounded-full bg-fuchsia-500/20 blur-3xl"
-          animate={{ opacity: [0.15, 0.35, 0.15] }}
-          transition={{ duration: 4, repeat: Infinity }}
-        />
-
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-5">
             <EcoRankBadge rank={data.rank} level={data.level} size="lg" showLabel={false} />
             <div>
-              <p className="text-[11px] uppercase tracking-[0.35em] text-emerald-200/80">
-                Environmental Ops
-              </p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight md:text-3xl">
+              <p className="text-sm font-medium text-green-800">Impact</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
                 {data.rank?.title || 'Seed'}
               </h2>
-              <p className="mt-1 text-sm text-white/65">
+              <p className="mt-1 text-sm text-gray-600">
                 Level {data.level}
-                {data.nextRank ? ` · Next rank ${data.nextRank.title}` : ' · Max rank unlocked'}
+                {data.nextRank ? ` · Next rank ${data.nextRank.title}` : ' · Top rank'}
               </p>
               <div className="mt-4 w-full max-w-md">
-                <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-wider text-white/60">
-                  <span>XP {data.xpIntoLevel}/{data.xpForNextLevel}</span>
+                <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+                  <span>
+                    XP {data.xpIntoLevel}/{data.xpForNextLevel}
+                  </span>
                   <span>{Math.round(data.xpProgress)}%</span>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+                <div className="h-2.5 overflow-hidden bg-gray-100">
                   <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-amber-300"
+                    className="h-full bg-green-950"
                     initial={{ width: 0 }}
                     animate={{ width: `${data.xpProgress}%` }}
                     transition={{ duration: 1.1, ease: 'easeOut' }}
@@ -172,43 +160,41 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                 icon: Recycle,
               },
             ].map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur"
-              >
-                <stat.icon className="mb-2 h-4 w-4 text-emerald-300" />
-                <p className="text-lg font-bold">
+              <div key={stat.label} className="border border-gray-200 bg-white p-3">
+                <stat.icon className="mb-2 h-4 w-4 text-green-800" />
+                <p className="text-lg font-bold text-green-950">
                   {stat.value}
-                  {stat.unit ? <span className="ml-1 text-xs font-normal text-white/50">{stat.unit}</span> : null}
+                  {stat.unit ? (
+                    <span className="ml-1 text-xs font-normal text-gray-500">{stat.unit}</span>
+                  ) : null}
                 </p>
-                <p className="text-[11px] uppercase tracking-wider text-white/50">{stat.label}</p>
+                <p className="text-xs text-gray-500">{stat.label}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {error && (
-          <p className="relative z-10 mt-4 text-xs text-amber-200">
+        {error ? (
+          <p className="mt-4 text-xs text-red-700">
             Live sync issue: {error}. Showing best available impact data.
           </p>
-        )}
+        ) : null}
       </motion.section>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-2">
         {[
-          { id: 'command', label: 'Command', icon: Shield },
-          { id: 'armory', label: 'Badge Armory', icon: Trophy },
-          { id: 'intel', label: 'Intel', icon: Target },
+          { id: 'command', label: 'Overview', icon: Shield },
+          { id: 'armory', label: 'Badges', icon: Trophy },
+          { id: 'intel', label: 'Details', icon: Target },
         ].map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+            className={`inline-flex items-center gap-2 border px-4 py-2 text-sm font-medium transition ${
               activeTab === tab.id
-                ? 'bg-gray-900 text-white shadow'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                ? 'border-green-900 bg-green-950 text-white'
+                : 'border-gray-200 bg-white text-green-950 hover:border-green-900'
             }`}
           >
             <tab.icon className="h-4 w-4" />
@@ -218,7 +204,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
       </div>
 
       <AnimatePresence mode="wait">
-        {activeTab === 'command' && (
+        {activeTab === 'command' ? (
           <motion.div
             key="command"
             initial={{ opacity: 0, y: 8 }}
@@ -227,17 +213,17 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
             className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]"
           >
             <div className="space-y-5">
-              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="border border-gray-200 bg-white p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h3 className="text-base font-semibold text-gray-900">Mission board</h3>
+                    <h3 className="text-base font-semibold text-green-950">Progress</h3>
                     <p className="text-sm text-gray-500">
                       {data.purchaseCount
-                        ? 'Your eco ops are live'
-                        : 'No buys yet — badges stay locked until first drop'}
+                        ? 'Your purchases are counting toward rank'
+                        : 'No purchases yet — badges stay locked until your first buy'}
                     </p>
                   </div>
-                  <Sparkles className="h-5 w-5 text-amber-500" />
+                  <Sparkles className="h-5 w-5 text-green-800" />
                 </div>
 
                 {(data.monthlyData || []).length ? (
@@ -250,9 +236,9 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                             {item.carbonSaved} kg · {item.purchases} buys
                           </span>
                         </div>
-                        <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-3 overflow-hidden bg-gray-100">
                           <motion.div
-                            className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-lime-400 to-cyan-400"
+                            className="h-full bg-green-950"
                             initial={{ width: 0 }}
                             animate={{
                               width: `${Math.max(8, (item.carbonSaved / maxMonth) * 100)}%`,
@@ -264,47 +250,47 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-                    <p className="text-sm font-medium text-gray-800">Waiting on first purchase</p>
+                  <div className="border border-dashed border-gray-300 bg-white p-8 text-center">
+                    <p className="text-sm font-medium text-green-950">Waiting on first purchase</p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Buy sustainable products and this board lights up with XP and ranks.
+                      Buy sustainable products to start tracking XP and ranks.
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                <h3 className="mb-3 text-base font-semibold text-gray-900">Recent ops</h3>
+              <div className="border border-gray-200 bg-white p-5">
+                <h3 className="mb-3 text-base font-semibold text-green-950">Recent purchases</h3>
                 {(data.recentOrders || []).length ? (
                   <div className="space-y-3">
                     {data.recentOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
+                        className="flex items-center justify-between border border-gray-200 px-3 py-2"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-gray-900">{order.name}</p>
+                          <p className="truncate text-sm font-medium text-green-950">{order.name}</p>
                           <p className="text-xs text-gray-500">
                             {new Date(order.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <span className="text-sm font-semibold text-emerald-600">
+                        <span className="text-sm font-semibold text-green-800">
                           +{order.carbonSaved} kg
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">No completed eco purchases yet.</p>
+                  <p className="text-sm text-gray-500">No completed purchases yet.</p>
                 )}
               </div>
             </div>
 
             <div className="space-y-5">
-              <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-950 via-gray-900 to-emerald-950 p-5 text-white shadow-sm">
+              <div className="border border-gray-200 bg-white p-5">
                 <div className="mb-4 flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-amber-300" />
-                  <h3 className="text-base font-semibold">Featured medals</h3>
+                  <Trophy className="h-5 w-5 text-green-800" />
+                  <h3 className="text-base font-semibold text-green-950">Featured badges</h3>
                 </div>
                 <div className="space-y-3">
                   {(data.badges || [])
@@ -318,9 +304,9 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                 <button
                   type="button"
                   onClick={() => setActiveTab('armory')}
-                  className="mt-4 inline-flex items-center gap-1 text-sm text-emerald-200 hover:text-white"
+                  className="mt-4 inline-flex items-center gap-1 text-sm text-green-800 hover:text-green-950"
                 >
-                  Open full armory <ChevronRight className="h-4 w-4" />
+                  View all badges <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
 
@@ -343,36 +329,33 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                     value: `${(data.unlockedBadges || []).length}/${(data.badges || []).length || 0}`,
                   },
                 ].map((card) => (
-                  <div
-                    key={card.label}
-                    className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
-                  >
-                    <p className="text-lg font-bold text-gray-900">{card.value}</p>
-                    <p className="text-xs uppercase tracking-wider text-gray-500">{card.label}</p>
+                  <div key={card.label} className="border border-gray-200 bg-white p-4">
+                    <p className="text-lg font-bold text-green-950">{card.value}</p>
+                    <p className="text-xs text-gray-500">{card.label}</p>
                   </div>
                 ))}
               </div>
             </div>
           </motion.div>
-        )}
+        ) : null}
 
-        {activeTab === 'armory' && (
+        {activeTab === 'armory' ? (
           <motion.div
             key="armory"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-gray-100 bg-[#090d16] p-5 shadow-sm"
+            className="border border-gray-200 bg-white p-5"
           >
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-white">Badge Armory</h3>
-                <p className="text-sm text-white/60">
+                <h3 className="text-lg font-semibold text-green-950">Badges</h3>
+                <p className="text-sm text-gray-500">
                   Bronze to legendary — unlock by shopping sustainable and ranking up
                 </p>
               </div>
-              <p className="text-sm text-emerald-300">
-                {(data.unlockedBadges || []).length} unlocked · tier look {tier}
+              <p className="text-sm text-gray-600">
+                {(data.unlockedBadges || []).length} unlocked · {tier}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -388,9 +371,9 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
               ))}
             </div>
           </motion.div>
-        )}
+        ) : null}
 
-        {activeTab === 'intel' && (
+        {activeTab === 'intel' ? (
           <motion.div
             key="intel"
             initial={{ opacity: 0, y: 8 }}
@@ -398,8 +381,8 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
             exit={{ opacity: 0, y: -8 }}
             className="grid gap-5 lg:grid-cols-2"
           >
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 text-base font-semibold text-gray-900">Impact by category</h3>
+            <div className="border border-gray-200 bg-white p-5">
+              <h3 className="mb-4 text-base font-semibold text-green-950">Impact by category</h3>
               {categoryEntries.length ? (
                 <div className="space-y-3">
                   {categoryEntries.map(([label, value]) => {
@@ -407,14 +390,14 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                     return (
                       <div key={label}>
                         <div className="mb-1 flex justify-between text-sm">
-                          <span className="font-medium text-gray-800">{label}</span>
+                          <span className="font-medium text-green-950">{label}</span>
                           <span className="text-gray-500">
                             {Number(value.carbonSaved).toFixed(1)} kg · {value.count}
                           </span>
                         </div>
-                        <div className="h-2 rounded-full bg-gray-100">
+                        <div className="h-2 bg-gray-100">
                           <div
-                            className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400"
+                            className="h-2 bg-green-950"
                             style={{
                               width: `${Math.max(6, (value.carbonSaved / max) * 100)}%`,
                             }}
@@ -429,8 +412,8 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
               )}
             </div>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 text-base font-semibold text-gray-900">Material impact</h3>
+            <div className="border border-gray-200 bg-white p-5">
+              <h3 className="mb-4 text-base font-semibold text-green-950">Material impact</h3>
               {materialEntries.length ? (
                 <div className="space-y-3">
                   {materialEntries.map(([label, value]) => {
@@ -438,14 +421,14 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                     return (
                       <div key={label}>
                         <div className="mb-1 flex justify-between text-sm">
-                          <span className="font-medium capitalize text-gray-800">{label}</span>
+                          <span className="font-medium capitalize text-green-950">{label}</span>
                           <span className="text-gray-500">
                             {value.count} items · {Number(value.carbonSaved).toFixed(1)} kg
                           </span>
                         </div>
-                        <div className="h-2 rounded-full bg-gray-100">
+                        <div className="h-2 bg-gray-100">
                           <div
-                            className="h-2 rounded-full bg-gradient-to-r from-amber-400 to-rose-400"
+                            className="h-2 bg-green-950"
                             style={{
                               width: `${Math.max(6, (value.count / max) * 100)}%`,
                             }}
@@ -460,14 +443,14 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
               )}
             </div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
 
-      {!compactHeader && (
+      {!compactHeader ? (
         <p className="text-center text-xs text-gray-400">
           XP and ranks update from real orders and product carbon savings.
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
