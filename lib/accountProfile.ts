@@ -77,7 +77,10 @@ export function profileFromUser(user: Record<string, unknown> | null | undefined
   };
 }
 
-/** Send every shape the backend has accepted in different eras of this app. */
+/**
+ * Backend `/api/users/me` rejects unknown top-level keys with "Invalid updates".
+ * Keep this allowlist tight — only fields the API has historically accepted.
+ */
 export function buildProfilePatchPayload(form: AccountProfileFields) {
   const houseAddress = form.houseAddress.trim();
   const city = form.city.trim();
@@ -87,42 +90,39 @@ export function buildProfilePatchPayload(form: AccountProfileFields) {
   const phone = form.phone.trim();
   const country = form.country.trim();
   const state = form.state.trim();
-  const dateOfBirth = form.dateOfBirth ? new Date(form.dateOfBirth) : null;
 
-  return {
+  const payload: Record<string, unknown> = {
     name,
-    fullName: name,
     email,
     phone,
-    phoneNumber: phone,
     country,
     state,
-    dateOfBirth,
-    dob: dateOfBirth,
-    houseAddress,
-    address: houseAddress,
-    city,
-    postalAddress: postal,
-    postalCode: postal,
     billingAddress: {
       houseAddress,
-      address: houseAddress,
       city,
-      state,
-      country,
       postalAddress: postal,
-      postalCode: postal,
-    },
-    billing: {
-      houseAddress,
-      address: houseAddress,
-      city,
-      state,
-      country,
-      postalAddress: postal,
-      postalCode: postal,
     },
   };
+
+  if (form.dateOfBirth) {
+    payload.dateOfBirth = new Date(form.dateOfBirth);
+  }
+
+  return payload;
+}
+
+export function buildSettingsPatchPayload(input: {
+  emailNotifications?: boolean;
+  password?: string;
+}) {
+  const payload: Record<string, unknown> = {};
+  if (typeof input.emailNotifications === 'boolean') {
+    payload.emailNotifications = input.emailNotifications;
+  }
+  if (input.password) {
+    payload.password = input.password;
+  }
+  return payload;
 }
 
 export function profilesMatch(expected: AccountProfileFields, actualUser: Record<string, unknown>) {

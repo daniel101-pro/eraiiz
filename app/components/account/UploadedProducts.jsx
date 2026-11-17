@@ -193,13 +193,11 @@ export default function UploadedProducts({ onTokenError }) {
       }
 
       const productId = editingProduct._id;
+      // Keep top-level keys to the product allowlist; listing currency lives in sustainability.
       const patchBody = {
         name: editingProduct.name,
         description: editingProduct.description,
         price: priceNgn,
-        currency: 'NGN',
-        listingPrice,
-        listingCurrency,
         category: editingProduct.category,
         status: editingProduct.status,
         sustainability,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   buildProfilePatchPayload,
+  buildSettingsPatchPayload,
   profileFromUser,
   profilesMatch,
   unwrapUser,
@@ -8,6 +9,10 @@ import {
 } from '@/lib/accountProfile';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
+
+function apiErrorMessage(data: Record<string, unknown>, fallback: string) {
+  return String(data.message || data.error || fallback);
+}
 
 async function fetchMe(authHeader: string) {
   const response = await fetch(`${API_URL}/api/users/me`, {
@@ -18,9 +23,9 @@ async function fetchMe(authHeader: string) {
     cache: 'no-store',
     signal: AbortSignal.timeout(15000),
   });
-  const data = await response.json().catch(() => ({}));
+  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
-    throw Object.assign(new Error(data.message || 'Failed to load account'), {
+    throw Object.assign(new Error(apiErrorMessage(data, 'Failed to load account')), {
       status: response.status,
     });
   }
@@ -37,9 +42,9 @@ async function patchMe(authHeader: string, payload: Record<string, unknown>) {
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(20000),
   });
-  const data = await response.json().catch(() => ({}));
+  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
-    throw Object.assign(new Error(data.message || 'Failed to update account'), {
+    throw Object.assign(new Error(apiErrorMessage(data, 'Failed to update account')), {
       status: response.status,
     });
   }
@@ -76,13 +81,10 @@ export async function PATCH(request: NextRequest) {
     const settingsOnly = body.settingsOnly === true;
 
     if (settingsOnly) {
-      const settingsPayload: Record<string, unknown> = {};
-      if (typeof body.emailNotifications === 'boolean') {
-        settingsPayload.emailNotifications = body.emailNotifications;
-      }
-      if (body.password) {
-        settingsPayload.password = body.password;
-      }
+      const settingsPayload = buildSettingsPatchPayload({
+        emailNotifications: body.emailNotifications,
+        password: body.password,
+      });
       if (!Object.keys(settingsPayload).length) {
         return NextResponse.json({ message: 'Nothing to update' }, { status: 400 });
       }
@@ -108,45 +110,13 @@ export async function PATCH(request: NextRequest) {
       city: String(form.city || ''),
       postalAddress: String(form.postalAddress || ''),
     };
-    const payload = buildProfilePatchPayload(expected) as Record<string, unknown>;
 
-    if (typeof body.emailNotifications === 'boolean') {
-      payload.emailNotifications = body.emailNotifications;
-    }
-    if (body.password) {
-      payload.password = body.password;
-    }
-
+    // Canonical allowlisted payload only — extra keys trigger "Invalid updates".
+    const payload = buildProfilePatchPayload(expected);
     await patchMe(authHeader, payload);
 
-    // Always re-read from backend so the client never trusts optimistic form values.
-    let user = await fetchMe(authHeader);
-    let check = profilesMatch(expected, user);
-
-    // If nested billing didn't stick, retry with flat-only payload.
-    if (
-      !check.ok &&
-      check.mismatches.some((key) =>
-        ['houseAddress', 'city', 'postalAddress', 'state', 'country'].includes(key)
-      )
-    ) {
-      await patchMe(authHeader, {
-        houseAddress: payload.houseAddress,
-        address: payload.address,
-        city: payload.city,
-        postalCode: payload.postalCode,
-        postalAddress: payload.postalAddress,
-        state: payload.state,
-        country: payload.country,
-        name: payload.name,
-        fullName: payload.fullName,
-        phone: payload.phone,
-        email: payload.email,
-        dateOfBirth: payload.dateOfBirth,
-      });
-      user = await fetchMe(authHeader);
-      check = profilesMatch(expected, user);
-    }
+    const user = await fetchMe(authHeader);
+    const check = profilesMatch(expected, user);
 
     if (!check.ok) {
       return NextResponse.json(
