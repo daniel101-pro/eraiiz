@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 import { buildBadges, buildEcoImpactSummary } from '@/lib/ecoImpact';
-import EcoRankBadge, { BadgeMedallion } from './EcoRankBadge';
+import EcoRankBadge, { BadgeRow } from './EcoRankBadge';
 
 const emptyImpact = {
   ...buildEcoImpactSummary([]),
@@ -58,8 +58,10 @@ export default function EnvironmentalImpact() {
         try {
           const cached = JSON.parse(localStorage.getItem('eraiiz_eco_impact') || 'null');
           const rankTitle = String(cached?.rank?.title || '');
-          // Ignore stale cache from older military-style rank names.
-          if (cached && !/recruit|operator|vanguard|elite|legend|mythic|eternal guardian/i.test(rankTitle)) {
+          if (
+            cached &&
+            !/recruit|operator|vanguard|elite|legend|mythic|eternal guardian/i.test(rankTitle)
+          ) {
             setImpactData(cached);
           }
         } catch {
@@ -91,63 +93,57 @@ export default function EnvironmentalImpact() {
 
   if (isLoading) {
     return (
-      <div className="border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-        Loading impact…
-      </div>
+      <div className="bg-white py-10 text-sm text-gray-500">Loading impact…</div>
     );
   }
 
   return (
-    <div className="space-y-10 bg-white text-green-950">
-      <div>
-        <p className="text-sm font-medium text-green-800">Impact</p>
-        <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
-          {data.rank?.title || 'Seed'}
-        </h2>
-        <p className="mt-2 max-w-xl text-sm text-gray-600">
-          Level {data.level}
-          {data.nextRank ? ` · Next rank ${data.nextRank.title}` : ' · Top rank'}
-        </p>
+    <div className="bg-white text-green-950">
+      <p className="text-sm font-medium text-green-800">Impact</p>
+      <h2 className="mt-1 text-3xl font-bold tracking-tight">{data.rank?.title || 'Seed'}</h2>
+      <p className="mt-2 max-w-xl text-sm text-gray-600">
+        Level {data.level}
+        {data.nextRank ? ` · Next rank ${data.nextRank.title}` : ' · Top rank'}
+      </p>
 
-        <div className="mt-6 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <EcoRankBadge rank={data.rank} level={data.level} size="lg" showLabel={false} />
-          <div className="w-full max-w-md">
-            <div className="mb-2 flex items-center justify-between text-sm text-gray-600">
-              <span>
-                XP {data.xpIntoLevel}/{data.xpForNextLevel}
-              </span>
-              <span>{Math.round(data.xpProgress)}%</span>
-            </div>
-            <div className="h-2 bg-gray-100">
-              <div className="h-full bg-green-800" style={{ width: `${data.xpProgress}%` }} />
-            </div>
+      <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <EcoRankBadge rank={data.rank} level={data.level} size="lg" showLabel={false} />
+        <div className="w-full max-w-md">
+          <div className="mb-2 flex justify-between text-sm text-gray-600">
+            <span>
+              XP {data.xpIntoLevel}/{data.xpForNextLevel}
+            </span>
+            <span>{Math.round(data.xpProgress)}%</span>
+          </div>
+          <div className="h-2 bg-gray-100">
+            <div className="h-full bg-green-950" style={{ width: `${data.xpProgress}%` }} />
           </div>
         </div>
-
-        {error && <p className="mt-4 text-sm text-amber-800">{error}</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 border border-gray-200 p-4 md:grid-cols-4">
+      {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+
+      <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
           { label: 'CO₂ saved', value: `${data.totalCarbonSaved} kg` },
           { label: 'Trees eq.', value: `${data.impactMetrics?.treesPlanted || 0}` },
           { label: 'Car km', value: `${data.impactMetrics?.carRidesSaved || 0} km` },
           { label: 'Purchases', value: `${data.purchaseCount || 0}` },
         ].map((stat) => (
-          <div key={stat.label}>
-            <p className="text-lg font-semibold text-green-950">{stat.value}</p>
-            <p className="text-sm text-gray-500">{stat.label}</p>
+          <div key={stat.label} className="border border-gray-200 p-4">
+            <p className="text-lg font-semibold">{stat.value}</p>
+            <p className="mt-1 text-sm text-gray-500">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
+      <div className="mt-10 flex flex-wrap gap-3">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`border px-4 py-2 text-sm ${
+            className={`border px-4 py-3 text-sm ${
               activeTab === tab.id
                 ? 'border-green-900 bg-green-950 text-white'
                 : 'border-gray-200 bg-white text-green-950 hover:border-green-900'
@@ -158,8 +154,8 @@ export default function EnvironmentalImpact() {
         ))}
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="grid gap-10 lg:grid-cols-2">
+      {activeTab === 'overview' ? (
+        <div className="mt-10 grid gap-12 lg:grid-cols-2">
           <div>
             <h3 className="text-lg font-semibold">Progress</h3>
             <p className="mt-1 text-sm text-gray-500">Carbon saved by month</p>
@@ -175,7 +171,7 @@ export default function EnvironmentalImpact() {
                     </div>
                     <div className="h-2 bg-gray-100">
                       <div
-                        className="h-full bg-green-800"
+                        className="h-full bg-green-950"
                         style={{
                           width: `${Math.max(6, (item.carbonSaved / maxMonth) * 100)}%`,
                         }}
@@ -184,16 +180,18 @@ export default function EnvironmentalImpact() {
                   </div>
                 ))
               ) : (
-                <p className="border border-dashed border-gray-300 p-6 text-sm text-gray-500">
-                  No purchases yet. Buy sustainable products to start tracking impact.
-                </p>
+                <div className="border border-dashed border-gray-300 p-8 text-center">
+                  <p className="text-sm text-gray-600">
+                    No purchases yet. Buy sustainable products to start tracking impact.
+                  </p>
+                </div>
               )}
             </div>
           </div>
 
           <div>
             <h3 className="text-lg font-semibold">Recent purchases</h3>
-            <p className="mt-1 text-sm text-gray-500">Latest items counted toward your rank</p>
+            <p className="mt-1 text-sm text-gray-500">Counted toward your rank</p>
             <div className="mt-6 space-y-3">
               {(data.recentOrders || []).length ? (
                 data.recentOrders.map((order) => (
@@ -227,30 +225,30 @@ export default function EnvironmentalImpact() {
               ].map((card) => (
                 <div key={card.label} className="border border-gray-200 p-4">
                   <p className="text-base font-semibold">{card.value}</p>
-                  <p className="text-sm text-gray-500">{card.label}</p>
+                  <p className="mt-1 text-sm text-gray-500">{card.label}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {activeTab === 'badges' && (
-        <div>
+      {activeTab === 'badges' ? (
+        <div className="mt-10">
           <h3 className="text-lg font-semibold">Badges</h3>
           <p className="mt-1 text-sm text-gray-500">
-            {(data.unlockedBadges || []).length} unlocked · bronze to legendary
+            {(data.unlockedBadges || []).length} unlocked
           </p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {(data.badges || []).map((badge) => (
-              <BadgeMedallion key={badge.id} badge={badge} />
+              <BadgeRow key={badge.id} badge={badge} />
             ))}
           </div>
         </div>
-      )}
+      ) : null}
 
-      {activeTab === 'details' && (
-        <div className="grid gap-10 lg:grid-cols-2">
+      {activeTab === 'details' ? (
+        <div className="mt-10 grid gap-12 lg:grid-cols-2">
           <div>
             <h3 className="text-lg font-semibold">By category</h3>
             <div className="mt-6 space-y-4">
@@ -267,7 +265,7 @@ export default function EnvironmentalImpact() {
                       </div>
                       <div className="h-2 bg-gray-100">
                         <div
-                          className="h-full bg-green-800"
+                          className="h-full bg-green-950"
                           style={{ width: `${Math.max(6, (value.carbonSaved / max) * 100)}%` }}
                         />
                       </div>
@@ -296,7 +294,7 @@ export default function EnvironmentalImpact() {
                       </div>
                       <div className="h-2 bg-gray-100">
                         <div
-                          className="h-full bg-green-800"
+                          className="h-full bg-green-950"
                           style={{ width: `${Math.max(6, (value.count / max) * 100)}%` }}
                         />
                       </div>
@@ -309,7 +307,7 @@ export default function EnvironmentalImpact() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
