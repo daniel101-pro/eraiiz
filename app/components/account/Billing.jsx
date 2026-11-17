@@ -15,6 +15,7 @@ import {
 } from '../../services/paymentService';
 import { showError, showSuccess } from '../../utils/toast';
 import { SELLER_PLANS } from '@/lib/sellerPlans';
+import { useCurrency } from '../../context/CurrencyContext';
 
 const billingFaqs = [
   {
@@ -31,15 +32,22 @@ const billingFaqs = [
   },
 ];
 
-function planActionLabel(plan, currentPlanId, isProcessing) {
+function planPriceLabel(plan, formatPrice, convertPrice) {
+  if (!plan.amountNgn) return plan.priceLabel;
+  return `${formatPrice(convertPrice(plan.amountNgn, 'NGN'))} / mo`;
+}
+
+function planActionLabel(plan, currentPlanId, isProcessing, formatPrice, convertPrice) {
   if (isProcessing) return 'Processing…';
   if (plan.id === currentPlanId) return 'Current plan';
-  if (plan.amountNgn > 0 && currentPlanId === 'commission') return `Upgrade · ${plan.priceLabel}`;
-  if (plan.amountNgn > 0) return `Switch · ${plan.priceLabel}`;
+  const price = planPriceLabel(plan, formatPrice, convertPrice);
+  if (plan.amountNgn > 0 && currentPlanId === 'commission') return `Upgrade · ${price}`;
+  if (plan.amountNgn > 0) return `Switch · ${price}`;
   return 'Switch to Pay-as-you-sell';
 }
 
 export default function Billing({ user }) {
+  const { formatPrice, convertPrice } = useCurrency();
   const [currentPlanId, setCurrentPlanId] = useState('commission');
   const [nextPaymentDate, setNextPaymentDate] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -201,7 +209,9 @@ export default function Billing({ user }) {
                     </p>
                     <h3 className="mt-2 text-base font-semibold text-gray-900">{plan.name}</h3>
                     <p className="mt-1 text-sm text-gray-500">{plan.description}</p>
-                    <p className="mt-4 text-sm font-semibold text-gray-900">{plan.priceLabel}</p>
+                    <p className="mt-4 text-sm font-semibold text-gray-900">
+                      {planPriceLabel(plan, formatPrice, convertPrice)}
+                    </p>
                     <p className="text-sm text-gray-500">{plan.commissionPercent}% per sale</p>
 
                     <ul className="mt-4 flex-1 space-y-2 text-sm text-gray-600">
@@ -220,7 +230,13 @@ export default function Billing({ user }) {
                           : 'bg-green-800 text-white hover:bg-green-900 disabled:bg-gray-300'
                       }`}
                     >
-                      {planActionLabel(plan, currentPlanId, isProcessing)}
+                      {planActionLabel(
+                        plan,
+                        currentPlanId,
+                        isProcessing,
+                        formatPrice,
+                        convertPrice
+                      )}
                     </button>
                   </div>
                 );

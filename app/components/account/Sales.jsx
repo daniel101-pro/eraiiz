@@ -605,7 +605,14 @@ export default function Sales({ onTokenError, onUpgrade }) {
                   <div className="flex items-center justify-between">
                     <span className="text-xs sm:text-sm font-medium">Conversion Rate</span>
                     <span className="text-sm sm:text-base font-bold text-green-600">
-                      {((salesData.productPerformance.conversions / salesData.productPerformance.clicks) * 100).toFixed(1)}%
+                      {salesData.productPerformance.clicks
+                        ? (
+                            (salesData.productPerformance.conversions /
+                              salesData.productPerformance.clicks) *
+                            100
+                          ).toFixed(1)
+                        : '0.0'}
+                      %
                     </span>
                   </div>
                 </div>
@@ -627,7 +634,11 @@ export default function Sales({ onTokenError, onUpgrade }) {
                     <Zap className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 mr-2" />
                     <span className="text-xs sm:text-sm">Carbon Footprint Reduced</span>
                   </div>
-                  <span className="text-sm sm:text-base font-bold text-green-600">{salesData.sustainabilityMetrics.carbonFootprintReduced} kg</span>
+                  <span className="text-sm sm:text-base font-bold text-green-600">
+                    {salesData.sustainabilityMetrics.carbonFootprintReduced > 0
+                      ? `${salesData.sustainabilityMetrics.carbonFootprintReduced} kg`
+                      : '—'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between p-2 sm:p-3 bg-blue-50 rounded-lg">
                   <div className="flex items-center">
@@ -919,7 +930,11 @@ export default function Sales({ onTokenError, onUpgrade }) {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="text-center">
                 <Leaf className="h-12 w-12 text-green-600 mx-auto mb-3" />
-                <p className="text-2xl font-bold text-green-600">{salesData.sustainabilityMetrics.carbonFootprintReduced} kg</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {salesData.sustainabilityMetrics.carbonFootprintReduced > 0
+                    ? `${salesData.sustainabilityMetrics.carbonFootprintReduced} kg`
+                    : '—'}
+                </p>
                 <p className="text-sm text-gray-600">Carbon Footprint Reduced</p>
               </div>
             </div>

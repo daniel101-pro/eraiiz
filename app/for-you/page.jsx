@@ -57,7 +57,7 @@ export default function ForYouPage() {
     <div className="flex flex-col min-h-screen bg-white">
       <DualNavbarSell />
       <main className="flex-1">
-        <div className="px-4 md:px-8 lg:px-16 py-8">
+        <div className="px-4 md:px-8 lg:px-16 py-8 pt-28 md:pt-32">
           <button
             type="button"
             onClick={goBack}

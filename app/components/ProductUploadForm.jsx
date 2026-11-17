@@ -611,7 +611,7 @@ const ProductUploadForm = () => {
         <CrazyLoader fullscreen />
       ) : null}
 
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl px-4 py-8 pt-28 md:pt-32 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={goBack}

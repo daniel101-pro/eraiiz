@@ -30,7 +30,7 @@ export const SELLER_PLANS: SellerPlan[] = [
   {
     id: 'growth',
     name: 'Growth Subscription',
-    priceLabel: '₦49,000 / mo',
+    priceLabel: '49,000 NGN / mo',
     amountNgn: 49000,
     interval: 'monthly',
     commissionPercent: 8,
@@ -47,7 +47,7 @@ export const SELLER_PLANS: SellerPlan[] = [
   {
     id: 'pro',
     name: 'Pro Subscription',
-    priceLabel: '₦149,000 / mo',
+    priceLabel: '149,000 NGN / mo',
     amountNgn: 149000,
     interval: 'monthly',
     commissionPercent: 5,

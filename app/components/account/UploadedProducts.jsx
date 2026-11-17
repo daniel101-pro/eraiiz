@@ -12,7 +12,7 @@ import { withCurrentCarbonModel, syncProductCarbonModel } from '@/lib/carbonClie
 import { isCarbonModelCurrent, canRecalculateFromSustainability } from '@/lib/carbonFootprint';
 
 export default function UploadedProducts({ onTokenError }) {
-  const { convertPriceExplicit, exchangeRates, formatPrice } = useCurrency();
+  const { convertPrice, convertPriceExplicit, exchangeRates, formatPrice } = useCurrency();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -465,7 +465,9 @@ export default function UploadedProducts({ onTokenError }) {
                   {/* Price and Reviews in same line (ProductCard layout) */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-green-600 font-bold text-lg">
-                      {formatPrice(getListingPrice(product), getProductCurrency(product))}
+                      {formatPrice(
+                        convertPrice(getListingPrice(product), getProductCurrency(product))
+                      )}
                     </div>
                     <div className="text-gray-500 text-xs">
                       {product.totalReviews || '0'} reviews
@@ -488,9 +490,13 @@ export default function UploadedProducts({ onTokenError }) {
                       className="object-cover group-hover:scale-105 transition-transform duration-200"
                     />
                     <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-50">
+                      <Link
+                        href={`/product/${product._id}`}
+                        className="inline-flex p-2 bg-white rounded-full shadow-lg hover:bg-gray-50"
+                        aria-label={`View ${product.name}`}
+                      >
                         <Eye className="w-4 h-4 text-gray-600" />
-                      </button>
+                      </Link>
                     </div>
                   </div>
 

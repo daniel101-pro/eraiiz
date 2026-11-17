@@ -11,28 +11,28 @@ export default function CategoriesSection() {
     {
       name: "Plastic Made Products",
       count: "Loading...",
-      href: "/plastic", // Updated
+      href: "/categories/plastic",
       image: "/image1.png",
       id: "plastic",
     },
     {
       name: "Glass Made Products",
       count: "Loading...",
-      href: "/glass", // Updated
+      href: "/categories/glass",
       image: "/image2.png",
       id: "glass",
     },
     {
       name: "Rubber Made Products",
       count: "Loading...",
-      href: "/rubber", // Updated
+      href: "/categories/rubber",
       image: "/image3.png",
       id: "rubber",
     },
     {
       name: "General Recycled Items",
       count: "Loading...",
-      href: "/recycled", // Updated
+      href: "/categories/recycled",
       image: "/image4.png",
       id: "recycled",
     },
@@ -65,7 +65,7 @@ export default function CategoriesSection() {
   return (
     <section>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-sm font-semiboldtext-xl sm:text-2xl font-semibold text-gray-800">Explore these categories</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Explore these categories</h1>
         <Link
           href="/categories"
           className="flex items-center gap-1 px-4 py-1.5 bg-[#F8FFF8] border border-[#CDEFCB] text-gray-700 rounded-xl text-sm font-medium hover:bg-[#ECF9EC] transition"

@@ -458,7 +458,7 @@ export default function ProductDetail() {
       <DualNavbarSell />
 
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28 md:pt-32">
         <div className="mb-6">
           <Link href="/for-you" className="inline-flex items-center text-gray-600 hover:text-gray-900">
             <span className="mr-2">←</span>

@@ -16,7 +16,8 @@ export default function Pricing() {
           <div className="p-4 border border-green-100 rounded-lg bg-green-50">
             <div className="flex items-center gap-2 mb-2 text-green-700 font-semibold"><LayoutGrid className="h-4 w-4"/> Commission-Based</div>
             <p className="text-sm text-gray-700 leading-relaxed">
-              Eraiiz earns a <span className="font-medium">10-15% commission</span> on every successful sale.
+              Eraiiz earns <span className="font-medium">10% commission</span> on Pay-as-you-sell
+              (8% on Growth, 5% on Pro).
               Zero upfront costs – we only win when our sellers win.
             </p>
           </div>

@@ -176,7 +176,7 @@ export default function AccountPage() {
             <div className="absolute inset-0 w-12 h-12 bg-green-100 rounded-full animate-pulse"></div>
           </div>
           <p className="text-gray-600 text-lg font-medium animate-fadeIn">
-            welcome to your account...
+            Loading your account...
           </p>
         </div>
       </div>

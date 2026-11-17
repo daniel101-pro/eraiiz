@@ -560,7 +560,7 @@ export default function DualNavbarSell({ handleLogout }) {
                     <span className="group-hover:animate-float">About Eraiiz</span>
                     <span className="nav-link-effect"></span>
                   </Link>
-                  <Link href="/help" className="nav-link hover:text-green-600 relative group" onClick={toggleSidebar}>
+                  <Link href="/faqs" className="nav-link hover:text-green-600 relative group" onClick={toggleSidebar}>
                     <span className="group-hover:animate-float">Help</span>
                     <span className="nav-link-effect"></span>
                   </Link>

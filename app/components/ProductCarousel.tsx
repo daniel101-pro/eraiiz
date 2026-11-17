@@ -18,6 +18,14 @@ interface ProductCarouselProps {
 
 export default function ProductCarousel({ items }: ProductCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [slidesVisible, setSlidesVisible] = useState(1);
+
+  useEffect(() => {
+    const update = () => setSlidesVisible(window.innerWidth >= 768 ? 2 : 1);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -31,7 +39,7 @@ export default function ProductCarousel({ items }: ProductCarouselProps) {
     <div className="relative overflow-hidden rounded-lg">
       <div
         className="flex transition-transform duration-500 ease-in-out mb-4"
-        style={{ transform: `translateX(-${currentIndex * (100 / (window.innerWidth >= 768 ? 2 : 1))}%)` }}
+        style={{ transform: `translateX(-${currentIndex * (100 / slidesVisible)}%)` }}
       >
         {items.map((item, index) => (
           <div

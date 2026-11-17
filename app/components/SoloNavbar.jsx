@@ -105,7 +105,7 @@ export default function SoloNavbar({ handleLogout }) {
               <Link href="/supplier" className="hover:text-green-600" onClick={toggleSidebar}>
                 Become a Supplier
               </Link>
-              <Link href="/help" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/faqs" className="hover:text-green-600" onClick={toggleSidebar}>
                 Help
               </Link>
               <Link href="/contact" className="hover:text-green-600" onClick={toggleSidebar}>
@@ -124,16 +124,16 @@ export default function SoloNavbar({ handleLogout }) {
 
             {/* Bottom Navbar Links (Categories) */}
             <nav className="flex flex-col gap-3 text-sm text-gray-600">
-              <Link href="/category/plastic" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/categories/plastic" className="hover:text-green-600" onClick={toggleSidebar}>
                 Plastic Made Products
               </Link>
-              <Link href="/category/glass" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/categories/glass" className="hover:text-green-600" onClick={toggleSidebar}>
                 Glass Made Products
               </Link>
-              <Link href="/category/fruits-waste" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/categories/fruits" className="hover:text-green-600" onClick={toggleSidebar}>
                 Fruits Waste Products
               </Link>
-              <Link href="/category/others" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/categories/others" className="hover:text-green-600" onClick={toggleSidebar}>
                 Others
               </Link>
             </nav>
@@ -151,7 +151,7 @@ export default function SoloNavbar({ handleLogout }) {
             <nav className="hidden md:flex items-center space-x-6 text-sm text-gray-600">
               <Link href="/about" className="hover:text-green-600">About ERaiiz</Link>
               <Link href="/supplier" className="hover:text-green-600">Become a Supplier</Link>
-              <Link href="/help" className="hover:text-green-600">Help</Link>
+              <Link href="/faqs" className="hover:text-green-600">Help</Link>
               <Link href="/contact" className="hover:text-green-600">Contact Support</Link>
             </nav>
           </div>

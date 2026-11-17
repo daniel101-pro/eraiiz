@@ -105,7 +105,7 @@ export default function DualNavbar({ handleLogout }) {
               <Link href="/supplier" className="hover:text-green-600" onClick={toggleSidebar}>
                 Become a Supplier
               </Link>
-              <Link href="/help" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/faqs" className="hover:text-green-600" onClick={toggleSidebar}>
                 Help
               </Link>
               <Link href="/contact" className="hover:text-green-600" onClick={toggleSidebar}>
@@ -118,13 +118,13 @@ export default function DualNavbar({ handleLogout }) {
 
             {/* Bottom Navbar Links */}
             <nav className="flex flex-col gap-3 text-sm text-gray-600">
-              <Link href="/category/plastic" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/categories/plastic" className="hover:text-green-600" onClick={toggleSidebar}>
                 Plastic Made Products
               </Link>
-              <Link href="/category/glass" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/categories/glass" className="hover:text-green-600" onClick={toggleSidebar}>
                 Glass Made Products
               </Link>
-              <Link href="/category/fruits-waste" className="hover:text-green-600" onClick={toggleSidebar}>
+              <Link href="/categories/fruits" className="hover:text-green-600" onClick={toggleSidebar}>
                 Fruits Waste Products
               </Link>
               <Link href="/categories" className="hover:text-green-600" onClick={toggleSidebar}>
@@ -169,9 +169,9 @@ export default function DualNavbar({ handleLogout }) {
         <nav className="border-b">
           <div className="container mx-auto px-4 py-2 flex items-center justify-between">
             <nav className="flex items-center space-x-6 text-sm text-gray-600">
-              <Link href="/category/plastic" className="hover:text-green-600">Plastic Made Products</Link>
-              <Link href="/category/glass" className="hover:text-green-600">Glass Made Products</Link>
-              <Link href="/category/fruits-waste" className="hover:text-green-600">Fruits Waste Products</Link>
+              <Link href="/categories/plastic" className="hover:text-green-600">Plastic Made Products</Link>
+              <Link href="/categories/glass" className="hover:text-green-600">Glass Made Products</Link>
+              <Link href="/categories/fruits" className="hover:text-green-600">Fruits Waste Products</Link>
               <Link href="/categories" className="hover:text-green-600">Others</Link>
             </nav>
             <div className="flex items-center gap-4">

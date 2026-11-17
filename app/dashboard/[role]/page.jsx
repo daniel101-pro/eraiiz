@@ -26,23 +26,23 @@ export default function UnifiedDashboard() {
     {
       image: '/plastic-products.png',
       alt: 'Plastic Made Products',
-      title: 'Plastic Made Chairs',
+      title: 'Plastic Made Products',
       subtitle: 'Discover a range of innovative and sustainable products crafted from recycled plastics.',
-      link: '/category/plastic',
+      link: '/categories/plastic',
     },
     {
       image: '/glass-products.png',
       alt: 'Glass Made Products',
-      title: 'Glass Made Chairs',
+      title: 'Glass Made Products',
       subtitle: 'Explore the beauty of sustainability with our Glass Made Products, combining elegance with eco-consciousness.',
-      link: '/category/glass',
+      link: '/categories/glass',
     },
     {
       image: '/recycled-products.png',
       alt: 'Fruits Waste Products',
-      title: 'Fruits Waste Chairs',
-      subtitle: 'Discover innovation in every piece with our Recycled Products — turning waste into purposeful beauty.',
-      link: '/category/fruits-waste',
+      title: 'Fruits Waste Products',
+      subtitle: 'Discover innovation in every piece — turning fruit waste into purposeful beauty.',
+      link: '/categories/fruits',
     },
   ];
 
@@ -237,7 +237,7 @@ export default function UnifiedDashboard() {
       />
 
       <main className="flex-1">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 pt-28 md:pt-32">
           {/* Hero/Carousel Section */}
           {isSeller ? (
             <HeroCarousel />
@@ -290,7 +290,7 @@ export default function UnifiedDashboard() {
       <footer className="bg-gray-100 mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center border-t border-gray-200 pt-4 mb-4 text-xs text-gray-500">
-            © {new Date().getFullYear()} ERaiiz. All rights reserved.
+            © {new Date().getFullYear()} Eraiiz. All rights reserved.
           </div>
         </div>
       </footer>

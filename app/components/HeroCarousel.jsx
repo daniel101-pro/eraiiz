@@ -30,23 +30,23 @@ export default function HeroCarousel() {
     {
       image: '/plastic-products.png',
       alt: 'Plastic Made Products',
-      title: 'Plastic Made Chairs',
+      title: 'Plastic Made Products',
       subtitle: 'Discover a range of innovative and sustainable products crafted from recycled plastics.',
-      link: '/category/plastic',
+      link: '/categories/plastic',
     },
     {
       image: '/glass-products.png',
       alt: 'Glass Made Products',
-      title: 'Glass Made Chairs',
+      title: 'Glass Made Products',
       subtitle: 'Explore the beauty of sustainability with our Glass Made Products, combining elegance with eco-consciousness.',
-      link: '/category/glass',
+      link: '/categories/glass',
     },
     {
       image: '/recycled-products.png',
       alt: 'Fruits Waste Products',
-      title: 'Fruits Waste Chairs',
-      subtitle: 'Discover innovation in every piece with our Recycled Products — turning waste into purposeful beauty.',
-      link: '/category/fruits-waste',
+      title: 'Fruits Waste Products',
+      subtitle: 'Discover innovation in every piece — turning fruit waste into purposeful beauty.',
+      link: '/categories/fruits',
     },
   ];
 

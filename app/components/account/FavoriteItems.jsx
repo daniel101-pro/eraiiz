@@ -20,36 +20,31 @@ export default function FavoriteItems() {
         return;
       }
 
-      let res;
-      try {
-        res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/favorites', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          credentials: 'include',
-        });
-      } catch (err) {
-        if (err.cause?.status === 401) {
-          try {
-            token = await refreshAccessToken();
-            res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/favorites', {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              credentials: 'include',
-            });
-          } catch (refreshErr) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            router.push('/login');
-            return;
-          }
-        } else {
-          throw err;
+      let res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/favorites', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        try {
+          token = await refreshAccessToken();
+          res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/favorites', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: 'include',
+          });
+        } catch {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          router.push('/login');
+          return;
         }
       }
 

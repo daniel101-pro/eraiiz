@@ -25,6 +25,15 @@ export default function ProductCard({ product }) {
 
   const productCurrency = getProductCurrency(product);
   const listingPrice = getListingPrice(product);
+  const defaultSize =
+    product?.selectedSize ||
+    product?.sizes?.[0] ||
+    product?.attributes?.sizes?.[0] ||
+    product?.sizeOptions?.[0] ||
+    'One size';
+  const imageSrc = product?.images?.[0] || '/placeholder-product.png';
+  const ratingLabel =
+    Number(product?.averageRating) > 0 ? Number(product.averageRating).toFixed(1) : '—';
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -35,7 +44,7 @@ export default function ProductCard({ product }) {
       price: listingPrice,
       currency: productCurrency,
       quantity: 1,
-      selectedSize: 'S',
+      selectedSize: defaultSize,
       images: product.images
     };
     addToCart(cartItem);
@@ -51,7 +60,7 @@ export default function ProductCard({ product }) {
       price: listingPrice,
       currency: productCurrency,
       quantity: 1,
-      selectedSize: 'S',
+      selectedSize: defaultSize,
       images: product.images
     };
     addToCart(cartItem);
@@ -64,10 +73,10 @@ export default function ProductCard({ product }) {
     if (quantity > 0) {
       const newQuantity = quantity - 1;
       if (newQuantity === 0) {
-        removeFromCart(product._id, 'S');
+        removeFromCart(product._id, defaultSize);
         showCartToast('Removed from cart', 'error');
       } else {
-        updateQuantity(product._id, 'S', newQuantity);
+        updateQuantity(product._id, defaultSize, newQuantity);
       }
     }
   };
@@ -176,8 +185,8 @@ export default function ProductCard({ product }) {
             <div className="mt-4 mb-4">
               <div className="relative rounded-xl overflow-hidden h-[140px] sm:h-[180px] md:h-[220px]">
                 <Image
-                  src={product.images[0]}
-                  alt={product.name}
+                  src={imageSrc}
+                  alt={product.name || 'Product'}
                   fill
                   className="object-cover"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -255,7 +264,7 @@ export default function ProductCard({ product }) {
                 <svg className="w-2 h-2 text-[#3F8E3F]" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
-                <span className="text-[#3F8E3F] text-[8px] sm:text-xs font-medium">{product.averageRating?.toFixed(1) || '0.0'}</span>
+                <span className="text-[#3F8E3F] text-[8px] sm:text-xs font-medium">{ratingLabel}</span>
               </div>
             </div>
           </div>

@@ -90,10 +90,9 @@ export default function CartClient() {
     // Calculate total carbon footprint for all items in cart
     const getTotalCarbonFootprint = () => {
         return displayCartItems.reduce((total, item) => {
-            if (item.carbonFootprint && item.carbonFootprint.total) {
-                return total + (parseFloat(item.carbonFootprint.total) * (item.quantity || 1));
-            }
-            return total;
+            const perItem = Number(item?.carbonFootprint?.total);
+            if (!Number.isFinite(perItem) || perItem <= 0) return total;
+            return total + perItem * (item.quantity || 1);
         }, 0);
     };
 
@@ -102,7 +101,7 @@ export default function CartClient() {
 
     const formattedCartTotal = formatPrice(getCartTotal?.() || 0);
     const totalCarbonFootprint = getTotalCarbonFootprint();
-    const hasCarbonFootprintData = displayCartItems.some(item => item.carbonFootprint);
+    const hasCarbonFootprintData = totalCarbonFootprint > 0;
     const carKmEquivalent = carKmFromKg(totalCarbonFootprint);
     const treesEquivalent = treesFromKg(totalCarbonFootprint);
 

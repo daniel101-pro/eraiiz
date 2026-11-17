@@ -310,7 +310,7 @@ export default function Orders() {
             </div>
             
             <button
-              onClick={() => window.location.href = 'https://www.eraiiz.com/for-you'}
+              onClick={() => (window.location.href = '/for-you')}
               className="inline-flex items-center px-3 py-2 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -363,7 +363,7 @@ export default function Orders() {
               }
             </p>
             <button
-              onClick={() => window.location.href = 'https://www.eraiiz.com/for-you'}
+              onClick={() => (window.location.href = '/for-you')}
               className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
               <Plus className="w-4 h-4 mr-2" />

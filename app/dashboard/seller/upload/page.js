@@ -8,7 +8,7 @@ export const viewport = {
 
 // Metadata export
 export const metadata = {
-  metadataBase: new URL('http://localhost:3001'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://www.eraiiz.com'),
   title: 'Upload Product - Eraiiz',
   description: 'Upload your product to Eraiiz marketplace',
 };
