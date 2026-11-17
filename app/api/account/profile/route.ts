@@ -11,8 +11,10 @@ import {
 } from '@/lib/accountProfile';
 import {
   getUserProfileExtras,
+  hasProfileExtras,
   setUserProfileExtras,
   userIdsFromUser,
+  type ProfileExtras,
 } from '@/lib/userProfileExtras';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
@@ -58,22 +60,21 @@ async function patchMe(authHeader: string, payload: Record<string, unknown>) {
   return unwrapUser(data);
 }
 
-async function withExtras(user: Record<string, unknown>) {
-  const ids = userIdsFromUser(user);
-  for (const id of ids) {
+async function loadExtrasForUser(user: Record<string, unknown>) {
+  for (const id of userIdsFromUser(user)) {
     const extras = await getUserProfileExtras(id);
-    if (extras.dateOfBirth) {
-      return mergeProfileExtras(user, extras);
-    }
+    if (hasProfileExtras(extras)) return extras;
   }
-  return user;
+  return {};
 }
 
-async function persistDobExtra(user: Record<string, unknown>, dateOfBirth: string) {
-  const dob = toDateInput(dateOfBirth);
-  if (!dob) return;
+async function withExtras(user: Record<string, unknown>) {
+  return mergeProfileExtras(user, await loadExtrasForUser(user));
+}
+
+async function persistExtras(user: Record<string, unknown>, extras: ProfileExtras) {
   for (const id of userIdsFromUser(user)) {
-    await setUserProfileExtras(id, { dateOfBirth: dob });
+    await setUserProfileExtras(id, extras);
   }
 }
 
@@ -137,59 +138,60 @@ export async function PATCH(request: NextRequest) {
       postalAddress: String(form.postalAddress || ''),
     };
 
-    const payload = buildProfilePatchPayload(expected);
-    await patchMe(authHeader, payload);
+    const extrasPayload: ProfileExtras = {
+      dateOfBirth: expected.dateOfBirth || undefined,
+      houseAddress: expected.houseAddress || undefined,
+      city: expected.city || undefined,
+      postalAddress: expected.postalAddress || undefined,
+      state: expected.state || undefined,
+      country: expected.country || undefined,
+      phone: expected.phone || undefined,
+      name: expected.name || undefined,
+    };
 
+    // Always persist address/profile extras first so leave/return keeps billing
+    // even when Render drops nested billingAddress.
     let user = await fetchMe(authHeader);
-    let check = profilesMatch(expected, user);
+    await persistExtras(user, extrasPayload);
 
-    // Retry DOB as noon-UTC ISO if calendar string did not stick.
-    if (expected.dateOfBirth && check.mismatches.includes('dateOfBirth')) {
-      try {
-        await patchMe(authHeader, {
-          name: expected.name,
-          email: expected.email,
-          phone: expected.phone,
-          country: expected.country,
-          state: expected.state,
-          billingAddress: {
-            houseAddress: expected.houseAddress,
-            city: expected.city,
-            postalAddress: expected.postalAddress,
-          },
-          dateOfBirth: `${expected.dateOfBirth}T12:00:00.000Z`,
-        });
-        user = await fetchMe(authHeader);
-        check = profilesMatch(expected, user);
-      } catch {
-        // Keep prior result; may fall back to extras below.
+    const payload = buildProfilePatchPayload(expected);
+    try {
+      await patchMe(authHeader, payload);
+    } catch (error) {
+      // If Render rejects dateOfBirth, retry without it.
+      const message = error instanceof Error ? error.message : '';
+      if (/invalid updates/i.test(message) && payload.dateOfBirth) {
+        const { dateOfBirth: _ignored, ...withoutDob } = payload;
+        await patchMe(authHeader, withoutDob);
+      } else if (/invalid updates/i.test(message) && payload.billingAddress) {
+        // Some backends don't allow nested billingAddress — keep extras only.
+      } else {
+        throw error;
       }
     }
 
-    // If Render still drops DOB, keep it in our durable extras store.
-    if (expected.dateOfBirth && check.mismatches.includes('dateOfBirth')) {
-      await persistDobExtra(user, expected.dateOfBirth);
-      user = await withExtras(user);
-      check = profilesMatch(expected, user);
-    } else if (expected.dateOfBirth) {
-      // Keep extras in sync when backend accepted DOB.
-      await persistDobExtra(user, expected.dateOfBirth);
-    }
+    user = await fetchMe(authHeader);
+    await persistExtras(user, extrasPayload);
+    user = await withExtras(user);
 
-    const criticalMismatches = check.mismatches.filter((key) => key !== 'dateOfBirth');
-    if (criticalMismatches.length) {
+    const check = profilesMatch(expected, user);
+    const critical = check.mismatches.filter((key) =>
+      ['name', 'email'].includes(key)
+    );
+
+    // Name/email must stick on Render. Everything else can live in extras.
+    if (critical.length) {
       return NextResponse.json(
         {
           message: 'Account save did not stick on the server. Please try again.',
           mismatches: check.mismatches,
-          user: await withExtras(user),
-          profile: profileFromUser(await withExtras(user)),
+          user,
+          profile: profileFromUser(user),
         },
         { status: 502 }
       );
     }
 
-    user = await withExtras(user);
     return NextResponse.json({
       success: true,
       user,

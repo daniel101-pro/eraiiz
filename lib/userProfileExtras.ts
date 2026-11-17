@@ -1,15 +1,33 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-type Extras = {
+export type ProfileExtras = {
   dateOfBirth?: string;
+  houseAddress?: string;
+  city?: string;
+  postalAddress?: string;
+  state?: string;
+  country?: string;
+  phone?: string;
+  name?: string;
 };
 
-type Store = Record<string, Extras>;
+type Store = Record<string, ProfileExtras>;
 
 const STORE_PATH = process.env.VERCEL
   ? path.join('/tmp', 'eraiiz-user-profile-extras.json')
   : path.join(process.cwd(), 'data', 'user-profile-extras.json');
+
+const EXTRA_KEYS: Array<keyof ProfileExtras> = [
+  'dateOfBirth',
+  'houseAddress',
+  'city',
+  'postalAddress',
+  'state',
+  'country',
+  'phone',
+  'name',
+];
 
 async function readStore(): Promise<Store> {
   try {
@@ -39,21 +57,29 @@ function normalizeDob(value: unknown) {
   return `${y}-${m}-${d}`;
 }
 
+function cleanText(value: unknown) {
+  return String(value ?? '').trim();
+}
+
 export async function getUserProfileExtras(userId: string) {
   if (!userId) return {};
   const store = await readStore();
   return store[userId] || {};
 }
 
-export async function setUserProfileExtras(userId: string, extras: Extras) {
-  if (!userId) return;
+export async function setUserProfileExtras(userId: string, extras: ProfileExtras) {
+  if (!userId) return {};
   const store = await readStore();
-  const next: Extras = { ...(store[userId] || {}) };
-  if (extras.dateOfBirth !== undefined) {
-    const dob = normalizeDob(extras.dateOfBirth);
-    if (dob) next.dateOfBirth = dob;
-    else delete next.dateOfBirth;
+  const next: ProfileExtras = { ...(store[userId] || {}) };
+
+  for (const key of EXTRA_KEYS) {
+    if (extras[key] === undefined) continue;
+    const value =
+      key === 'dateOfBirth' ? normalizeDob(extras[key]) : cleanText(extras[key]);
+    if (value) next[key] = value;
+    else delete next[key];
   }
+
   store[userId] = next;
   await writeStore(store);
   return next;
@@ -61,7 +87,12 @@ export async function setUserProfileExtras(userId: string, extras: Extras) {
 
 export function userIdsFromUser(user: Record<string, unknown> | null | undefined) {
   if (!user) return [];
-  return [user._id, user.id, user.userId]
-    .map((value) => String(value || '').trim())
+  return [user._id, user.id, user.userId, user.email]
+    .map((value) => String(value || '').trim().toLowerCase())
     .filter(Boolean);
+}
+
+export function hasProfileExtras(extras: ProfileExtras | null | undefined) {
+  if (!extras) return false;
+  return EXTRA_KEYS.some((key) => Boolean(cleanText(extras[key])));
 }

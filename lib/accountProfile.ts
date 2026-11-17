@@ -176,13 +176,53 @@ export function profilesMatch(expected: AccountProfileFields, actualUser: Record
 
 export function mergeProfileExtras(
   user: Record<string, unknown>,
-  extras: { dateOfBirth?: string } | null | undefined
+  extras: {
+    dateOfBirth?: string;
+    houseAddress?: string;
+    city?: string;
+    postalAddress?: string;
+    state?: string;
+    country?: string;
+    phone?: string;
+    name?: string;
+  } | null | undefined
 ) {
-  if (!extras?.dateOfBirth) return user;
-  const existing = toDateInput(user.dateOfBirth || user.dob);
-  if (existing) return user;
+  if (!extras) return user;
+
+  const current = profileFromUser(user);
+  const billing =
+    (user.billingAddress as Record<string, unknown> | undefined) ||
+    (user.billing as Record<string, unknown> | undefined) ||
+    {};
+
+  const dateOfBirth = current.dateOfBirth || toDateInput(extras.dateOfBirth);
+  const houseAddress = current.houseAddress || firstString(extras.houseAddress);
+  const city = current.city || firstString(extras.city);
+  const postalAddress = current.postalAddress || firstString(extras.postalAddress);
+  const state = current.state || firstString(extras.state);
+  const country = current.country || firstString(extras.country);
+  const phone = current.phone || firstString(extras.phone);
+  const name = current.name || firstString(extras.name);
+
   return {
     ...user,
-    dateOfBirth: toDateInput(extras.dateOfBirth),
+    name,
+    phone,
+    country,
+    state,
+    dateOfBirth: dateOfBirth || user.dateOfBirth,
+    houseAddress,
+    city,
+    postalAddress,
+    postalCode: postalAddress,
+    billingAddress: {
+      ...billing,
+      houseAddress,
+      city,
+      postalAddress,
+      postalCode: postalAddress,
+      state,
+      country,
+    },
   };
 }
