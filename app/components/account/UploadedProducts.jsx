@@ -192,7 +192,8 @@ export default function UploadedProducts({ onTokenError }) {
         console.error('Carbon footprint recalculation failed:', cfErr.response?.data || cfErr.message);
       }
 
-      const res = await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${editingProduct._id}`, {
+      const productId = editingProduct._id;
+      const patchBody = {
         name: editingProduct.name,
         description: editingProduct.description,
         price: priceNgn,
@@ -203,12 +204,54 @@ export default function UploadedProducts({ onTokenError }) {
         status: editingProduct.status,
         sustainability,
         carbonFootprint,
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      setProducts(products.map((p) => p._id === editingProduct._id ? res.data : p));
+      };
+
+      const res = await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/products/${productId}`,
+        patchBody,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const patched = res.data?.product || res.data || {};
+      const optimistic = {
+        ...editingProduct,
+        ...patched,
+        ...patchBody,
+        _id: productId,
+        price: patched.price ?? priceNgn,
+        sustainability: {
+          ...(editingProduct.sustainability || {}),
+          ...(patched.sustainability || {}),
+          ...sustainability,
+        },
+        carbonFootprint: carbonFootprint || patched.carbonFootprint || editingProduct.carbonFootprint,
+      };
+
+      setProducts((prev) => prev.map((p) => (p._id === productId ? optimistic : p)));
       setEditingProduct(null);
       setError(null);
+
+      // Re-fetch seller catalog so leave/return always matches the server.
+      try {
+        const fresh = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/products/seller`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 30000,
+        });
+        const list = Array.isArray(fresh.data) ? fresh.data : fresh.data?.products || [];
+        const synced = await syncStaleCarbonFootprints(list, token);
+        const confirmed = synced.find((p) => String(p._id) === String(productId));
+        if (confirmed) {
+          if (
+            patchBody.name &&
+            String(confirmed.name || '').trim() !== String(patchBody.name || '').trim()
+          ) {
+            setError('Saved locally, but the server did not keep the product name. Try again.');
+          }
+          setProducts(synced);
+        }
+      } catch (refreshErr) {
+        console.error('Failed to refresh products after edit', refreshErr);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update product');
     } finally {

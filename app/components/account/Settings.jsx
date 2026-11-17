@@ -1,6 +1,8 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { refreshAccessToken } from '../../utils/auth';
-import { Bell, Lock, Trash2, Save, Shield, User, Mail, AlertTriangle } from 'lucide-react';
+import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
+import { Bell, Lock, Trash2, Save, Shield, AlertTriangle } from 'lucide-react';
 
 export default function Settings() {
   const [settings, setSettings] = useState({
@@ -8,29 +10,57 @@ export default function Settings() {
     newPassword: '',
     confirmPassword: '',
   });
-
-  useEffect(() => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user') || 'null');
-      if (typeof user?.emailNotifications === 'boolean') {
-        setSettings((prev) => ({ ...prev, emailNotifications: user.emailNotifications }));
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
   const [isLoading, setIsLoading] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const token = await getValidAccessToken();
+        const res = await fetch('/api/account/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const user = data.user || {};
+          if (typeof user.emailNotifications === 'boolean') {
+            setSettings((prev) => ({
+              ...prev,
+              emailNotifications: user.emailNotifications,
+            }));
+          }
+          try {
+            localStorage.setItem('user', JSON.stringify(user));
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        try {
+          const user = JSON.parse(localStorage.getItem('user') || 'null');
+          if (typeof user?.emailNotifications === 'boolean') {
+            setSettings((prev) => ({ ...prev, emailNotifications: user.emailNotifications }));
+          }
+        } catch {
+          // ignore
+        }
+      } finally {
+        setIsHydrating(false);
+      }
+    };
+    loadSettings();
+  }, []);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setSettings({
-      ...settings,
+    setSettings((prev) => ({
+      ...prev,
       [name]: type === 'checkbox' ? checked : value,
-    });
-    // Clear messages when user starts typing
+    }));
     if (error) setError(null);
     if (success) setSuccess(null);
   };
@@ -48,11 +78,7 @@ export default function Settings() {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        window.location.href = '/login';
-        return;
-      }
+      let token = await getValidAccessToken();
 
       const payload = {
         emailNotifications: settings.emailNotifications,
@@ -61,54 +87,50 @@ export default function Settings() {
         payload.password = settings.newPassword;
       }
 
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
+      const body = {
+        settingsOnly: true,
+        emailNotifications: settings.emailNotifications,
+        ...(settings.newPassword ? { password: settings.newPassword } : {}),
+      };
+
+      let res = await fetch('/api/account/profile', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-        credentials: 'include',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
 
+      if (res.status === 401) {
+        token = await refreshAccessToken();
+        res = await fetch('/api/account/profile', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+      }
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (res.status === 401) {
-          let newToken;
-          try {
-            newToken = await refreshAccessToken();
-          } catch {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
-            return;
-          }
-          const retryRes = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${newToken}`,
-            },
-            credentials: 'include',
-            body: JSON.stringify(payload),
-          });
-          if (!retryRes.ok) throw new Error('Failed to update settings');
-        } else {
-          throw new Error('Failed to update settings');
-        }
+        throw new Error(data.message || 'Failed to update settings');
       }
 
       try {
-        const user = JSON.parse(localStorage.getItem('user') || 'null');
-        if (user) {
-          localStorage.setItem('user', JSON.stringify({ ...user, emailNotifications: settings.emailNotifications }));
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.dispatchEvent(new Event('eraiiz:account-updated'));
         }
       } catch {
         // ignore
       }
-      setSettings({ ...settings, newPassword: '', confirmPassword: '' });
+      setSettings((prev) => ({ ...prev, newPassword: '', confirmPassword: '' }));
       setSuccess('Settings updated successfully!');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to update settings');
     } finally {
       setIsLoading(false);
     }
@@ -119,305 +141,189 @@ export default function Settings() {
     setError(null);
 
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        window.location.href = '/login';
-        return;
-      }
-
+      let token = await getValidAccessToken();
       const requestUrl = process.env.NEXT_PUBLIC_API_URL + '/api/auth/delete-account';
-      console.log('Full Request URL:', requestUrl);
 
-      // Get email from localStorage (stored during login)
-      const storedUser = localStorage.getItem('user');
-      const email = storedUser ? JSON.parse(storedUser).email : null;
-      if (!email) {
-        throw new Error('Unable to determine user email for deletion. Please log in again.');
-      }
-
-      const res = await fetch(requestUrl, {
+      let res = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         credentials: 'include',
-        body: JSON.stringify({ email }),
       });
 
-      const responseText = await res.text();
-      console.log('Delete Account Response:', responseText);
-      console.log('Status:', res.status);
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          try {
-            const newToken = await refreshAccessToken();
-            const retryRes = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/auth/delete-account', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${newToken}`,
-              },
-              credentials: 'include',
-              body: JSON.stringify({ email }),
-            });
-            const retryText = await retryRes.text();
-            console.log('Retry Response:', retryText);
-            console.log('Retry Status:', retryRes.status);
-            if (!retryRes.ok) throw new Error('Failed to delete account');
-          } catch (refreshErr) {
-            console.log('Refresh Error:', refreshErr.message);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
-            return;
-          }
-        } else {
-          throw new Error(`Failed to delete account: ${responseText || 'Unknown error'}`);
-        }
+      if (res.status === 401) {
+        token = await refreshAccessToken();
+        res = await fetch(requestUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        });
       }
 
-      // Clear all user data and redirect to login
-      localStorage.removeItem('user');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to delete account');
+      }
+
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      localStorage.removeItem('role');
-      window.location.href = '/login';
+      localStorage.removeItem('user');
+      window.location.href = '/';
     } catch (err) {
-      setError(err.message);
-    } finally {
+      setError(err.message || 'Failed to delete account');
       setIsLoading(false);
       setShowDeleteConfirm(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <User className="w-6 h-6 text-green-600" />
-          </div>
-          <div>
-            <h1 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900">Account Settings</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage your account preferences and security</p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm text-gray-500 mt-1">Manage notifications, password, and account</p>
       </div>
 
-      {/* Success/Error Messages */}
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-1 bg-green-100 rounded-full">
-            <Save className="w-4 h-4 text-green-600" />
-          </div>
-          <p className="text-green-800 text-sm font-medium">{success}</p>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          {error}
         </div>
       )}
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-1 bg-red-100 rounded-full">
-            <AlertTriangle className="w-4 h-4 text-red-600" />
-          </div>
-          <p className="text-red-800 text-sm font-medium">{error}</p>
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+          {success}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Notifications Settings */}
-        <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-4 md:p-6">
+          <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <Bell className="w-5 h-5 text-blue-600" />
+              <Bell className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
-              <p className="text-sm text-gray-500">Choose how you want to be notified</p>
+              <h2 className="text-sm md:text-base font-semibold text-gray-900">Notifications</h2>
+              <p className="text-xs text-gray-500">Email alerts for orders and updates</p>
             </div>
           </div>
-
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <input
-                type="checkbox"
-                name="emailNotifications"
-                checked={settings.emailNotifications}
-                onChange={handleChange}
-                className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <label className="text-sm font-medium text-gray-900">Email Notifications</label>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Receive notifications about orders, updates, and promotional offers
-                </p>
-              </div>
-            </div>
-          </div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              name="emailNotifications"
+              checked={settings.emailNotifications}
+              onChange={handleChange}
+              disabled={isHydrating || isLoading}
+              className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+            />
+            <span className="text-sm text-gray-700">Email notifications</span>
+          </label>
         </div>
 
-        {/* Password Settings */}
-        <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-4 md:p-6">
+          <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-purple-100 rounded-lg">
-              <Lock className="w-5 h-5 text-purple-600" />
+              <Lock className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Security</h2>
-              <p className="text-sm text-gray-500">Set or update your password to enable email/password login</p>
+              <h2 className="text-sm md:text-base font-semibold text-gray-900">Password</h2>
+              <p className="text-xs text-gray-500">Leave blank to keep your current password</p>
             </div>
           </div>
-
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+              <label className="block text-xs font-medium text-gray-700 mb-2">New password</label>
               <input
                 type="password"
                 name="newPassword"
                 value={settings.newPassword}
                 onChange={handleChange}
-                placeholder="Enter new password"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                autoComplete="new-password"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+              <label className="block text-xs font-medium text-gray-700 mb-2">Confirm password</label>
               <input
                 type="password"
                 name="confirmPassword"
                 value={settings.confirmPassword}
                 onChange={handleChange}
-                placeholder="Confirm new password"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                autoComplete="new-password"
               />
             </div>
-            {settings.newPassword && settings.confirmPassword && settings.newPassword !== settings.confirmPassword && (
-              <p className="text-red-600 text-xs flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                Passwords do not match
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Save Button */}
-        <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-6">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Settings
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={isLoading || isHydrating}
+          className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 text-sm"
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              Save settings
+            </>
+          )}
+        </button>
       </form>
 
-      {/* Danger Zone */}
-      <div className="bg-white shadow-sm rounded-xl border border-red-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="bg-white shadow-sm rounded-xl border border-red-100 p-4 md:p-6">
+        <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-red-100 rounded-lg">
-            <Shield className="w-5 h-5 text-red-600" />
+            <Shield className="w-4 h-4 text-red-600" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-red-900">Danger Zone</h2>
-            <p className="text-sm text-red-600">Irreversible and destructive actions</p>
+            <h2 className="text-sm md:text-base font-semibold text-gray-900">Danger zone</h2>
+            <p className="text-xs text-gray-500">Permanently delete your account</p>
           </div>
         </div>
-
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-red-900 mb-1">Delete Account</h3>
-              <p className="text-xs text-red-700 mb-4">
-                Once you delete your account, there is no going back. This will permanently delete your profile, 
-                all your products, orders, and remove all associated data.
-              </p>
+        {!showDeleteConfirm ? (
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 text-sm"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete account
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg p-3">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              This cannot be undone. All account data will be removed.
+            </div>
+            <div className="flex gap-2">
               <button
-                onClick={() => setShowDeleteConfirm(true)}
+                type="button"
                 disabled={isLoading}
-                className="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleDeleteAccount}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
               >
-                <Trash2 className="w-4 h-4" />
-                Delete Account
+                Confirm delete
+              </button>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancel
               </button>
             </div>
           </div>
-        </div>
+        )}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-8 h-8 text-red-600" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Delete Account</h2>
-              <p className="text-gray-500 mb-6">
-                Are you absolutely sure you want to delete your account? This action cannot be undone, 
-                and all your data will be permanently removed from our servers.
-              </p>
-              
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
-                <div className="flex items-center gap-2 text-red-800 text-sm">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="font-medium">This will permanently delete:</span>
-                </div>
-                <ul className="text-red-700 text-xs mt-2 space-y-1 text-left">
-                  <li>• Your profile and account information</li>
-                  <li>• All uploaded products and listings</li>
-                  <li>• Order history and transactions</li>
-                  <li>• Saved favorites and cart items</li>
-                </ul>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  disabled={isLoading}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={isLoading}
-                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      Delete Forever
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

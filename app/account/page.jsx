@@ -47,9 +47,10 @@ export default function AccountPage() {
       if (!res.ok) {
         throw new Error(data.message || 'Failed to fetch user data', { cause: { status: res.status } });
       }
-      setUser(data);
+      const userData = data?.user && typeof data.user === 'object' ? data.user : data;
+      setUser(userData);
       try {
-        localStorage.setItem('user', JSON.stringify(data));
+        localStorage.setItem('user', JSON.stringify(userData));
       } catch (storageErr) {
         console.error('Failed to cache account', storageErr);
       }

@@ -2,56 +2,7 @@ import { useState, useEffect } from 'react';
 import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 import { User, Mail, Phone, MapPin, Calendar, Globe, Building, Edit3, Save, X, Check, AlertCircle, CreditCard, BarChart3 } from 'lucide-react';
 import EnvironmentalImpact from './EnvironmentalImpact';
-
-function profileFromUser(user) {
-  return {
-    name: user?.name || '',
-    email: user?.email || '',
-    dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
-    phone: user?.phone || '',
-    country: user?.country || '',
-    state: user?.state || '',
-    houseAddress: user?.billingAddress?.houseAddress || user?.houseAddress || '',
-    city: user?.billingAddress?.city || user?.city || '',
-    postalAddress: user?.billingAddress?.postalAddress || user?.postalCode || '',
-  };
-}
-
-function buildProfilePayload(formData) {
-  return {
-    name: formData.name,
-    email: formData.email,
-    dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
-    phone: formData.phone,
-    country: formData.country,
-    state: formData.state,
-    billingAddress: {
-      houseAddress: formData.houseAddress,
-      city: formData.city,
-      postalAddress: formData.postalAddress,
-    },
-  };
-}
-
-function cacheUpdatedUser(currentUser, formData, responseData) {
-  const fromApi = responseData?.user || responseData || {};
-  return {
-    ...(currentUser || {}),
-    ...fromApi,
-    name: formData.name || fromApi.name,
-    email: formData.email || fromApi.email,
-    phone: formData.phone || fromApi.phone,
-    country: formData.country || fromApi.country,
-    state: formData.state || fromApi.state,
-    dateOfBirth: formData.dateOfBirth || fromApi.dateOfBirth,
-    billingAddress: {
-      ...(fromApi.billingAddress || currentUser?.billingAddress || {}),
-      houseAddress: formData.houseAddress,
-      city: formData.city,
-      postalAddress: formData.postalAddress,
-    },
-  };
-}
+import { profileFromUser } from '@/lib/accountProfile';
 
 export default function MyEraiizAccount({ user, setUser }) {
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -67,12 +18,25 @@ export default function MyEraiizAccount({ user, setUser }) {
     salesAmount: 0,
     toShip: 0,
   });
+  const display = profileFromUser(user);
 
   useEffect(() => {
     if (!user) return;
     if (isEditingAccount || isEditingBilling) return;
     setFormData(profileFromUser(user));
   }, [user, isEditingAccount, isEditingBilling]);
+
+  const cancelAccountEdit = () => {
+    setFormData(profileFromUser(user));
+    setIsEditingAccount(false);
+    setError(null);
+  };
+
+  const cancelBillingEdit = () => {
+    setFormData(profileFromUser(user));
+    setIsEditingBilling(false);
+    setError(null);
+  };
 
   useEffect(() => {
     const loadStats = async () => {
@@ -119,15 +83,13 @@ export default function MyEraiizAccount({ user, setUser }) {
         return;
       }
 
-      const payload = buildProfilePayload(formData);
-      let res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
+      let res = await fetch('/api/account/profile', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        credentials: 'include',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ profile: formData }),
       });
 
       if (res.status === 401) {
@@ -139,24 +101,32 @@ export default function MyEraiizAccount({ user, setUser }) {
           window.location.href = '/login';
           return;
         }
-        res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
+        res = await fetch('/api/account/profile', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          credentials: 'include',
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ profile: formData }),
         });
       }
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (data.user) {
+          setUser(data.user);
+          try {
+            localStorage.setItem('user', JSON.stringify(data.user));
+          } catch {
+            // ignore
+          }
+        }
         throw new Error(data.message || 'Failed to update user data');
       }
 
-      const updatedUser = cacheUpdatedUser(user, formData, data);
+      const updatedUser = data.user || user;
       setUser(updatedUser);
+      setFormData(profileFromUser(updatedUser));
       try {
         localStorage.setItem('user', JSON.stringify(updatedUser));
         sessionStorage.removeItem('eraiiz_checkout');
@@ -257,7 +227,8 @@ export default function MyEraiizAccount({ user, setUser }) {
               </div>
             </div>
             <button
-              onClick={() => setIsEditingAccount(!isEditingAccount)}
+              type="button"
+              onClick={() => (isEditingAccount ? cancelAccountEdit() : setIsEditingAccount(true))}
               className="flex items-center gap-2 px-2 md:px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs md:text-sm font-medium"
             >
               {isEditingAccount ? (
@@ -390,7 +361,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <User className="w-4 h-4 text-gray-500" />
                 <div>
                   <p className="text-xs text-gray-500">Full Name</p>
-                  <p className="text-xs font-medium text-gray-900">{user?.name || 'Not provided'}</p>
+                  <p className="text-xs font-medium text-gray-900">{display.name || 'Not provided'}</p>
                 </div>
               </div>
               
@@ -398,7 +369,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <Mail className="w-4 h-4 text-gray-500" />
                 <div>
                   <p className="text-xs text-gray-500">Email Address</p>
-                  <p className="text-xs font-medium text-gray-900">{user?.email || 'Not provided'}</p>
+                  <p className="text-xs font-medium text-gray-900">{display.email || 'Not provided'}</p>
                 </div>
               </div>
               
@@ -407,7 +378,9 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <div>
                   <p className="text-xs text-gray-500">Date of Birth</p>
                   <p className="text-xs font-medium text-gray-900">
-                    {user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : 'Not provided'}
+                    {display.dateOfBirth
+                      ? new Date(display.dateOfBirth).toLocaleDateString()
+                      : 'Not provided'}
                   </p>
                 </div>
               </div>
@@ -416,7 +389,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <Phone className="w-4 h-4 text-gray-500" />
                 <div>
                   <p className="text-xs text-gray-500">Phone Number</p>
-                  <p className="text-xs font-medium text-gray-900">{user?.phone || 'Not provided'}</p>
+                  <p className="text-xs font-medium text-gray-900">{display.phone || 'Not provided'}</p>
                 </div>
               </div>
               
@@ -425,7 +398,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                   <Globe className="w-4 h-4 text-gray-500" />
                   <div>
                     <p className="text-xs text-gray-500">Country</p>
-                    <p className="text-xs font-medium text-gray-900">{user?.country || 'Not provided'}</p>
+                    <p className="text-xs font-medium text-gray-900">{display.country || 'Not provided'}</p>
                   </div>
                 </div>
                 
@@ -433,7 +406,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                   <MapPin className="w-4 h-4 text-gray-500" />
                   <div>
                     <p className="text-xs text-gray-500">State</p>
-                    <p className="text-xs font-medium text-gray-900">{user?.state || 'Not provided'}</p>
+                    <p className="text-xs font-medium text-gray-900">{display.state || 'Not provided'}</p>
                   </div>
                 </div>
               </div>
@@ -454,7 +427,8 @@ export default function MyEraiizAccount({ user, setUser }) {
               </div>
             </div>
             <button
-              onClick={() => setIsEditingBilling(!isEditingBilling)}
+              type="button"
+              onClick={() => (isEditingBilling ? cancelBillingEdit() : setIsEditingBilling(true))}
               className="flex items-center gap-2 px-2 md:px-3 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors text-xs md:text-sm font-medium"
             >
               {isEditingBilling ? (
@@ -543,7 +517,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <div>
                   <p className="text-xs text-gray-500">House Address</p>
                   <p className="text-xs font-medium text-gray-900">
-                    {user?.billingAddress?.houseAddress || 'Not provided'}
+                    {display.houseAddress || 'Not provided'}
                   </p>
                 </div>
               </div>
@@ -553,7 +527,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <div>
                   <p className="text-xs text-gray-500">City</p>
                   <p className="text-xs font-medium text-gray-900">
-                    {user?.billingAddress?.city || 'Not provided'}
+                    {display.city || 'Not provided'}
                   </p>
                 </div>
               </div>
@@ -563,7 +537,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <div>
                   <p className="text-xs text-gray-500">Postal Code</p>
                   <p className="text-xs font-medium text-gray-900">
-                    {user?.billingAddress?.postalAddress || 'Not provided'}
+                    {display.postalAddress || 'Not provided'}
                   </p>
                 </div>
               </div>

@@ -49,7 +49,7 @@ export default function BillingPage() {
     updateBilling({ [name]: value });
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const missingField = fields.find((field) => field.required && !hasValue(billing[field.name]));
@@ -59,6 +59,44 @@ export default function BillingPage() {
     }
 
     setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        const currentRes = await fetch('/api/account/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        const currentData = await currentRes.json().catch(() => ({}));
+        const current = currentData.profile || {};
+
+        const res = await fetch('/api/account/profile', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            profile: {
+              ...current,
+              name: billing.fullName || current.name,
+              email: billing.email || current.email,
+              phone: billing.phone || current.phone,
+              state: billing.state || current.state,
+              houseAddress: billing.address || current.houseAddress,
+              city: billing.city || current.city,
+              postalAddress: billing.postalCode || current.postalAddress,
+            },
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.dispatchEvent(new Event('eraiiz:account-updated'));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to persist billing to account', error);
+    }
     router.push('/checkout/payment');
   };
 
