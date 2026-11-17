@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getValidAccessToken } from '../utils/auth';
+import { profileFromUser } from '@/lib/accountProfile';
+import { applyProfileOverlay, cacheMergedUser } from '@/lib/profileOverlay';
 
 const STORAGE_KEY = 'eraiiz_checkout';
 
@@ -19,27 +21,25 @@ const CheckoutContext = createContext(null);
 
 export function mapUserToBilling(user) {
   if (!user) return {};
-  const billingAddress = user.billingAddress || user.billing || {};
+  const merged = applyProfileOverlay(user) || user;
+  const profile = profileFromUser(merged);
 
   return {
-    fullName: user.name || user.fullName || '',
-    email: user.email || '',
-    phone: user.phone || user.phoneNumber || '',
-    state: user.state || billingAddress.state || '',
-    address:
-      billingAddress.houseAddress ||
-      billingAddress.address ||
-      user.address ||
-      user.houseAddress ||
-      '',
-    city: billingAddress.city || user.city || '',
-    postalCode:
-      billingAddress.postalAddress ||
-      billingAddress.postalCode ||
-      user.postalCode ||
-      user.postalAddress ||
-      '',
+    fullName: profile.name || '',
+    email: profile.email || '',
+    phone: profile.phone || '',
+    state: profile.state || '',
+    address: profile.houseAddress || '',
+    city: profile.city || '',
+    postalCode: profile.postalAddress || '',
   };
+}
+
+export function isBillingComplete(billing) {
+  if (!billing) return false;
+  return ['fullName', 'email', 'phone', 'address', 'city', 'state', 'postalCode'].every((key) =>
+    Boolean(String(billing[key] || '').trim())
+  );
 }
 
 function applyProfile(base, profile) {
@@ -83,17 +83,16 @@ export function CheckoutProvider({ children }) {
 
     try {
       const token = await getValidAccessToken();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (token && apiUrl) {
-        const res = await fetch(`${apiUrl}/api/users/me`, {
+      if (token) {
+        // Use same-origin profile route so accountProfile + cookie extras merge in.
+        const res = await fetch('/api/account/profile', {
           headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
           cache: 'no-store',
         });
         if (res.ok) {
-          const user = await res.json();
-          const profile = user?.user || user;
-          localStorage.setItem('user', JSON.stringify(profile));
+          const data = await res.json().catch(() => ({}));
+          const profile = data?.user && typeof data.user === 'object' ? data.user : data;
+          cacheMergedUser(profile);
           billingState = applyProfile(billingState, profile);
         }
       }
@@ -103,6 +102,7 @@ export function CheckoutProvider({ children }) {
 
     setBilling(billingState);
     setIsReady(true);
+    return billingState;
   }, []);
 
   useEffect(() => {
@@ -114,7 +114,9 @@ export function CheckoutProvider({ children }) {
     };
 
     const onStorage = (event) => {
-      if (event.key === 'user') onAccountUpdated();
+      if (event.key === 'user' || (event.key && event.key.startsWith('eraiiz_profile_overlay:'))) {
+        onAccountUpdated();
+      }
     };
 
     window.addEventListener('eraiiz:account-updated', onAccountUpdated);
@@ -141,6 +143,7 @@ export function CheckoutProvider({ children }) {
         sessionStorage.removeItem(STORAGE_KEY);
       },
       refreshBillingFromAccount: hydrateFromAccount,
+      isBillingComplete: () => isBillingComplete(billing),
       isReady,
     }),
     [billing, hydrateFromAccount, isReady]

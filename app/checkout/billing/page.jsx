@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../context/CartContext';
-import { useCheckout } from '../../context/CheckoutContext';
+import { isBillingComplete, useCheckout } from '../../context/CheckoutContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import { showError } from '../../utils/toast';
@@ -25,23 +25,44 @@ const hasValue = (value) => Boolean(String(value || '').trim());
 export default function BillingPage() {
   const router = useRouter();
   const { cartItems } = useCart();
-  const { billing, updateBilling, refreshBillingFromAccount } = useCheckout();
+  const { billing, updateBilling, refreshBillingFromAccount, isReady } = useCheckout();
   const { formatPrice, convertPrice } = useCurrency();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(true);
+  const skippedRef = useRef(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
+    let cancelled = false;
 
-    if (cartItems.length === 0) {
-      router.push('/cart');
-      return;
-    }
+    const boot = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
 
-    refreshBillingFromAccount?.();
+      if (cartItems.length === 0) {
+        router.push('/cart');
+        return;
+      }
+
+      const nextBilling = (await refreshBillingFromAccount?.()) || billing;
+      if (cancelled) return;
+
+      // If account already has a full billing address, skip straight to payment.
+      if (!skippedRef.current && isBillingComplete(nextBilling)) {
+        skippedRef.current = true;
+        router.replace('/checkout/payment');
+        return;
+      }
+
+      setIsHydrating(false);
+    };
+
+    boot();
+    return () => {
+      cancelled = true;
+    };
   }, [cartItems.length, refreshBillingFromAccount, router]);
 
   const handleChange = (event) => {
@@ -69,38 +90,29 @@ export default function BillingPage() {
         const currentData = await currentRes.json().catch(() => ({}));
         const current = currentData.profile || {};
 
+        const profileUpdate = {
+          ...current,
+          name: billing.fullName || current.name,
+          email: billing.email || current.email,
+          phone: billing.phone || current.phone,
+          state: billing.state || current.state,
+          houseAddress: billing.address || current.houseAddress,
+          city: billing.city || current.city,
+          postalAddress: billing.postalCode || current.postalAddress,
+        };
+
         const res = await fetch('/api/account/profile', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            profile: {
-              ...current,
-              name: billing.fullName || current.name,
-              email: billing.email || current.email,
-              phone: billing.phone || current.phone,
-              state: billing.state || current.state,
-              houseAddress: billing.address || current.houseAddress,
-              city: billing.city || current.city,
-              postalAddress: billing.postalCode || current.postalAddress,
-            },
-          }),
+          body: JSON.stringify({ profile: profileUpdate }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.user) {
           const { saveProfileLocally } = await import('@/lib/profileOverlay');
-          saveProfileLocally(data.user, {
-            ...current,
-            name: billing.fullName || current.name,
-            email: billing.email || current.email,
-            phone: billing.phone || current.phone,
-            state: billing.state || current.state,
-            houseAddress: billing.address || current.houseAddress,
-            city: billing.city || current.city,
-            postalAddress: billing.postalCode || current.postalAddress,
-          });
+          saveProfileLocally(data.user, profileUpdate);
           window.dispatchEvent(new Event('eraiiz:account-updated'));
         }
       }
@@ -113,6 +125,17 @@ export default function BillingPage() {
   const orderTotal = cartItems.reduce((total, item) => {
     return total + convertPrice(getListingPrice(item), getProductCurrency(item)) * (item.quantity || 1);
   }, 0);
+
+  if (!isReady || isHydrating) {
+    return (
+      <>
+        <DualNavbarSell />
+        <div className="flex min-h-[50vh] items-center justify-center pt-32">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-green-600 border-t-transparent" />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
