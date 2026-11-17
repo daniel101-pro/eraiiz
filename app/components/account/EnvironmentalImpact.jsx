@@ -1,600 +1,473 @@
-import { useState, useEffect } from 'react';
-import { refreshAccessToken } from '../../utils/auth';
-import { 
-  Leaf, 
-  TreePine, 
-  Car, 
-  Recycle, 
-  Award, 
-  Target, 
-  TrendingUp, 
-  BarChart3, 
-  PieChart, 
-  Globe, 
-  Sparkles, 
-  Calendar,
-  Star,
-  CheckCircle,
-  ArrowRight,
-  Info,
-  ChevronRight
-} from 'lucide-react';
+'use client';
 
-export default function EnvironmentalImpact() {
+import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Leaf,
+  TreePine,
+  Car,
+  Recycle,
+  Trophy,
+  Target,
+  Sparkles,
+  Shield,
+  ChevronRight,
+} from 'lucide-react';
+import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
+import { buildBadges, buildEcoImpactSummary } from '@/lib/ecoImpact';
+import EcoRankBadge, { BadgeMedallion, tierForRank } from './EcoRankBadge';
+
+const emptyImpact = {
+  ...buildEcoImpactSummary([]),
+  badges: buildBadges({
+    purchaseCount: 0,
+    carbonSaved: 0,
+    recycledPurchases: 0,
+    uniqueCategories: 0,
+    lowImpactPurchases: 0,
+    level: 1,
+  }),
+};
+
+export default function EnvironmentalImpact({ compactHeader = false } = {}) {
   const [impactData, setImpactData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
-
-  const fetchImpactData = async () => {
-    try {
-      let token = localStorage.getItem('accessToken');
-      if (!token) {
-        window.location.href = '/login';
-        return;
-      }
-
-      let res;
-      try {
-        res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/environmental-impact', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          credentials: 'include',
-        });
-      } catch (err) {
-        if (err.cause?.status === 401) {
-          try {
-            token = await refreshAccessToken();
-            res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/environmental-impact', {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              credentials: 'include',
-            });
-          } catch (refreshErr) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
-            return;
-          }
-        } else {
-          throw err;
-        }
-      }
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to fetch impact data');
-      }
-      setImpactData(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [activeTab, setActiveTab] = useState('command');
 
   useEffect(() => {
-    fetchImpactData();
+    const load = async () => {
+      try {
+        let token = await getValidAccessToken();
+        let res = await fetch('/api/account/environmental-impact', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (res.status === 401) {
+          token = await refreshAccessToken();
+          res = await fetch('/api/account/environmental-impact', {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store',
+          });
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Failed to load impact');
+        setImpactData(data);
+        try {
+          localStorage.setItem('eraiiz_eco_impact', JSON.stringify(data));
+          window.dispatchEvent(new CustomEvent('eraiiz:eco-impact-updated', { detail: data }));
+        } catch {
+          // ignore
+        }
+      } catch (err) {
+        setError(err.message || 'Failed to load impact');
+        try {
+          const cached = JSON.parse(localStorage.getItem('eraiiz_eco_impact') || 'null');
+          if (cached) setImpactData(cached);
+        } catch {
+          // ignore
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  const getImpactLevelColor = (level) => {
-    switch (level) {
-      case 'Champion': return 'from-purple-500 to-pink-500';
-      case 'Leader': return 'from-green-500 to-blue-500';
-      case 'Contributor': return 'from-blue-500 to-green-500';
-      default: return 'from-gray-400 to-gray-600';
-    }
-  };
-
-  const getImpactLevelBadge = (level) => {
-    const colors = {
-      'Champion': 'bg-purple-100 text-purple-800 border-purple-200',
-      'Leader': 'bg-green-100 text-green-800 border-green-200',
-      'Contributor': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Beginner': 'bg-gray-100 text-gray-800 border-gray-200'
-    };
-
-    return (
-      <span className={`inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-medium border ${colors[level] || colors.Beginner}`}>
-        <Star className="w-3 h-3 sm:w-4 sm:h-4" />
-        <span className="hidden sm:inline">{level} Level</span>
-        <span className="sm:hidden">{level}</span>
-      </span>
-    );
-  };
+  const data = impactData || emptyImpact;
+  const tier = tierForRank(data.rank?.short || data.impactLevel);
+  const categoryEntries = useMemo(
+    () =>
+      Object.entries(data.categories || {}).sort(
+        (a, b) => Number(b[1].carbonSaved || 0) - Number(a[1].carbonSaved || 0)
+      ),
+    [data.categories]
+  );
+  const materialEntries = useMemo(
+    () =>
+      Object.entries(data.materials || {}).sort(
+        (a, b) => Number(b[1].count || 0) - Number(a[1].count || 0)
+      ),
+    [data.materials]
+  );
+  const maxMonth = Math.max(1, ...(data.monthlyData || []).map((item) => item.carbonSaved || 0));
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8 sm:p-12">
-        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-green-500"></div>
+      <div className="flex items-center justify-center rounded-2xl border border-gray-100 bg-[#0b1220] p-12">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6">
-        <p className="text-red-800 text-center text-sm sm:text-base">{error}</p>
-      </div>
-    );
-  }
-
-  const MetricCard = ({ title, value, unit, icon: Icon, color, description, trend }) => (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-3 sm:mb-4">
-        <div className={`p-2 sm:p-3 rounded-lg ${color}`}>
-          <Icon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-        </div>
-        {trend && (
-          <div className="flex items-center text-green-600 text-xs sm:text-sm">
-            <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-            <span className="hidden sm:inline">+{trend}%</span>
-          </div>
-        )}
-      </div>
-      <div className="space-y-1">
-        <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
-          {value}
-          <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1">{unit}</span>
-        </p>
-        <p className="text-xs sm:text-sm font-medium text-gray-700">{title}</p>
-        <p className="text-xs text-gray-500 hidden sm:block">{description}</p>
-      </div>
-    </div>
-  );
-
-  // Modern Chart Component matching the user's design
-  const ModernChart = ({ data, title }) => {
-    if (!data || data.length === 0) {
-      return (
-        <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-          <div className="text-center py-8 sm:py-12">
-            <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
-            <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No Purchase Data</h4>
-            <p className="text-sm text-gray-600">Start making eco-friendly purchases to see your impact!</p>
-          </div>
-        </div>
-      );
-    }
-
-    const maxValue = Math.max(...data.map(d => d.carbonSaved));
-    
-    return (
-      <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900">{title}</h3>
-            <p className="text-xs sm:text-sm text-gray-500">Total sales: ₦{data.reduce((sum, d) => sum + (d.sales || 0), 0).toLocaleString()}</p>
-          </div>
-          <button className="flex items-center text-xs sm:text-sm text-blue-600 hover:text-blue-700">
-            View more
-            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
-          </button>
-        </div>
-
-        {/* Chart Legend */}
-        <div className="flex items-center gap-4 mb-4 text-xs sm:text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span className="text-gray-600">Carbon saved</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-gray-800 rounded-full"></div>
-            <span className="text-gray-600">Total purchases</span>
-          </div>
-        </div>
-
-        {/* Chart Bars */}
-        <div className="space-y-4 sm:space-y-6">
-          {data.map((item, index) => {
-            const carbonHeight = maxValue > 0 ? (item.carbonSaved / maxValue) * 100 : 0;
-            const purchaseHeight = maxValue > 0 ? (item.purchases / Math.max(...data.map(d => d.purchases))) * 100 : 0;
-            
-            return (
-              <div key={index} className="space-y-2">
-                <div className="flex justify-between items-end h-20 sm:h-24">
-                  <div className="flex items-end gap-1 sm:gap-2 h-full">
-                    {/* Carbon Saved Bar */}
-                    <div className="w-6 sm:w-8 bg-gray-100 rounded-t flex items-end">
-                      <div 
-                        className="w-full bg-blue-500 rounded-t transition-all duration-700"
-                        style={{ height: `${carbonHeight}%` }}
-                      ></div>
-                    </div>
-                    {/* Total Purchases Bar */}
-                    <div className="w-6 sm:w-8 bg-gray-100 rounded-t flex items-end">
-                      <div 
-                        className="w-full bg-gray-800 rounded-t transition-all duration-700"
-                        style={{ height: `${purchaseHeight}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs sm:text-sm font-semibold text-gray-900">
-                      {item.carbonSaved.toFixed(1)}kg
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {item.purchases} purchases
-                    </div>
-                  </div>
-                </div>
-                <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
-                  {item.month}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Chart Scale */}
-        <div className="mt-4 sm:mt-6 border-t border-gray-100 pt-3 sm:pt-4">
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>₦0</span>
-            <span>₦{Math.round(maxValue / 2)}k</span>
-            <span>₦{Math.round(maxValue)}k</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const ChartBar = ({ label, value, maxValue, color = 'bg-green-500' }) => (
-    <div className="space-y-2">
-      <div className="flex justify-between text-xs sm:text-sm">
-        <span className="text-gray-700 font-medium truncate mr-2">{label}</span>
-        <span className="text-gray-900 font-semibold flex-shrink-0">{value}</span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3">
-        <div 
-          className={`h-2 sm:h-3 rounded-full ${color} transition-all duration-500`}
-          style={{ width: `${maxValue > 0 ? (parseFloat(value) / maxValue) * 100 : 0}%` }}
-        ></div>
-      </div>
-    </div>
-  );
-
-  const AchievementCard = ({ achievement }) => (
-    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-3 sm:p-4">
-      <div className="flex items-center gap-3">
-        <div className="text-xs sm:text-sm md:text-base">{achievement.icon}</div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{achievement.title}</h4>
-          <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{achievement.description}</p>
-        </div>
-        <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-500 flex-shrink-0" />
-      </div>
-    </div>
-  );
-
-  const RecommendationCard = ({ recommendation }) => (
-    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 hover:bg-blue-100 transition-colors cursor-pointer">
-      <div className="flex items-start gap-3">
-        <div className="text-lg sm:text-xl">{recommendation.icon}</div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-blue-900 text-sm sm:text-base">{recommendation.title}</h4>
-          <p className="text-xs sm:text-sm text-blue-700 mb-2 line-clamp-2">{recommendation.description}</p>
-          {recommendation.target && (
-            <div className="w-full bg-blue-200 rounded-full h-1.5 sm:h-2">
-              <div 
-                className="h-1.5 sm:h-2 bg-blue-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min((recommendation.current / recommendation.target) * 100, 100)}%` }}
-              ></div>
-            </div>
-          )}
-        </div>
-        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
-      </div>
-    </div>
-  );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
-              <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900">Environmental Impact</h1>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">Track your contribution to a sustainable planet</p>
+    <div className="space-y-5">
+      {/* Command header */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_left,#1a3a2a_0%,#0b1220_45%,#12081c_100%)] p-5 text-white shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:p-7"
+      >
+        <motion.div
+          className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-emerald-400/20 blur-3xl"
+          animate={{ opacity: [0.2, 0.45, 0.2], scale: [1, 1.15, 1] }}
+          transition={{ duration: 5, repeat: Infinity }}
+        />
+        <motion.div
+          className="pointer-events-none absolute -bottom-16 left-10 h-48 w-48 rounded-full bg-fuchsia-500/20 blur-3xl"
+          animate={{ opacity: [0.15, 0.35, 0.15] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        />
+
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-5">
+            <EcoRankBadge rank={data.rank} level={data.level} size="lg" showLabel={false} />
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.35em] text-emerald-200/80">
+                Environmental Ops
+              </p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight md:text-3xl">
+                {data.rank?.title || 'Eco Recruit'}
+              </h2>
+              <p className="mt-1 text-sm text-white/65">
+                Level {data.level}
+                {data.nextRank ? ` · Next rank ${data.nextRank.title}` : ' · Max rank unlocked'}
+              </p>
+              <div className="mt-4 w-full max-w-md">
+                <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-wider text-white/60">
+                  <span>XP {data.xpIntoLevel}/{data.xpForNextLevel}</span>
+                  <span>{Math.round(data.xpProgress)}%</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-amber-300"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${data.xpProgress}%` }}
+                    transition={{ duration: 1.1, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 sm:ml-auto">
-            {getImpactLevelBadge(impactData?.impactLevel)}
-          </div>
-        </div>
-      </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <MetricCard
-          title="Carbon Saved"
-          value={impactData?.totalCarbonSaved || 0}
-          unit="kg CO₂e"
-          icon={Leaf}
-          color="bg-green-500"
-          description="vs conventional products"
-          trend={12}
-        />
-        <MetricCard
-          title="Trees Equivalent"
-          value={impactData?.impactMetrics?.treesPlanted || 0}
-          unit="trees/year"
-          icon={TreePine}
-          color="bg-emerald-500"
-          description="to offset your impact"
-        />
-        <MetricCard
-          title="Car Rides Saved"
-          value={impactData?.impactMetrics?.carRidesSaved || 0}
-          unit="km"
-          icon={Car}
-          color="bg-blue-500"
-          description="equivalent emissions"
-        />
-        <MetricCard
-          title="Eco-Friendly Rate"
-          value={impactData?.ecoFriendlyPercentage || 0}
-          unit="%"
-          icon={Recycle}
-          color="bg-purple-500"
-          description="of your purchases"
-        />
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="border-b border-gray-200 overflow-x-auto">
-          <nav className="flex">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[420px]">
             {[
-              { id: 'overview', label: 'Overview', icon: BarChart3 },
-              { id: 'achievements', label: 'Achievements', icon: Award },
-              { id: 'recommendations', label: 'Tips', icon: Target }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
+              { label: 'CO₂ saved', value: `${data.totalCarbonSaved}`, unit: 'kg', icon: Leaf },
+              {
+                label: 'Trees eq.',
+                value: `${data.impactMetrics?.treesPlanted || 0}`,
+                unit: '',
+                icon: TreePine,
+              },
+              {
+                label: 'Car km',
+                value: `${data.impactMetrics?.carRidesSaved || 0}`,
+                unit: 'km',
+                icon: Car,
+              },
+              {
+                label: 'Purchases',
+                value: `${data.purchaseCount || 0}`,
+                unit: '',
+                icon: Recycle,
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur"
               >
-                <tab.icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                {tab.label}
-              </button>
+                <stat.icon className="mb-2 h-4 w-4 text-emerald-300" />
+                <p className="text-lg font-bold">
+                  {stat.value}
+                  {stat.unit ? <span className="ml-1 text-xs font-normal text-white/50">{stat.unit}</span> : null}
+                </p>
+                <p className="text-[11px] uppercase tracking-wider text-white/50">{stat.label}</p>
+              </div>
             ))}
-          </nav>
+          </div>
         </div>
 
-        <div className="p-4 sm:p-6">
-          {activeTab === 'overview' && (
-            <div className="space-y-6 sm:space-y-8">
-              {/* Monthly Progress Chart */}
-              <ModernChart 
-                data={impactData?.monthlyData || []} 
-                title="Monthly Carbon Savings"
-              />
+        {error && (
+          <p className="relative z-10 mt-4 text-xs text-amber-200">
+            Live sync issue: {error}. Showing best available impact data.
+          </p>
+        )}
+      </motion.section>
 
-              {/* Category Breakdown */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-                <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <PieChart className="w-4 h-4 sm:w-5 sm:h-5" />
-                    Impact by Category
-                  </h3>
-                  <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-                    <div className="space-y-3 sm:space-y-4">
-                      {Object.entries(impactData?.categories || {}).length > 0 ? 
-                        Object.entries(impactData.categories).map(([category, data]) => (
-                          <ChartBar
-                            key={category}
-                            label={category}
-                            value={data.carbonSaved.toFixed(1)}
-                            maxValue={Math.max(...Object.values(impactData?.categories || {}).map(c => c.carbonSaved))}
-                            color="bg-gradient-to-r from-green-400 to-green-600"
-                          />
-                        )) : (
-                          <div className="text-center py-8">
-                            <p className="text-sm text-gray-500">No category data available</p>
-                          </div>
-                        )
-                      }
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-                    Material Impact
-                  </h3>
-                  <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-                    <div className="space-y-3 sm:space-y-4">
-                      {Object.entries(impactData?.materialImpact || {}).length > 0 ?
-                        Object.entries(impactData.materialImpact).map(([material, data]) => (
-                          <ChartBar
-                            key={material}
-                            label={material}
-                            value={data.count}
-                            maxValue={Math.max(...Object.values(impactData?.materialImpact || {}).map(m => m.count))}
-                            color="bg-gradient-to-r from-blue-400 to-blue-600"
-                          />
-                        )) : (
-                          <div className="text-center py-8">
-                            <p className="text-sm text-gray-500">No material data available</p>
-                          </div>
-                        )
-                      }
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Impact Comparison */}
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 sm:p-6 border border-green-200">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Info className="w-4 h-4 sm:w-5 sm:h-5" />
-                  Your Environmental Impact
-                </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                  <div className="text-center">
-                    <div className="text-xs sm:text-sm md:text-base mb-2">🌳</div>
-                    <div className="text-sm sm:text-lg font-semibold text-green-600">{impactData?.impactMetrics?.treesPlanted}</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Trees planted equivalent</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs sm:text-sm md:text-base mb-2">🚗</div>
-                    <div className="text-sm sm:text-lg font-semibold text-blue-600">{impactData?.impactMetrics?.carRidesSaved} km</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Car rides avoided</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs sm:text-sm md:text-base mb-2">♻️</div>
-                    <div className="text-sm sm:text-lg font-semibold text-purple-600">{impactData?.impactMetrics?.plasticReduced} kg</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Plastic reduced</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs sm:text-sm md:text-base mb-2">🗑️</div>
-                    <div className="text-sm sm:text-lg font-semibold text-orange-600">{impactData?.impactMetrics?.wasteAverted} kg</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Waste averted</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'achievements' && (
-            <div className="space-y-4 sm:space-y-6">
-              <div className="text-center py-4">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Your Environmental Achievements</h3>
-                <p className="text-sm sm:text-base text-gray-600">Celebrate your positive impact on the planet!</p>
-              </div>
-              
-              {impactData?.achievements?.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  {impactData.achievements.map((achievement) => (
-                    <AchievementCard key={achievement.id} achievement={achievement} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 sm:py-12">
-                  <Award className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
-                  <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No achievements yet</h4>
-                  <p className="text-sm sm:text-base text-gray-600">Make your first eco-friendly purchase to unlock achievements!</p>
-                </div>
-              )}
-
-              {/* Progress towards next achievements */}
-              <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-                <h4 className="font-semibold text-gray-900 mb-4 text-sm sm:text-base">Next Achievements</h4>
-                <div className="space-y-3 sm:space-y-4">
-                  {impactData?.totalCarbonSaved < 5 && (
-                    <div className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                      <div className="text-lg sm:text-xl">💚</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-sm sm:text-base">Carbon Saver</p>
-                        <p className="text-xs sm:text-sm text-gray-600">Save 5kg of CO₂ emissions</p>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2 mt-2">
-                          <div 
-                            className="h-1.5 sm:h-2 bg-green-500 rounded-full"
-                            style={{ width: `${Math.min((impactData?.totalCarbonSaved / 5) * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <span className="text-xs sm:text-sm text-gray-500 flex-shrink-0">{Math.round((impactData?.totalCarbonSaved / 5) * 100)}%</span>
-                    </div>
-                  )}
-                  {impactData?.totalProducts < 10 && (
-                    <div className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                      <div className="text-lg sm:text-xl">🛍️</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-sm sm:text-base">Sustainable Shopper</p>
-                        <p className="text-xs sm:text-sm text-gray-600">Purchase 10 sustainable products</p>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2 mt-2">
-                          <div 
-                            className="h-1.5 sm:h-2 bg-blue-500 rounded-full"
-                            style={{ width: `${Math.min((impactData?.totalProducts / 10) * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <span className="text-xs sm:text-sm text-gray-500 flex-shrink-0">{Math.round((impactData?.totalProducts / 10) * 100)}%</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'recommendations' && (
-            <div className="space-y-4 sm:space-y-6">
-              <div className="text-center py-4">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Personalized Recommendations</h3>
-                <p className="text-sm sm:text-base text-gray-600">Ways to increase your positive environmental impact</p>
-              </div>
-
-              {impactData?.recommendations?.length > 0 ? (
-                <div className="space-y-3 sm:space-y-4">
-                  {impactData.recommendations.map((recommendation, index) => (
-                    <RecommendationCard key={index} recommendation={recommendation} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 sm:py-12">
-                  <Target className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
-                  <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-2">All caught up!</h4>
-                  <p className="text-sm sm:text-base text-gray-600">You're doing great! Keep making sustainable choices.</p>
-                </div>
-              )}
-
-              {/* Tips Section */}
-              <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-xl p-4 sm:p-6 border border-blue-200">
-                <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 text-sm sm:text-base">
-                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-                  Sustainability Tips
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-lg sm:text-xl">🌱</div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">Choose Recycled Materials</p>
-                      <p className="text-xs sm:text-sm text-gray-600">Products made from recycled materials have 60% lower carbon footprint</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-lg sm:text-xl">📦</div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">Minimal Packaging</p>
-                      <p className="text-xs sm:text-sm text-gray-600">Look for products with biodegradable or minimal packaging</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-lg sm:text-xl">🚚</div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">Local Products</p>
-                      <p className="text-xs sm:text-sm text-gray-600">Products from nearby reduce shipping emissions significantly</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-lg sm:text-xl">💡</div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm sm:text-base">Energy-Efficient Production</p>
-                      <p className="text-xs sm:text-sm text-gray-600">Products made with renewable energy have 80% lower impact</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { id: 'command', label: 'Command', icon: Shield },
+          { id: 'armory', label: 'Badge Armory', icon: Trophy },
+          { id: 'intel', label: 'Intel', icon: Target },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab.id
+                ? 'bg-gray-900 text-white shadow'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
+        ))}
       </div>
+
+      <AnimatePresence mode="wait">
+        {activeTab === 'command' && (
+          <motion.div
+            key="command"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]"
+          >
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Mission board</h3>
+                    <p className="text-sm text-gray-500">
+                      {data.purchaseCount
+                        ? 'Your eco ops are live'
+                        : 'No buys yet — badges stay locked until first drop'}
+                    </p>
+                  </div>
+                  <Sparkles className="h-5 w-5 text-amber-500" />
+                </div>
+
+                {(data.monthlyData || []).length ? (
+                  <div className="space-y-4">
+                    {data.monthlyData.map((item) => (
+                      <div key={item.month}>
+                        <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+                          <span>{item.month}</span>
+                          <span>
+                            {item.carbonSaved} kg · {item.purchases} buys
+                          </span>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                          <motion.div
+                            className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-lime-400 to-cyan-400"
+                            initial={{ width: 0 }}
+                            animate={{
+                              width: `${Math.max(8, (item.carbonSaved / maxMonth) * 100)}%`,
+                            }}
+                            transition={{ duration: 0.8 }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
+                    <p className="text-sm font-medium text-gray-800">Waiting on first purchase</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Buy sustainable products and this board lights up with XP and ranks.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                <h3 className="mb-3 text-base font-semibold text-gray-900">Recent ops</h3>
+                {(data.recentOrders || []).length ? (
+                  <div className="space-y-3">
+                    {data.recentOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-gray-900">{order.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-emerald-600">
+                          +{order.carbonSaved} kg
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">No completed eco purchases yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-950 via-gray-900 to-emerald-950 p-5 text-white shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-amber-300" />
+                  <h3 className="text-base font-semibold">Featured medals</h3>
+                </div>
+                <div className="space-y-3">
+                  {(data.badges || [])
+                    .slice()
+                    .sort((a, b) => Number(b.unlocked) - Number(a.unlocked))
+                    .slice(0, 4)
+                    .map((badge) => (
+                      <BadgeMedallion key={badge.id} badge={badge} compact />
+                    ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('armory')}
+                  className="mt-4 inline-flex items-center gap-1 text-sm text-emerald-200 hover:text-white"
+                >
+                  Open full armory <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {
+                    label: 'Plastic reduced',
+                    value: `${data.impactMetrics?.plasticReduced || 0} kg`,
+                  },
+                  {
+                    label: 'Waste averted',
+                    value: `${data.impactMetrics?.wasteAverted || 0} kg`,
+                  },
+                  {
+                    label: 'Eco rate',
+                    value: `${data.ecoFriendlyPercentage || 0}%`,
+                  },
+                  {
+                    label: 'Unlocked',
+                    value: `${(data.unlockedBadges || []).length}/${(data.badges || []).length || 0}`,
+                  },
+                ].map((card) => (
+                  <div
+                    key={card.label}
+                    className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                  >
+                    <p className="text-lg font-bold text-gray-900">{card.value}</p>
+                    <p className="text-xs uppercase tracking-wider text-gray-500">{card.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'armory' && (
+          <motion.div
+            key="armory"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="rounded-2xl border border-gray-100 bg-[#090d16] p-5 shadow-sm"
+          >
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Badge Armory</h3>
+                <p className="text-sm text-white/60">
+                  Bronze to legendary — unlock by shopping sustainable and ranking up
+                </p>
+              </div>
+              <p className="text-sm text-emerald-300">
+                {(data.unlockedBadges || []).length} unlocked · tier look {tier}
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {(data.badges || []).map((badge, index) => (
+                <motion.div
+                  key={badge.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.04 }}
+                >
+                  <BadgeMedallion badge={badge} />
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'intel' && (
+          <motion.div
+            key="intel"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="grid gap-5 lg:grid-cols-2"
+          >
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <h3 className="mb-4 text-base font-semibold text-gray-900">Impact by category</h3>
+              {categoryEntries.length ? (
+                <div className="space-y-3">
+                  {categoryEntries.map(([label, value]) => {
+                    const max = Math.max(...categoryEntries.map((entry) => entry[1].carbonSaved));
+                    return (
+                      <div key={label}>
+                        <div className="mb-1 flex justify-between text-sm">
+                          <span className="font-medium text-gray-800">{label}</span>
+                          <span className="text-gray-500">
+                            {Number(value.carbonSaved).toFixed(1)} kg · {value.count}
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100">
+                          <div
+                            className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400"
+                            style={{
+                              width: `${Math.max(6, (value.carbonSaved / max) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No category data available yet.</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <h3 className="mb-4 text-base font-semibold text-gray-900">Material impact</h3>
+              {materialEntries.length ? (
+                <div className="space-y-3">
+                  {materialEntries.map(([label, value]) => {
+                    const max = Math.max(...materialEntries.map((entry) => entry[1].count));
+                    return (
+                      <div key={label}>
+                        <div className="mb-1 flex justify-between text-sm">
+                          <span className="font-medium capitalize text-gray-800">{label}</span>
+                          <span className="text-gray-500">
+                            {value.count} items · {Number(value.carbonSaved).toFixed(1)} kg
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100">
+                          <div
+                            className="h-2 rounded-full bg-gradient-to-r from-amber-400 to-rose-400"
+                            style={{
+                              width: `${Math.max(6, (value.count / max) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No material data available yet.</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {!compactHeader && (
+        <p className="text-center text-xs text-gray-400">
+          XP and ranks update from real orders and product carbon savings.
+        </p>
+      )}
     </div>
   );
-} 
+}

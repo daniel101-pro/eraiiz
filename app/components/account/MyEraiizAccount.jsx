@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 import { User, Mail, Phone, MapPin, Calendar, Globe, Building, Edit3, Save, X, Check, AlertCircle, CreditCard, BarChart3 } from 'lucide-react';
 import EnvironmentalImpact from './EnvironmentalImpact';
+import EcoRankBadge from './EcoRankBadge';
 import { formatDateOfBirthDisplay, profileFromUser } from '@/lib/accountProfile';
 
 export default function MyEraiizAccount({ user, setUser }) {
@@ -11,6 +12,7 @@ export default function MyEraiizAccount({ user, setUser }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [formData, setFormData] = useState(() => profileFromUser(user));
+  const [ecoImpact, setEcoImpact] = useState(null);
   const [stats, setStats] = useState({
     purchases: user?.eraizStats?.numberOfPurchases || 0,
     spent: user?.eraizStats?.totalAmountSpent || 0,
@@ -60,6 +62,20 @@ export default function MyEraiizAccount({ user, setUser }) {
       }
     };
     loadStats();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('eraiiz_eco_impact') || 'null');
+      if (cached) setEcoImpact(cached);
+    } catch {
+      // ignore
+    }
+    const onImpact = (event) => {
+      if (event?.detail) setEcoImpact(event.detail);
+    };
+    window.addEventListener('eraiiz:eco-impact-updated', onImpact);
+    return () => window.removeEventListener('eraiiz:eco-impact-updated', onImpact);
   }, []);
 
   const handleChange = (e) => {
@@ -188,7 +204,15 @@ export default function MyEraiizAccount({ user, setUser }) {
             <h1 className="text-sm md:text-base font-semibold text-gray-900">Account Overview</h1>
             <p className="text-xs md:text-sm text-gray-500 mt-1">Manage your personal information and preferences</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {ecoImpact?.rank ? (
+              <EcoRankBadge
+                rank={ecoImpact.rank}
+                level={ecoImpact.level || 1}
+                size="sm"
+                showLabel
+              />
+            ) : null}
             {getRoleBadge(user?.role)}
           </div>
         </div>
