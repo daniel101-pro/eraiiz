@@ -10,7 +10,7 @@ import Image from 'next/image';
 import axios from 'axios';
 import debounce from 'lodash/debounce';
 import { boostProductsByPlan } from '@/lib/boostProducts';
-import { fetchNotificationFeed, addLocalInboxItem, buyerOrderNotice } from '../utils/notificationFeed';
+import { fetchNotificationFeed } from '../utils/notificationFeed';
 import { homePathForRole } from '@/lib/authRouting';
 
 // Icons from lucide-react
@@ -300,23 +300,10 @@ export default function DualNavbarSell({ handleLogout }) {
     }
   };
 
-  // Fetch notification count
+  // Fetch notification count — never invent "order confirmed" from unpaid checkout drafts.
   useEffect(() => {
-    try {
-      const lastOrder = JSON.parse(sessionStorage.getItem('eraiiz_last_order') || 'null');
-      if (lastOrder?.reference) {
-        addLocalInboxItem(buyerOrderNotice({
-          reference: lastOrder.reference,
-          items: lastOrder.items || [],
-        }));
-      }
-    } catch {
-      // ignore
-    }
-
     fetchNotifications();
 
-    // Poll for updates every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     window.addEventListener('eraiiz-inbox-updated', fetchNotifications);
     window.addEventListener('storage', fetchNotifications);

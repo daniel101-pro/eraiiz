@@ -10,11 +10,9 @@ import { useCurrency } from '../../context/CurrencyContext';
 import {
   initializeCheckout,
   openPaystackCheckout,
-  verifyCheckout,
 } from '../../services/paymentService';
 import { showError } from '../../utils/toast';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
-import { buyerOrderNotice, persistInboxItem } from '../../utils/notificationFeed';
 import { saveLastOrder } from '../../utils/lastOrder';
 
 export default function PaymentPage() {
@@ -80,12 +78,14 @@ export default function PaymentPage() {
 
       setPaymentInit(initialized);
       sessionStorage.setItem('eraiiz_last_checkout_items', JSON.stringify(payloadItems));
+      // Draft only — confirmation/notifications wait for verified payment on success page.
       saveLastOrder({
         billing,
         items: payloadItems,
         reference: initialized.reference,
         amount: initialized.amount,
         provider: initialized.provider || 'paystack',
+        paymentStatus: 'pending',
       });
 
       if (initialized.provider === 'stripe') {
@@ -111,18 +111,20 @@ export default function PaymentPage() {
             reference: orderReference,
             amount: initialized.amount,
             provider: 'paystack',
+            paymentStatus: 'pending',
           });
-          persistInboxItem(buyerOrderNotice({ reference: orderReference, items: payloadItems }));
-          router.replace(`/checkout/success?reference=${orderReference}&status=success`);
-          verifyCheckout({
-            reference: orderReference,
-            items: payloadItems,
-            billing,
-            provider: 'paystack',
-          }).catch(() => {});
+          router.replace(`/checkout/success?reference=${orderReference}&provider=paystack`);
         },
         onCancel: () => {
           setIsProcessing(false);
+          saveLastOrder({
+            billing,
+            items: payloadItems,
+            reference: initialized.reference,
+            amount: initialized.amount,
+            provider: 'paystack',
+            paymentStatus: 'cancelled',
+          });
           showError('Payment cancelled');
         },
       });

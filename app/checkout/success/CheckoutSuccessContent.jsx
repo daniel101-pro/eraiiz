@@ -37,59 +37,76 @@ export default function CheckoutSuccessContent() {
 
   useEffect(() => {
     if (handledRef.current) return;
+    handledRef.current = true;
 
-    const paymentReference =
-      searchParams.get('reference') ||
-      searchParams.get('trxref') ||
-      searchParams.get('ref');
-    const sessionId = searchParams.get('session_id');
-    const existing = readLastOrder();
-    const provider =
-      searchParams.get('provider') ||
-      (sessionId ? 'stripe' : '') ||
-      existing?.provider ||
-      'paystack';
-    const snapshotBilling = existing?.billing || billing;
-    const snapshotItems = existing?.items || [];
-    const reference = paymentReference || existing?.reference || '';
+    const run = async () => {
+      const paymentReference =
+        searchParams.get('reference') ||
+        searchParams.get('trxref') ||
+        searchParams.get('ref');
+      const sessionId = searchParams.get('session_id');
+      const existing = readLastOrder();
+      const provider =
+        searchParams.get('provider') ||
+        (sessionId ? 'stripe' : '') ||
+        existing?.provider ||
+        'paystack';
+      const snapshotBilling = existing?.billing || billing;
+      const snapshotItems = existing?.items || [];
+      const reference = paymentReference || existing?.reference || '';
 
-    const hasDetails =
-      snapshotItems.length > 0 ||
-      Boolean(snapshotBilling?.fullName || snapshotBilling?.address || snapshotBilling?.email);
+      // Must have a processor session/reference — never confirm from a draft alone.
+      if (!reference && !sessionId) {
+        setStatus('missing');
+        return;
+      }
 
-    if (!reference && !sessionId && !hasDetails) {
-      setStatus('missing');
-      return;
-    }
+      if (!snapshotItems.length || !snapshotBilling?.email) {
+        setStatus('missing');
+        return;
+      }
 
-    const nextOrder = {
-      reference,
-      amount: existing?.amount ?? null,
-      billing: snapshotBilling,
-      items: snapshotItems,
-      provider,
+      try {
+        const verified = await verifyCheckout({
+          reference,
+          items: snapshotItems,
+          billing: snapshotBilling,
+          sessionId,
+          provider,
+        });
+
+        const paidReference =
+          verified?.payment?.reference || reference || sessionId || '';
+
+        const nextOrder = {
+          reference: paidReference,
+          amount: verified?.payment?.amountNgn ?? existing?.amount ?? null,
+          billing: snapshotBilling,
+          items: snapshotItems,
+          provider,
+          paymentStatus: 'paid',
+        };
+
+        saveLastOrder(nextOrder);
+        await persistInboxItem(
+          buyerOrderNotice({ reference: nextOrder.reference, items: nextOrder.items })
+        );
+        setOrder(nextOrder);
+        setStatus('success');
+        clearCart();
+        clearCheckout();
+        sessionStorage.removeItem('eraiiz_last_checkout_items');
+      } catch (error) {
+        console.error('Payment verification failed', error);
+        // Keep draft as unpaid so navbar/inbox never treat it as confirmed.
+        if (existing?.reference) {
+          saveLastOrder({ ...existing, paymentStatus: 'failed' });
+        }
+        setStatus('failed');
+      }
     };
 
-    handledRef.current = true;
-    saveLastOrder(nextOrder);
-    persistInboxItem(buyerOrderNotice({ reference: nextOrder.reference, items: nextOrder.items }));
-    setOrder(nextOrder);
-    setStatus('success');
-    clearCart();
-    clearCheckout();
-    sessionStorage.removeItem('eraiiz_last_checkout_items');
-
-    if ((reference || sessionId) && snapshotItems.length && snapshotBilling?.email) {
-      verifyCheckout({
-        reference,
-        items: snapshotItems,
-        billing: snapshotBilling,
-        sessionId,
-        provider: nextOrder.provider,
-      }).catch(() => {
-        // Payment already returned from the processor; keep the confirmation on screen.
-      });
-    }
+    run();
   }, [billing, clearCart, clearCheckout, searchParams]);
 
   const formattedTotal = useMemo(() => {
@@ -213,7 +230,8 @@ export default function CheckoutSuccessContent() {
                           </div>
                           <p className="text-sm font-medium text-gray-800">
                             {formatPrice(
-                              convertPrice(getListingPrice(item), getProductCurrency(item)) * (item.quantity || 1)
+                              convertPrice(getListingPrice(item), getProductCurrency(item)) *
+                                (item.quantity || 1)
                             )}
                           </p>
                         </li>
@@ -243,7 +261,8 @@ export default function CheckoutSuccessContent() {
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center">
                 <h1 className="text-2xl font-semibold mb-2">Payment not confirmed</h1>
                 <p className="text-gray-600 mb-6">
-                  We couldn&apos;t confirm this payment yet. If you were charged, check Orders or try again.
+                  We couldn&apos;t confirm this payment yet. If you were charged, check Orders or try
+                  again.
                 </p>
                 <button
                   onClick={() => router.push('/checkout/payment')}

@@ -32,19 +32,22 @@ export function clearLocalInbox() {
 }
 
 export function buyerOrderNotice({ reference, items }) {
+  const ref = String(reference || '').trim();
+  if (!ref) return null;
+
   const names = (items || []).map((item) => item?.name).filter(Boolean);
   const summary =
     names.length === 1 ? names[0] : names.length > 1 ? `${names.length} items` : 'your order';
 
   return {
-    _id: `inbox_buyer_${reference}`,
+    _id: `inbox_buyer_${ref}`,
     type: 'order',
     title: 'Order confirmed',
     message: `Your order for ${summary} is confirmed. You can track it from Orders.`,
     read: false,
     createdAt: new Date().toISOString(),
     link: '/account?section=Orders',
-    data: { paymentReference: reference, itemCount: (items || []).length },
+    data: { paymentReference: ref, itemCount: (items || []).length, paid: true },
   };
 }
 
@@ -89,9 +92,10 @@ export async function fetchNotificationFeed() {
 }
 
 export async function persistInboxItem(item) {
+  if (!item?._id || !item?.message) return;
   addLocalInboxItem(item);
   const token = localStorage.getItem('accessToken');
-  if (!token || !item?._id) return;
+  if (!token) return;
   try {
     await fetch('/api/inbox', {
       method: 'POST',
