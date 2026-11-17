@@ -127,7 +127,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                 Environmental Ops
               </p>
               <h2 className="mt-1 text-2xl font-black tracking-tight md:text-3xl">
-                {data.rank?.title || 'Eco Recruit'}
+                {data.rank?.title || 'Seed'}
               </h2>
               <p className="mt-1 text-sm text-white/65">
                 Level {data.level}

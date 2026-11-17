@@ -37,11 +37,11 @@ const TIER_STYLES = {
 
 export function tierForRank(short) {
   const value = String(short || '').toLowerCase();
-  if (value.includes('eternal') || value.includes('mythic')) return 'legendary';
-  if (value.includes('legend')) return 'diamond';
-  if (value.includes('elite')) return 'platinum';
-  if (value.includes('vanguard') || value.includes('specialist')) return 'gold';
-  if (value.includes('operator')) return 'silver';
+  if (value.includes('terra') || value.includes('biosphere')) return 'legendary';
+  if (value.includes('watershed')) return 'diamond';
+  if (value.includes('canopy')) return 'platinum';
+  if (value.includes('grove') || value.includes('bloom')) return 'gold';
+  if (value.includes('sprout')) return 'silver';
   return 'bronze';
 }
 
@@ -94,7 +94,7 @@ export default function EcoRankBadge({
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Rank</p>
           <p className="text-sm font-semibold text-gray-900 truncate">
-            {rank?.title || 'Eco Recruit'}
+            {rank?.title || 'Seed'}
           </p>
           <p className="text-xs text-gray-500">Level {level}</p>
         </div>

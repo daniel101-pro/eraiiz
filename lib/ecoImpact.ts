@@ -61,14 +61,14 @@ export type EcoImpactSummary = {
 };
 
 export const ECO_RANKS: EcoRank[] = [
-  { id: 'recruit', title: 'Eco Recruit', short: 'Recruit', minLevel: 1, color: '#8B7355', glow: 'rgba(139,115,85,0.45)' },
-  { id: 'operator', title: 'Green Operator', short: 'Operator', minLevel: 5, color: '#6B8E23', glow: 'rgba(107,142,35,0.45)' },
-  { id: 'specialist', title: 'Impact Specialist', short: 'Specialist', minLevel: 10, color: '#2E8B57', glow: 'rgba(46,139,87,0.5)' },
-  { id: 'vanguard', title: 'Climate Vanguard', short: 'Vanguard', minLevel: 15, color: '#1F6FEB', glow: 'rgba(31,111,235,0.55)' },
-  { id: 'elite', title: 'Planet Elite', short: 'Elite', minLevel: 20, color: '#7C3AED', glow: 'rgba(124,58,237,0.55)' },
-  { id: 'legend', title: 'Earth Legend', short: 'Legend', minLevel: 30, color: '#D97706', glow: 'rgba(217,119,6,0.6)' },
-  { id: 'mythic', title: 'Mythic Steward', short: 'Mythic', minLevel: 40, color: '#EC4899', glow: 'rgba(236,72,153,0.65)' },
-  { id: 'eternal', title: 'Eternal Guardian', short: 'Eternal', minLevel: 50, color: '#F8FAFC', glow: 'rgba(250,250,250,0.75)' },
+  { id: 'seed', title: 'Seed', short: 'Seed', minLevel: 1, color: '#8B7355', glow: 'rgba(139,115,85,0.45)' },
+  { id: 'sprout', title: 'Sprout', short: 'Sprout', minLevel: 5, color: '#6B8E23', glow: 'rgba(107,142,35,0.45)' },
+  { id: 'bloom', title: 'Bloom', short: 'Bloom', minLevel: 10, color: '#2E8B57', glow: 'rgba(46,139,87,0.5)' },
+  { id: 'grove', title: 'Grove', short: 'Grove', minLevel: 15, color: '#1F6FEB', glow: 'rgba(31,111,235,0.55)' },
+  { id: 'canopy', title: 'Canopy', short: 'Canopy', minLevel: 20, color: '#7C3AED', glow: 'rgba(124,58,237,0.55)' },
+  { id: 'watershed', title: 'Watershed', short: 'Watershed', minLevel: 30, color: '#D97706', glow: 'rgba(217,119,6,0.6)' },
+  { id: 'biosphere', title: 'Biosphere', short: 'Biosphere', minLevel: 40, color: '#EC4899', glow: 'rgba(236,72,153,0.65)' },
+  { id: 'terra', title: 'Terra', short: 'Terra', minLevel: 50, color: '#F8FAFC', glow: 'rgba(250,250,250,0.75)' },
 ];
 
 const XP_PER_LEVEL = 250;
@@ -267,8 +267,8 @@ export function buildBadges(stats: {
       current: stats.carbonSaved,
     },
     {
-      id: 'level_legend',
-      name: 'Ranked Legend',
+      id: 'watershed_rank',
+      name: 'Watershed',
       description: 'Reach level 30',
       icon: '👑',
       tier: 'legendary',
@@ -285,8 +285,8 @@ export function buildBadges(stats: {
       current: stats.carbonSaved,
     },
     {
-      id: 'eternal_operator',
-      name: 'Eternal Operator',
+      id: 'terra_rank',
+      name: 'Terra',
       description: 'Reach level 50',
       icon: '🌌',
       tier: 'legendary',
