@@ -307,6 +307,7 @@ const ProductUploadForm = () => {
 
   // Sustainability handlers
   const addMaterial = () => {
+    setCarbonFootprint(null);
     setProduct((prev) => ({
       ...prev,
       sustainability: {
@@ -317,6 +318,7 @@ const ProductUploadForm = () => {
   };
 
   const removeMaterial = (index) => {
+    setCarbonFootprint(null);
     setProduct((prev) => ({
       ...prev,
       sustainability: {
@@ -327,6 +329,7 @@ const ProductUploadForm = () => {
   };
 
   const updateMaterial = (index, field, value) => {
+    setCarbonFootprint(null);
     setProduct((prev) => ({
       ...prev,
       sustainability: {
@@ -339,6 +342,7 @@ const ProductUploadForm = () => {
   };
 
   const updateSustainability = (field, value) => {
+    setCarbonFootprint(null);
     setProduct((prev) => ({
       ...prev,
       sustainability: {
@@ -349,6 +353,7 @@ const ProductUploadForm = () => {
   };
 
   const updateShipping = (field, value) => {
+    setCarbonFootprint(null);
     setProduct((prev) => ({
       ...prev,
       sustainability: {
@@ -362,6 +367,7 @@ const ProductUploadForm = () => {
   };
 
   const updateShippingLocation = (type, field, value) => {
+    setCarbonFootprint(null);
     setProduct((prev) => ({
       ...prev,
       sustainability: {
@@ -378,53 +384,46 @@ const ProductUploadForm = () => {
   };
 
   const calculateCarbonFootprint = async () => {
-    // Validate required sustainability data before sending
     if (!product.sustainability.materials || product.sustainability.materials.length === 0) {
       showError('Please add at least one material before calculating carbon footprint');
       return;
     }
-    
+
     if (!product.sustainability.weight || product.sustainability.weight.value <= 0) {
       showError('Please enter a valid product weight before calculating carbon footprint');
       return;
     }
 
+    const materialPercent = product.sustainability.materials.reduce(
+      (sum, material) => sum + (Number(material.percentage) || 0),
+      0
+    );
+    if (Math.abs(materialPercent - 100) > 1) {
+      showError('Material percentages must add up to 100%');
+      return;
+    }
+
     setIsCalculating(true);
     try {
-      const token = await getValidAccessToken();
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/carbon-footprint/calculate`,
+        '/api/carbon-footprint/calculate',
         { sustainabilityData: product.sustainability },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 30000,
-        }
+        { timeout: 15000 }
       );
-      
-      console.log('Carbon footprint API response:', response.data);
-      
+
       if (response.data && response.data.success) {
-        console.log('Carbon footprint data:', response.data.data.carbonFootprint);
         setCarbonFootprint(response.data.data.carbonFootprint);
         showProductToast('Carbon footprint calculated successfully!', 'success');
       } else {
-        console.error('Carbon footprint calculation failed:', response.data);
-        throw new Error(response.data?.error || 'Calculation failed');
+        throw new Error(response.data?.message || response.data?.error || 'Calculation failed');
       }
     } catch (error) {
       console.error('Error calculating carbon footprint:', error);
-      
-      if (error.response?.status === 404) {
-        showError('Carbon footprint service is not available. Please try again later.');
-      } else if (error.response?.status === 400) {
-        showError(error.response?.data?.message || 'Invalid sustainability data provided');
-      } else if (error.response?.status === 500) {
-        showError('Server error while calculating carbon footprint. Please try again.');
-      } else if (error.code === 'ECONNABORTED') {
-        showError('Request timed out. Please check your connection and try again.');
-      } else {
-        showError(error.message || 'Failed to calculate carbon footprint. Please check your data and try again.');
-      }
+      showError(
+        error.response?.data?.message ||
+          error.message ||
+          'Failed to calculate carbon footprint. Please check your data and try again.'
+      );
     } finally {
       setIsCalculating(false);
     }

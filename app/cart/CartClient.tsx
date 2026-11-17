@@ -12,6 +12,7 @@ import { showCartToast } from '../utils/toast';
 import { CartItem } from './types';
 import CarbonFootprintDisplay from '../components/CarbonFootprintDisplay';
 import { getProductCurrency } from '@/lib/productCurrency';
+import { carKmFromKg, treesFromKg } from '@/lib/carbonFootprint';
 
 const BackButton = () => {
     return (
@@ -102,6 +103,8 @@ export default function CartClient() {
     const formattedCartTotal = formatPrice(getCartTotal?.() || 0);
     const totalCarbonFootprint = getTotalCarbonFootprint();
     const hasCarbonFootprintData = displayCartItems.some(item => item.carbonFootprint);
+    const carKmEquivalent = carKmFromKg(totalCarbonFootprint);
+    const treesEquivalent = treesFromKg(totalCarbonFootprint);
 
     const handleLogout = () => {
         clearCart?.();
@@ -404,13 +407,13 @@ export default function CartClient() {
                                         <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                                             <span className="text-gray-600">Car Ride Equivalent</span>
                                             <span className="text-gray-900 font-medium">
-                                                {(totalCarbonFootprint * 4).toFixed(1)} km
+                                                {carKmEquivalent.toFixed(1)} km
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                                             <span className="text-gray-600">Trees to Offset</span>
                                             <span className="text-gray-900 font-medium">
-                                                {(totalCarbonFootprint * 0.05).toFixed(1)} trees
+                                                {treesEquivalent.toFixed(1)} trees
                                             </span>
                                         </div>
                                     </div>
