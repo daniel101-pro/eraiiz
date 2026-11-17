@@ -94,7 +94,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center border border-gray-200 bg-white p-12">
+      <div className="flex items-center justify-center rounded-2xl border border-gray-200 bg-white p-12">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-green-950 border-t-transparent" />
       </div>
     );
@@ -105,7 +105,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="border border-gray-200 bg-white p-5 md:p-7"
+        className="rounded-2xl border border-gray-200 bg-white p-5 md:p-7"
       >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-5">
@@ -126,9 +126,9 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                   </span>
                   <span>{Math.round(data.xpProgress)}%</span>
                 </div>
-                <div className="h-2.5 overflow-hidden bg-gray-100">
+                <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
                   <motion.div
-                    className="h-full bg-green-950"
+                    className="h-full rounded-full bg-green-950"
                     initial={{ width: 0 }}
                     animate={{ width: `${data.xpProgress}%` }}
                     transition={{ duration: 1.1, ease: 'easeOut' }}
@@ -160,7 +160,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                 icon: Recycle,
               },
             ].map((stat) => (
-              <div key={stat.label} className="border border-gray-200 bg-white p-3">
+              <div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-3">
                 <stat.icon className="mb-2 h-4 w-4 text-green-800" />
                 <p className="text-lg font-bold text-green-950">
                   {stat.value}
@@ -191,7 +191,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`inline-flex items-center gap-2 border px-4 py-2 text-sm font-medium transition ${
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
               activeTab === tab.id
                 ? 'border-green-900 bg-green-950 text-white'
                 : 'border-gray-200 bg-white text-green-950 hover:border-green-900'
@@ -213,7 +213,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
             className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]"
           >
             <div className="space-y-5">
-              <div className="border border-gray-200 bg-white p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold text-green-950">Progress</h3>
@@ -236,9 +236,9 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                             {item.carbonSaved} kg · {item.purchases} buys
                           </span>
                         </div>
-                        <div className="h-3 overflow-hidden bg-gray-100">
+                        <div className="h-3 overflow-hidden rounded-full bg-gray-100">
                           <motion.div
-                            className="h-full bg-green-950"
+                            className="h-full rounded-full bg-green-950"
                             initial={{ width: 0 }}
                             animate={{
                               width: `${Math.max(8, (item.carbonSaved / maxMonth) * 100)}%`,
@@ -250,7 +250,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                     ))}
                   </div>
                 ) : (
-                  <div className="border border-dashed border-gray-300 bg-white p-8 text-center">
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
                     <p className="text-sm font-medium text-green-950">Waiting on first purchase</p>
                     <p className="mt-1 text-xs text-gray-500">
                       Buy sustainable products to start tracking XP and ranks.
@@ -259,14 +259,14 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                 )}
               </div>
 
-              <div className="border border-gray-200 bg-white p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5">
                 <h3 className="mb-3 text-base font-semibold text-green-950">Recent purchases</h3>
                 {(data.recentOrders || []).length ? (
                   <div className="space-y-3">
                     {data.recentOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between border border-gray-200 px-3 py-2"
+                        className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-green-950">{order.name}</p>
@@ -287,7 +287,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
             </div>
 
             <div className="space-y-5">
-              <div className="border border-gray-200 bg-white p-5">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-green-800" />
                   <h3 className="text-base font-semibold text-green-950">Featured badges</h3>
@@ -329,7 +329,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                     value: `${(data.unlockedBadges || []).length}/${(data.badges || []).length || 0}`,
                   },
                 ].map((card) => (
-                  <div key={card.label} className="border border-gray-200 bg-white p-4">
+                  <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-4">
                     <p className="text-lg font-bold text-green-950">{card.value}</p>
                     <p className="text-xs text-gray-500">{card.label}</p>
                   </div>
@@ -345,7 +345,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="border border-gray-200 bg-white p-5"
+            className="rounded-2xl border border-gray-200 bg-white p-5"
           >
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -381,7 +381,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
             exit={{ opacity: 0, y: -8 }}
             className="grid gap-5 lg:grid-cols-2"
           >
-            <div className="border border-gray-200 bg-white p-5">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5">
               <h3 className="mb-4 text-base font-semibold text-green-950">Impact by category</h3>
               {categoryEntries.length ? (
                 <div className="space-y-3">
@@ -395,9 +395,9 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                             {Number(value.carbonSaved).toFixed(1)} kg · {value.count}
                           </span>
                         </div>
-                        <div className="h-2 bg-gray-100">
+                        <div className="h-2 rounded-full bg-gray-100">
                           <div
-                            className="h-2 bg-green-950"
+                            className="h-2 rounded-full bg-green-950"
                             style={{
                               width: `${Math.max(6, (value.carbonSaved / max) * 100)}%`,
                             }}
@@ -412,7 +412,7 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
               )}
             </div>
 
-            <div className="border border-gray-200 bg-white p-5">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5">
               <h3 className="mb-4 text-base font-semibold text-green-950">Material impact</h3>
               {materialEntries.length ? (
                 <div className="space-y-3">
@@ -426,9 +426,9 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
                             {value.count} items · {Number(value.carbonSaved).toFixed(1)} kg
                           </span>
                         </div>
-                        <div className="h-2 bg-gray-100">
+                        <div className="h-2 rounded-full bg-gray-100">
                           <div
-                            className="h-2 bg-green-950"
+                            className="h-2 rounded-full bg-green-950"
                             style={{
                               width: `${Math.max(6, (value.count / max) * 100)}%`,
                             }}

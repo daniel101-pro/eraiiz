@@ -90,7 +90,17 @@ export default function BillingPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.user) {
-          localStorage.setItem('user', JSON.stringify(data.user));
+          const { saveProfileLocally } = await import('@/lib/profileOverlay');
+          saveProfileLocally(data.user, {
+            ...current,
+            name: billing.fullName || current.name,
+            email: billing.email || current.email,
+            phone: billing.phone || current.phone,
+            state: billing.state || current.state,
+            houseAddress: billing.address || current.houseAddress,
+            city: billing.city || current.city,
+            postalAddress: billing.postalCode || current.postalAddress,
+          });
           window.dispatchEvent(new Event('eraiiz:account-updated'));
         }
       }

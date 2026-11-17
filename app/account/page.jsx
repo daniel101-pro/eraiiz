@@ -16,6 +16,11 @@ import Billing from '../components/account/Billing';
 import ShippingDashboard from '../components/seller/ShippingDashboard';
 import { useCart } from '../context/CartContext';
 import { ShippingProvider } from '../context/ShippingContext';
+import {
+  applyProfileOverlay,
+  cacheMergedUser,
+  clearProfileOverlay,
+} from '@/lib/profileOverlay';
 
 export default function AccountPage() {
   const [user, setUser] = useState(null);
@@ -55,13 +60,11 @@ export default function AccountPage() {
       if (!res.ok) {
         throw new Error(data.message || 'Failed to fetch user data', { cause: { status: res.status } });
       }
-      const userData = data?.user && typeof data.user === 'object' ? data.user : data;
+      const raw = data?.user && typeof data.user === 'object' ? data.user : data;
+      // Merge durable browser overlay so DOB/billing never vanish if Render/tmp drop them.
+      const userData = applyProfileOverlay(raw) || raw;
       setUser(userData);
-      try {
-        localStorage.setItem('user', JSON.stringify(userData));
-      } catch (storageErr) {
-        console.error('Failed to cache account', storageErr);
-      }
+      cacheMergedUser(userData);
     } catch (err) {
       throw err;
     }
@@ -70,6 +73,16 @@ export default function AccountPage() {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        // Instant paint from last known profile (includes DOB overlay) while API loads.
+        try {
+          const cached = JSON.parse(localStorage.getItem('user') || 'null');
+          if (cached && typeof cached === 'object') {
+            setUser(applyProfileOverlay(cached) || cached);
+          }
+        } catch {
+          // ignore
+        }
+
         let token;
         try {
           token = await getValidAccessToken();
@@ -140,10 +153,8 @@ export default function AccountPage() {
   }, []);
 
   const handleLogout = () => {
-    // Clear cart first
     clearCart();
-    
-    // Then clear user data
+    clearProfileOverlay(user);
     localStorage.removeItem('user');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');

@@ -33,7 +33,7 @@ export default function EcoRankBadge({
         animate={animate ? { scale: [1, 1.02, 1] } : undefined}
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <div className="flex h-full w-full items-center justify-center border border-gray-200 bg-white font-semibold text-green-950">
+        <div className="flex h-full w-full items-center justify-center rounded-full border border-gray-200 bg-white font-semibold text-green-950">
           {level}
         </div>
       </motion.div>
@@ -54,7 +54,7 @@ export function BadgeMedallion({ badge, compact = false }) {
 
   return (
     <div
-      className={`border border-gray-200 bg-white ${compact ? 'p-3' : 'p-4'} ${
+      className={`rounded-2xl border border-gray-200 bg-white ${compact ? 'p-3' : 'p-4'} ${
         locked ? 'opacity-70' : ''
       }`}
     >
@@ -62,7 +62,7 @@ export function BadgeMedallion({ badge, compact = false }) {
         <div
           className={`${
             compact ? 'h-12 w-12 text-xl' : 'h-14 w-14 text-2xl'
-          } flex items-center justify-center border border-gray-200 bg-white`}
+          } flex items-center justify-center rounded-full border border-gray-200 bg-white`}
         >
           <span>{locked ? '—' : badge.icon}</span>
         </div>
@@ -71,13 +71,13 @@ export function BadgeMedallion({ badge, compact = false }) {
             <p className={`text-sm font-semibold ${locked ? 'text-gray-500' : 'text-green-950'}`}>
               {badge.name}
             </p>
-            <span className="border border-gray-200 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-500">
+            <span className="rounded-full border border-gray-200 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-500">
               {badge.tier}
             </span>
           </div>
           <p className="mt-1 text-xs text-gray-500">{badge.description}</p>
-          <div className="mt-2 h-1.5 overflow-hidden bg-gray-100">
-            <div className="h-full bg-green-950" style={{ width: `${pct}%` }} />
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full bg-green-950" style={{ width: `${pct}%` }} />
           </div>
           <p className="mt-1 text-[10px] text-gray-500">
             {badge.progress}/{badge.target}

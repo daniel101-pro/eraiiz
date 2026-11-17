@@ -4,6 +4,7 @@ import { User, Mail, Phone, MapPin, Calendar, Globe, Building, Edit3, Save, X, C
 import EnvironmentalImpact from './EnvironmentalImpact';
 import EcoRankBadge from './EcoRankBadge';
 import { formatDateOfBirthDisplay, profileFromUser } from '@/lib/accountProfile';
+import { applyProfileOverlay, profileSnapshot, saveProfileLocally } from '@/lib/profileOverlay';
 
 export default function MyEraiizAccount({ user, setUser }) {
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -11,7 +12,7 @@ export default function MyEraiizAccount({ user, setUser }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [formData, setFormData] = useState(() => profileFromUser(user));
+  const [formData, setFormData] = useState(() => profileSnapshot(user));
   const [ecoImpact, setEcoImpact] = useState(null);
   const [stats, setStats] = useState({
     purchases: user?.eraizStats?.numberOfPurchases || 0,
@@ -20,22 +21,23 @@ export default function MyEraiizAccount({ user, setUser }) {
     salesAmount: 0,
     toShip: 0,
   });
-  const display = profileFromUser(user);
+  const displayUser = applyProfileOverlay(user) || user;
+  const display = profileFromUser(displayUser);
 
   useEffect(() => {
     if (!user) return;
     if (isEditingAccount || isEditingBilling) return;
-    setFormData(profileFromUser(user));
+    setFormData(profileSnapshot(user));
   }, [user, isEditingAccount, isEditingBilling]);
 
   const cancelAccountEdit = () => {
-    setFormData(profileFromUser(user));
+    setFormData(profileSnapshot(user));
     setIsEditingAccount(false);
     setError(null);
   };
 
   const cancelBillingEdit = () => {
-    setFormData(profileFromUser(user));
+    setFormData(profileSnapshot(user));
     setIsEditingBilling(false);
     setError(null);
   };
@@ -130,21 +132,21 @@ export default function MyEraiizAccount({ user, setUser }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.user) {
-          setUser(data.user);
-          try {
-            localStorage.setItem('user', JSON.stringify(data.user));
-          } catch {
-            // ignore
-          }
+          const recovered = saveProfileLocally(data.user, formData);
+          setUser(recovered);
         }
         throw new Error(data.message || 'Failed to update user data');
       }
 
-      const updatedUser = data.user || user;
+      // Always pin DOB/billing in local overlay — Render often drops these fields.
+      const baseUser = data.user || user;
+      const updatedUser = saveProfileLocally(baseUser, {
+        ...profileFromUser(baseUser),
+        ...formData,
+      });
       setUser(updatedUser);
       setFormData(profileFromUser(updatedUser));
       try {
-        localStorage.setItem('user', JSON.stringify(updatedUser));
         sessionStorage.removeItem('eraiiz_checkout');
         window.dispatchEvent(new Event('eraiiz:account-updated'));
       } catch (storageErr) {

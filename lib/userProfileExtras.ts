@@ -14,6 +14,8 @@ export type ProfileExtras = {
 
 type Store = Record<string, ProfileExtras>;
 
+// Soft cache only on Vercel — /tmp is wiped on redeploy. Durable source of truth
+// for DOB/billing is the httpOnly cookie (see profileExtrasCookie) + browser overlay.
 const STORE_PATH = process.env.VERCEL
   ? path.join('/tmp', 'eraiiz-user-profile-extras.json')
   : path.join(process.cwd(), 'data', 'user-profile-extras.json');

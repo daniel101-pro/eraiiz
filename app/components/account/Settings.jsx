@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 import { Bell, Lock, Trash2, Save, Shield, AlertTriangle } from 'lucide-react';
+import { applyProfileOverlay, cacheMergedUser } from '@/lib/profileOverlay';
 
 export default function Settings() {
   const [settings, setSettings] = useState({
@@ -26,18 +27,14 @@ export default function Settings() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          const user = data.user || {};
+          const user = applyProfileOverlay(data.user || {}) || data.user || {};
           if (typeof user.emailNotifications === 'boolean') {
             setSettings((prev) => ({
               ...prev,
               emailNotifications: user.emailNotifications,
             }));
           }
-          try {
-            localStorage.setItem('user', JSON.stringify(user));
-          } catch {
-            // ignore
-          }
+          cacheMergedUser(user);
         }
       } catch {
         try {
@@ -121,7 +118,7 @@ export default function Settings() {
 
       try {
         if (data.user) {
-          localStorage.setItem('user', JSON.stringify(data.user));
+          cacheMergedUser(applyProfileOverlay(data.user) || data.user);
           window.dispatchEvent(new Event('eraiiz:account-updated'));
         }
       } catch {

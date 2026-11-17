@@ -16,11 +16,28 @@ import {
   userIdsFromUser,
   type ProfileExtras,
 } from '@/lib/userProfileExtras';
+import {
+  readProfileExtrasCookie,
+  writeProfileExtrasCookie,
+} from '@/lib/profileExtrasCookie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
 function apiErrorMessage(data: Record<string, unknown>, fallback: string) {
   return String(data.message || data.error || fallback);
+}
+
+function jsonWithExtras(
+  body: Record<string, unknown>,
+  userIds: string[],
+  extras: ProfileExtras,
+  init?: { status?: number }
+) {
+  const response = NextResponse.json(body, init);
+  if (hasProfileExtras(extras)) {
+    writeProfileExtrasCookie(response, userIds, extras);
+  }
+  return response;
 }
 
 async function fetchMe(authHeader: string) {
@@ -60,16 +77,39 @@ async function patchMe(authHeader: string, payload: Record<string, unknown>) {
   return unwrapUser(data);
 }
 
-async function loadExtrasForUser(user: Record<string, unknown>) {
-  for (const id of userIdsFromUser(user)) {
-    const extras = await getUserProfileExtras(id);
-    if (hasProfileExtras(extras)) return extras;
+function mergeExtrasSources(...sources: ProfileExtras[]) {
+  const merged: ProfileExtras = {};
+  for (const source of sources) {
+    if (!source) continue;
+    for (const [key, value] of Object.entries(source) as Array<
+      [keyof ProfileExtras, string | undefined]
+    >) {
+      const text = String(value || '').trim();
+      if (text && !merged[key]) merged[key] = text;
+    }
   }
-  return {};
+  return merged;
 }
 
-async function withExtras(user: Record<string, unknown>) {
-  return mergeProfileExtras(user, await loadExtrasForUser(user));
+async function loadExtrasForUser(request: NextRequest, user: Record<string, unknown>) {
+  const ids = userIdsFromUser(user);
+  const cookieExtras = readProfileExtrasCookie(request, ids);
+
+  let fileExtras: ProfileExtras = {};
+  for (const id of ids) {
+    const extras = await getUserProfileExtras(id);
+    if (hasProfileExtras(extras)) {
+      fileExtras = extras;
+      break;
+    }
+  }
+
+  // Cookie first (survives Vercel redeploys), then soft /tmp/file cache.
+  return mergeExtrasSources(cookieExtras, fileExtras);
+}
+
+async function withExtras(request: NextRequest, user: Record<string, unknown>) {
+  return mergeProfileExtras(user, await loadExtrasForUser(request, user));
 }
 
 async function persistExtras(user: Record<string, unknown>, extras: ProfileExtras) {
@@ -85,11 +125,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const user = await withExtras(await fetchMe(authHeader));
-    return NextResponse.json({
-      user,
-      profile: profileFromUser(user),
-    });
+    const rawUser = await fetchMe(authHeader);
+    const extras = await loadExtrasForUser(request, rawUser);
+    const user = mergeProfileExtras(rawUser, extras);
+    const ids = userIdsFromUser(user);
+
+    return jsonWithExtras(
+      {
+        user,
+        profile: profileFromUser(user),
+      },
+      ids,
+      extras
+    );
   } catch (error) {
     const status = (error as { status?: number }).status || 500;
     const message = error instanceof Error ? error.message : 'Failed to load account';
@@ -117,12 +165,18 @@ export async function PATCH(request: NextRequest) {
       }
 
       await patchMe(authHeader, settingsPayload);
-      const user = await withExtras(await fetchMe(authHeader));
-      return NextResponse.json({
-        success: true,
-        user,
-        profile: profileFromUser(user),
-      });
+      const rawUser = await fetchMe(authHeader);
+      const extras = await loadExtrasForUser(request, rawUser);
+      const user = mergeProfileExtras(rawUser, extras);
+      return jsonWithExtras(
+        {
+          success: true,
+          user,
+          profile: profileFromUser(user),
+        },
+        userIdsFromUser(user),
+        extras
+      );
     }
 
     const form = (body.profile || body) as AccountProfileFields;
@@ -149,8 +203,8 @@ export async function PATCH(request: NextRequest) {
       name: expected.name || undefined,
     };
 
-    // Always persist address/profile extras first so leave/return keeps billing
-    // even when Render drops nested billingAddress.
+    // Persist extras before Render patch — cookie + soft file cache keep DOB/billing
+    // even when the upstream API drops nested billingAddress / dateOfBirth.
     let user = await fetchMe(authHeader);
     await persistExtras(user, extrasPayload);
 
@@ -158,13 +212,39 @@ export async function PATCH(request: NextRequest) {
     try {
       await patchMe(authHeader, payload);
     } catch (error) {
-      // If Render rejects dateOfBirth, retry without it.
       const message = error instanceof Error ? error.message : '';
       if (/invalid updates/i.test(message) && payload.dateOfBirth) {
         const { dateOfBirth: _ignored, ...withoutDob } = payload;
-        await patchMe(authHeader, withoutDob);
+        try {
+          await patchMe(authHeader, withoutDob);
+        } catch (retryError) {
+          const retryMessage = retryError instanceof Error ? retryError.message : '';
+          if (!/invalid updates/i.test(retryMessage)) throw retryError;
+          // Keep name/email/phone/country/state if nested billing also rejected.
+          const flat: Record<string, unknown> = {
+            name: payload.name,
+            email: payload.email,
+            phone: payload.phone,
+            country: payload.country,
+            state: payload.state,
+          };
+          try {
+            await patchMe(authHeader, flat);
+          } catch (flatError) {
+            if (!/invalid updates/i.test(flatError instanceof Error ? flatError.message : '')) {
+              throw flatError;
+            }
+          }
+        }
       } else if (/invalid updates/i.test(message) && payload.billingAddress) {
-        // Some backends don't allow nested billingAddress — keep extras only.
+        const { billingAddress: _ignored, ...withoutBilling } = payload;
+        try {
+          await patchMe(authHeader, withoutBilling);
+        } catch (retryError) {
+          if (!/invalid updates/i.test(retryError instanceof Error ? retryError.message : '')) {
+            throw retryError;
+          }
+        }
       } else {
         throw error;
       }
@@ -172,31 +252,34 @@ export async function PATCH(request: NextRequest) {
 
     user = await fetchMe(authHeader);
     await persistExtras(user, extrasPayload);
-    user = await withExtras(user);
+    user = mergeProfileExtras(user, extrasPayload);
 
     const check = profilesMatch(expected, user);
-    const critical = check.mismatches.filter((key) =>
-      ['name', 'email'].includes(key)
-    );
+    const critical = check.mismatches.filter((key) => ['name', 'email'].includes(key));
 
-    // Name/email must stick on Render. Everything else can live in extras.
     if (critical.length) {
-      return NextResponse.json(
+      return jsonWithExtras(
         {
           message: 'Account save did not stick on the server. Please try again.',
           mismatches: check.mismatches,
           user,
           profile: profileFromUser(user),
         },
+        userIdsFromUser(user),
+        extrasPayload,
         { status: 502 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      user,
-      profile: profileFromUser(user),
-    });
+    return jsonWithExtras(
+      {
+        success: true,
+        user,
+        profile: profileFromUser(user),
+      },
+      userIdsFromUser(user),
+      extrasPayload
+    );
   } catch (error) {
     const status = (error as { status?: number }).status || 500;
     const message = error instanceof Error ? error.message : 'Failed to update account';
