@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   buildProfilePatchPayload,
   buildSettingsPatchPayload,
+  mergeProfileExtras,
   profileFromUser,
   profilesMatch,
+  toDateInput,
   unwrapUser,
   type AccountProfileFields,
 } from '@/lib/accountProfile';
+import {
+  getUserProfileExtras,
+  setUserProfileExtras,
+  userIdsFromUser,
+} from '@/lib/userProfileExtras';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -51,6 +58,25 @@ async function patchMe(authHeader: string, payload: Record<string, unknown>) {
   return unwrapUser(data);
 }
 
+async function withExtras(user: Record<string, unknown>) {
+  const ids = userIdsFromUser(user);
+  for (const id of ids) {
+    const extras = await getUserProfileExtras(id);
+    if (extras.dateOfBirth) {
+      return mergeProfileExtras(user, extras);
+    }
+  }
+  return user;
+}
+
+async function persistDobExtra(user: Record<string, unknown>, dateOfBirth: string) {
+  const dob = toDateInput(dateOfBirth);
+  if (!dob) return;
+  for (const id of userIdsFromUser(user)) {
+    await setUserProfileExtras(id, { dateOfBirth: dob });
+  }
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -58,7 +84,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const user = await fetchMe(authHeader);
+    const user = await withExtras(await fetchMe(authHeader));
     return NextResponse.json({
       user,
       profile: profileFromUser(user),
@@ -90,7 +116,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       await patchMe(authHeader, settingsPayload);
-      const user = await fetchMe(authHeader);
+      const user = await withExtras(await fetchMe(authHeader));
       return NextResponse.json({
         success: true,
         user,
@@ -102,7 +128,7 @@ export async function PATCH(request: NextRequest) {
     const expected = {
       name: String(form.name || ''),
       email: String(form.email || ''),
-      dateOfBirth: String(form.dateOfBirth || ''),
+      dateOfBirth: toDateInput(form.dateOfBirth),
       phone: String(form.phone || ''),
       country: String(form.country || ''),
       state: String(form.state || ''),
@@ -111,25 +137,59 @@ export async function PATCH(request: NextRequest) {
       postalAddress: String(form.postalAddress || ''),
     };
 
-    // Canonical allowlisted payload only — extra keys trigger "Invalid updates".
     const payload = buildProfilePatchPayload(expected);
     await patchMe(authHeader, payload);
 
-    const user = await fetchMe(authHeader);
-    const check = profilesMatch(expected, user);
+    let user = await fetchMe(authHeader);
+    let check = profilesMatch(expected, user);
 
-    if (!check.ok) {
+    // Retry DOB as noon-UTC ISO if calendar string did not stick.
+    if (expected.dateOfBirth && check.mismatches.includes('dateOfBirth')) {
+      try {
+        await patchMe(authHeader, {
+          name: expected.name,
+          email: expected.email,
+          phone: expected.phone,
+          country: expected.country,
+          state: expected.state,
+          billingAddress: {
+            houseAddress: expected.houseAddress,
+            city: expected.city,
+            postalAddress: expected.postalAddress,
+          },
+          dateOfBirth: `${expected.dateOfBirth}T12:00:00.000Z`,
+        });
+        user = await fetchMe(authHeader);
+        check = profilesMatch(expected, user);
+      } catch {
+        // Keep prior result; may fall back to extras below.
+      }
+    }
+
+    // If Render still drops DOB, keep it in our durable extras store.
+    if (expected.dateOfBirth && check.mismatches.includes('dateOfBirth')) {
+      await persistDobExtra(user, expected.dateOfBirth);
+      user = await withExtras(user);
+      check = profilesMatch(expected, user);
+    } else if (expected.dateOfBirth) {
+      // Keep extras in sync when backend accepted DOB.
+      await persistDobExtra(user, expected.dateOfBirth);
+    }
+
+    const criticalMismatches = check.mismatches.filter((key) => key !== 'dateOfBirth');
+    if (criticalMismatches.length) {
       return NextResponse.json(
         {
           message: 'Account save did not stick on the server. Please try again.',
           mismatches: check.mismatches,
-          user,
-          profile: profileFromUser(user),
+          user: await withExtras(user),
+          profile: profileFromUser(await withExtras(user)),
         },
         { status: 502 }
       );
     }
 
+    user = await withExtras(user);
     return NextResponse.json({
       success: true,
       user,

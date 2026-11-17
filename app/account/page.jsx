@@ -28,22 +28,30 @@ export default function AccountPage() {
 
   const fetchUser = async (token) => {
     try {
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
+      // Prefer same-origin profile route so DOB extras merge in.
+      let res = await fetch('/api/account/profile', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-        credentials: 'include',
+        cache: 'no-store',
       });
-      const text = await res.text();
-      console.log('Raw response:', text);
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('Response is not valid JSON: ' + text);
+      let data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        data = await res.json().catch(() => ({}));
       }
+
       if (!res.ok) {
         throw new Error(data.message || 'Failed to fetch user data', { cause: { status: res.status } });
       }

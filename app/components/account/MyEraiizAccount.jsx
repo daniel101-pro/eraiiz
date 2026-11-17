@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 import { User, Mail, Phone, MapPin, Calendar, Globe, Building, Edit3, Save, X, Check, AlertCircle, CreditCard, BarChart3 } from 'lucide-react';
 import EnvironmentalImpact from './EnvironmentalImpact';
-import { profileFromUser } from '@/lib/accountProfile';
+import { formatDateOfBirthDisplay, profileFromUser } from '@/lib/accountProfile';
 
 export default function MyEraiizAccount({ user, setUser }) {
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -378,9 +378,7 @@ export default function MyEraiizAccount({ user, setUser }) {
                 <div>
                   <p className="text-xs text-gray-500">Date of Birth</p>
                   <p className="text-xs font-medium text-gray-900">
-                    {display.dateOfBirth
-                      ? new Date(display.dateOfBirth).toLocaleDateString()
-                      : 'Not provided'}
+                    {formatDateOfBirthDisplay(display.dateOfBirth) || 'Not provided'}
                   </p>
                 </div>
               </div>

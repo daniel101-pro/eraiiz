@@ -32,11 +32,26 @@ function firstString(...values: unknown[]) {
   return '';
 }
 
-function toDateInput(value: unknown) {
+export function toDateInput(value: unknown) {
   if (!value) return '';
-  const date = new Date(String(value));
+  const text = String(value).trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  const date = new Date(text);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().split('T')[0];
+  // Use UTC parts so ISO midnight values don't shift a day westward.
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function formatDateOfBirthDisplay(value: unknown) {
+  const iso = toDateInput(value);
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString();
 }
 
 export function unwrapUser(payload: unknown): Record<string, unknown> {
@@ -104,8 +119,10 @@ export function buildProfilePatchPayload(form: AccountProfileFields) {
     },
   };
 
-  if (form.dateOfBirth) {
-    payload.dateOfBirth = new Date(form.dateOfBirth);
+  const dob = toDateInput(form.dateOfBirth);
+  if (dob) {
+    // Send calendar date string — Date objects were silently dropped by some API paths.
+    payload.dateOfBirth = dob;
   }
 
   return payload;
@@ -136,16 +153,36 @@ export function profilesMatch(expected: AccountProfileFields, actualUser: Record
     'houseAddress',
     'city',
     'postalAddress',
+    'dateOfBirth',
   ];
 
   const mismatches: string[] = [];
   for (const key of keys) {
-    const want = String(expected[key] || '').trim();
+    const want =
+      key === 'dateOfBirth'
+        ? toDateInput(expected[key])
+        : String(expected[key] || '').trim();
     if (!want) continue;
-    const got = String(actual[key] || '').trim();
+    const got =
+      key === 'dateOfBirth'
+        ? toDateInput(actual[key])
+        : String(actual[key] || '').trim();
     if (got.toLowerCase() !== want.toLowerCase()) {
       mismatches.push(key);
     }
   }
   return { ok: mismatches.length === 0, mismatches, actual };
+}
+
+export function mergeProfileExtras(
+  user: Record<string, unknown>,
+  extras: { dateOfBirth?: string } | null | undefined
+) {
+  if (!extras?.dateOfBirth) return user;
+  const existing = toDateInput(user.dateOfBirth || user.dob);
+  if (existing) return user;
+  return {
+    ...user,
+    dateOfBirth: toDateInput(extras.dateOfBirth),
+  };
 }
