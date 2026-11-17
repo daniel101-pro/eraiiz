@@ -175,7 +175,7 @@ export function buildProfilePatchAttempts(form: AccountProfileFields) {
     state: form.state.trim(),
   };
 
-  return [
+  const attempts: Array<Record<string, unknown>> = [
     full,
     { ...core, accountProfile, dateOfBirth: accountProfile.dateOfBirth || undefined },
     { ...core, accountProfile },
@@ -186,7 +186,9 @@ export function buildProfilePatchAttempts(form: AccountProfileFields) {
     },
     { ...core, billingAddress: full.billingAddress },
     core,
-  ].map((payload) => {
+  ];
+
+  return attempts.map((payload) => {
     const next = { ...payload };
     if (!next.dateOfBirth) delete next.dateOfBirth;
     return next;
