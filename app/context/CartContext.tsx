@@ -5,6 +5,8 @@ import { CartItem } from '../cart/types';
 import axios from 'axios';
 import { useCurrency } from './CurrencyContext';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
+import { syncProductCarbonModel, withCurrentCarbonModel } from '@/lib/carbonClient';
+import { isCarbonModelCurrent, canRecalculateFromSustainability } from '@/lib/carbonFootprint';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -24,11 +26,12 @@ function mergeProduct(item: CartItem, fullProduct: any): CartItem {
     typeof fullProduct.sellerId === 'object'
       ? fullProduct.sellerId?._id || fullProduct.sellerId?.id
       : fullProduct.sellerId;
+  const resolved = withCurrentCarbonModel(fullProduct);
 
   return {
     ...item,
-    carbonFootprint: fullProduct.carbonFootprint,
-    sustainability: fullProduct.sustainability,
+    carbonFootprint: resolved.carbonFootprint,
+    sustainability: resolved.sustainability,
     material: fullProduct.material,
     details: fullProduct.details,
     bonus: fullProduct.bonus,
@@ -98,7 +101,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         axios
           .get(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}/public`, { timeout: 10000 })
           .then((response) => {
-            if (response.data) cache.set(id, response.data);
+            if (!response.data) return;
+            const resolved = withCurrentCarbonModel(response.data);
+            cache.set(id, resolved);
+            if (
+              canRecalculateFromSustainability(resolved.sustainability) &&
+              !isCarbonModelCurrent(response.data.carbonFootprint)
+            ) {
+              syncProductCarbonModel({
+                productId: id,
+                sustainability: resolved.sustainability,
+                authToken: typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null,
+              }).then((fresh) => {
+                if (!fresh || cancelled) return;
+                cache.set(id, { ...resolved, carbonFootprint: fresh });
+                apply();
+              });
+            }
           })
           .catch((error) => console.error(`Error fetching product ${id}:`, error?.message))
       )

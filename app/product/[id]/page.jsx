@@ -13,6 +13,7 @@ import DualNavbarSell from '../../components/DualNavbarSell';
 import ImageGallery from '../../components/ImageGallery';
 import ReportModal from '../../components/ReportModal';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
+import { withCurrentCarbonModel, syncProductCarbonModel } from '@/lib/carbonClient';
 
 function availableSizeEntries(product) {
   if (!product?.sizes || typeof product.sizes !== 'object') return [];
@@ -132,8 +133,22 @@ export default function ProductDetail() {
         productRes = await axios.get(`${apiUrl}/api/products/${id}/public`);
       }
 
-      setProduct(productRes.data);
+      const resolvedProduct = withCurrentCarbonModel(productRes.data);
+      setProduct(resolvedProduct);
       setLoading(false);
+
+      const productId = String(resolvedProduct._id || resolvedProduct.id || id || '');
+      if (productId && resolvedProduct.sustainability) {
+        syncProductCarbonModel({
+          productId,
+          sustainability: resolvedProduct.sustainability,
+          authToken: localStorage.getItem('accessToken'),
+        }).then((fresh) => {
+          if (fresh) {
+            setProduct((prev) => (prev ? { ...prev, carbonFootprint: fresh } : prev));
+          }
+        });
+      }
 
       // Set initial selected attribute if available
       if (productRes.data.attributes && productRes.data.attributes.length > 0) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateCarbonFootprint } from '@/lib/carbonFootprint';
+import { CARBON_MODEL_VERSION, calculateCarbonFootprint } from '@/lib/carbonFootprint';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
+        modelVersion: CARBON_MODEL_VERSION,
         carbonFootprint,
         summary: {
           savingsVsConventional: carbonFootprint.savingsVsConventional,

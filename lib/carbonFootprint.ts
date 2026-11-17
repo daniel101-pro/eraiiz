@@ -7,12 +7,30 @@
  * Factors are simplified industry averages (DEFRA / EPA / GHG Protocol
  * freight order-of-magnitude), tuned so recycled / organic / renewable /
  * local shipping clearly score better than virgin + fossil + air freight.
+ *
+ * Bump CARBON_MODEL_VERSION whenever factors or mapping change so stored
+ * product footprints are treated as stale and refreshed.
  */
 
-export type MaterialType = 'conventional' | 'recycled' | 'organic' | 'biodegradable' | 'unknown';
-export type EnergySource = 'renewable' | 'fossil_fuel' | 'mixed' | 'grid' | 'unknown';
-export type ShippingMethod = 'road' | 'rail' | 'sea' | 'air' | 'local';
-export type PackagingType = 'none' | 'minimal' | 'recycled' | 'biodegradable' | 'cardboard' | 'plastic';
+export const CARBON_MODEL_VERSION = '2026.2';
+
+export type MaterialType =
+  | 'conventional'
+  | 'recycled'
+  | 'organic'
+  | 'biodegradable'
+  | 'sustainable'
+  | 'unknown';
+export type EnergySource = 'renewable' | 'fossil_fuel' | 'mixed' | 'grid' | 'nuclear' | 'unknown';
+export type ShippingMethod = 'road' | 'rail' | 'sea' | 'air' | 'local' | 'mixed';
+export type PackagingType =
+  | 'none'
+  | 'minimal'
+  | 'recycled'
+  | 'biodegradable'
+  | 'cardboard'
+  | 'plastic'
+  | 'conventional';
 
 export type SustainabilityInput = {
   materials?: Array<{ name?: string; type?: string; percentage?: number }>;
@@ -41,6 +59,7 @@ export type CarbonFootprintResult = {
   equivalentCarRide: string;
   treesToOffset: string;
   savingsVsConventional: string | null;
+  modelVersion: string;
 };
 
 /** kg CO₂e per kg of product attributed to material type */
@@ -49,12 +68,17 @@ const MATERIAL_KG_PER_KG: Record<string, number> = {
   recycled: 1.0,
   organic: 0.5,
   biodegradable: 1.2,
+  sustainable: 1.4,
   unknown: 2.5,
 };
 
 /** kg CO₂e per kg of product for production energy */
 const PRODUCTION_KG_PER_KG: Record<string, number> = {
   renewable: 0.3,
+  solar: 0.3,
+  wind: 0.3,
+  hydro: 0.3,
+  nuclear: 0.45,
   fossil_fuel: 1.5,
   mixed: 0.9,
   grid: 1.0,
@@ -64,10 +88,12 @@ const PRODUCTION_KG_PER_KG: Record<string, number> = {
 /** kg CO₂e per (kg product × km) — freight intensity */
 const SHIPPING_KG_PER_KG_KM: Record<string, number> = {
   road: 0.0002,
+  land: 0.0002,
   local: 0.0001,
   rail: 0.00005,
   sea: 0.00004,
   air: 0.0008,
+  mixed: 0.00025,
 };
 
 /** kg CO₂e per kg of product for packaging */
@@ -78,6 +104,7 @@ const PACKAGING_KG_PER_KG: Record<string, number> = {
   biodegradable: 0.2,
   cardboard: 0.3,
   plastic: 0.5,
+  conventional: 0.5,
 };
 
 /** Average passenger car ≈ 0.192 kg CO₂e / km (DEFRA / EPA mid-range) */
@@ -86,12 +113,57 @@ export const CAR_KG_CO2E_PER_KM = 0.192;
 /** Mature tree ≈ 21 kg CO₂ sequestered per year (common public estimate) */
 export const TREE_KG_CO2E_PER_YEAR = 21;
 
+const ENERGY_ALIASES: Record<string, string> = {
+  solar: 'renewable',
+  wind: 'renewable',
+  hydro: 'renewable',
+  hydroelectric: 'renewable',
+  green: 'renewable',
+  diesel: 'fossil_fuel',
+  coal: 'fossil_fuel',
+  gas: 'fossil_fuel',
+};
+
+const SHIPPING_ALIASES: Record<string, string> = {
+  land: 'road',
+  truck: 'road',
+  lorry: 'road',
+  boat: 'sea',
+  ship: 'sea',
+  plane: 'air',
+  flight: 'air',
+};
+
+const PACKAGING_ALIASES: Record<string, string> = {
+  conventional: 'plastic',
+  standard: 'plastic',
+  paper: 'cardboard',
+  'no packaging': 'none',
+  nopackaging: 'none',
+};
+
+const MATERIAL_ALIASES: Record<string, string> = {
+  virgin: 'conventional',
+  natural: 'organic',
+  eco: 'sustainable',
+  ecofriendly: 'sustainable',
+  'eco-friendly': 'sustainable',
+};
+
 function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
 function format2(value: number) {
   return round2(value).toFixed(2);
+}
+
+function normalizeKey(value: string | undefined, aliases: Record<string, string>, fallback: string) {
+  const key = String(value || fallback)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  return aliases[key] || key || fallback;
 }
 
 export function weightToKg(value = 0, unit = 'kg') {
@@ -116,7 +188,7 @@ export function normalizeMaterialPercentages(
   const cleaned = materials
     .map((material) => ({
       name: String(material.name || '').trim(),
-      type: String(material.type || 'unknown').toLowerCase(),
+      type: normalizeKey(material.type, MATERIAL_ALIASES, 'unknown'),
       percentage: Math.max(0, Number(material.percentage) || 0),
     }))
     .filter((material) => material.name || material.percentage > 0);
@@ -168,9 +240,9 @@ export function calculateCarbonFootprint(input: SustainabilityInput): CarbonFoot
     throw new Error('Please add at least one material');
   }
 
-  const energy = String(input.productionEnergySource || 'unknown').toLowerCase();
-  const shippingMethod = String(input.shipping?.method || 'road').toLowerCase();
-  const packagingType = String(input.shipping?.packagingType || 'minimal').toLowerCase();
+  const energy = normalizeKey(input.productionEnergySource, ENERGY_ALIASES, 'unknown');
+  const shippingMethod = normalizeKey(input.shipping?.method, SHIPPING_ALIASES, 'road');
+  const packagingType = normalizeKey(input.shipping?.packagingType, PACKAGING_ALIASES, 'minimal');
   const distanceKm = Math.max(0, Number(input.shipping?.distance) || 0);
 
   const materialsKg = materialEmissionsKg(weightKg, materials);
@@ -210,5 +282,48 @@ export function calculateCarbonFootprint(input: SustainabilityInput): CarbonFoot
     treesToOffset: `${trees.toFixed(1)} trees per year`,
     savingsVsConventional:
       savingsKg >= 0.05 ? `${format2(savingsKg)} kg CO₂e saved vs conventional` : null,
+    modelVersion: CARBON_MODEL_VERSION,
   };
+}
+
+export function getStoredModelVersion(footprint: { modelVersion?: string } | null | undefined) {
+  return String(footprint?.modelVersion || '').trim();
+}
+
+export function isCarbonModelCurrent(footprint: { modelVersion?: string } | null | undefined) {
+  return getStoredModelVersion(footprint) === CARBON_MODEL_VERSION;
+}
+
+export function canRecalculateFromSustainability(sustainability: SustainabilityInput | null | undefined) {
+  if (!sustainability) return false;
+  const weightKg = weightToKg(sustainability.weight?.value, sustainability.weight?.unit);
+  const materials = normalizeMaterialPercentages(sustainability.materials);
+  return weightKg > 0 && materials.length > 0;
+}
+
+/**
+ * Prefer a live recalculation whenever sustainability inputs exist and the
+ * stored snapshot is missing or on an older model version.
+ */
+export function resolveCarbonFootprint(product: {
+  carbonFootprint?: CarbonFootprintResult | null;
+  sustainability?: SustainabilityInput | null;
+}): { footprint: CarbonFootprintResult | null; refreshed: boolean } {
+  const stored = product.carbonFootprint || null;
+  const sustainability = product.sustainability || null;
+
+  if (canRecalculateFromSustainability(sustainability)) {
+    if (!stored || !isCarbonModelCurrent(stored)) {
+      try {
+        return {
+          footprint: calculateCarbonFootprint(sustainability as SustainabilityInput),
+          refreshed: true,
+        };
+      } catch {
+        return { footprint: stored, refreshed: false };
+      }
+    }
+  }
+
+  return { footprint: stored, refreshed: false };
 }

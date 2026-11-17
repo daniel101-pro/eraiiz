@@ -13,6 +13,13 @@ export interface CartItem {
         equivalentCarRide: string;
         treesToOffset: string;
         savingsVsConventional?: string;
+        modelVersion?: string;
+        breakdown?: {
+            materials?: string;
+            production?: string;
+            shipping?: string;
+            packaging?: string;
+        };
     };
     sustainability?: any;
 }

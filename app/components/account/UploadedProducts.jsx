@@ -8,6 +8,8 @@ import { Edit2, Trash2, Eye, Package, Calendar, MoreVertical, Search } from 'luc
 import { useCurrency } from '../../context/CurrencyContext';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
 import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
+import { withCurrentCarbonModel, syncProductCarbonModel } from '@/lib/carbonClient';
+import { isCarbonModelCurrent, canRecalculateFromSustainability } from '@/lib/carbonFootprint';
 
 export default function UploadedProducts({ onTokenError }) {
   const { convertPriceExplicit, exchangeRates, formatPrice } = useCurrency();
@@ -31,6 +33,37 @@ export default function UploadedProducts({ onTokenError }) {
     { value: 'unknown', label: 'Unknown' },
   ];
 
+  const syncStaleCarbonFootprints = async (list, token) => {
+    const stale = (Array.isArray(list) ? list : []).filter(
+      (product) =>
+        canRecalculateFromSustainability(product?.sustainability) &&
+        !isCarbonModelCurrent(product?.carbonFootprint)
+    );
+    if (!stale.length) return list;
+
+    const refreshed = await Promise.all(
+      stale.map(async (product) => {
+        const productId = String(product._id || product.id || '');
+        const fresh = await syncProductCarbonModel({
+          productId,
+          sustainability: product.sustainability,
+          authToken: token,
+        });
+        if (!fresh) return withCurrentCarbonModel(product);
+        return { ...product, carbonFootprint: fresh };
+      })
+    );
+
+    const byId = new Map(
+      refreshed.map((product) => [String(product._id || product.id || ''), product])
+    );
+
+    return list.map((product) => {
+      const id = String(product._id || product.id || '');
+      return byId.get(id) || withCurrentCarbonModel(product);
+    });
+  };
+
   const fetchProducts = async () => {
     try {
       const token = await getValidAccessToken();
@@ -40,7 +73,8 @@ export default function UploadedProducts({ onTokenError }) {
         },
         timeout: 30000,
       });
-      setProducts(res.data);
+      const synced = await syncStaleCarbonFootprints(res.data, token);
+      setProducts(synced);
       setError(null);
     } catch (err) {
       if (err.response?.status === 401 || err.message.includes('Invalid or expired token')) {
@@ -50,7 +84,8 @@ export default function UploadedProducts({ onTokenError }) {
             headers: { 'Authorization': `Bearer ${token}` },
             timeout: 30000,
           });
-          setProducts(res.data);
+          const synced = await syncStaleCarbonFootprints(res.data, token);
+          setProducts(synced);
           setError(null);
           return;
         } catch (refreshErr) {
@@ -146,9 +181,9 @@ export default function UploadedProducts({ onTokenError }) {
       let carbonFootprint = editingProduct.carbonFootprint || null;
       try {
         const cfRes = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/carbon-footprint/calculate`,
+          '/api/carbon-footprint/calculate',
           { sustainabilityData: sustainability },
-          { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 }
+          { timeout: 15000 }
         );
         if (cfRes.data?.success && cfRes.data?.data?.carbonFootprint) {
           carbonFootprint = cfRes.data.data.carbonFootprint;
