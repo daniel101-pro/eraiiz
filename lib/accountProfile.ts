@@ -195,18 +195,30 @@ export function buildProfilePatchAttempts(form: AccountProfileFields) {
   });
 }
 
+/**
+ * Render `/api/users/me` rejects `emailNotifications` with "Invalid updates".
+ * Only send password here — notification prefs are stored in our cookie/store.
+ */
 export function buildSettingsPatchPayload(input: {
   emailNotifications?: boolean;
   password?: string;
 }) {
   const payload: Record<string, unknown> = {};
-  if (typeof input.emailNotifications === 'boolean') {
-    payload.emailNotifications = input.emailNotifications;
-  }
   if (input.password) {
     payload.password = input.password;
   }
   return payload;
+}
+
+/** Password-only attempts for backends with different field names. */
+export function buildPasswordPatchAttempts(password: string) {
+  const value = String(password || '');
+  if (!value) return [] as Array<Record<string, unknown>>;
+  return [
+    { password: value },
+    { newPassword: value },
+    { new_password: value },
+  ];
 }
 
 export function profilesMatch(expected: AccountProfileFields, actualUser: Record<string, unknown>) {

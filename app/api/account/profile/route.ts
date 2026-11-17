@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  buildPasswordPatchAttempts,
   buildProfilePatchAttempts,
-  buildSettingsPatchPayload,
   mergeProfileExtras,
   profileFromUser,
   profilesMatch,
@@ -9,6 +9,12 @@ import {
   unwrapUser,
   type AccountProfileFields,
 } from '@/lib/accountProfile';
+import {
+  applyAccountSettings,
+  readAccountSettingsCookie,
+  writeAccountSettingsCookie,
+  type AccountSettings,
+} from '@/lib/accountSettings';
 import {
   getUserProfileExtras,
   hasProfileExtras,
@@ -31,11 +37,15 @@ function jsonWithExtras(
   body: Record<string, unknown>,
   userIds: string[],
   extras: ProfileExtras,
-  init?: { status?: number }
+  init?: { status?: number },
+  settings?: AccountSettings
 ) {
   const response = NextResponse.json(body, init);
   if (hasProfileExtras(extras)) {
     writeProfileExtrasCookie(response, userIds, extras);
+  }
+  if (settings && typeof settings.emailNotifications === 'boolean') {
+    writeAccountSettingsCookie(response, userIds, settings);
   }
   return response;
 }
@@ -159,9 +169,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const rawUser = await fetchMe(authHeader);
+    const ids = userIdsFromUser(rawUser);
     const extras = await loadExtrasForUser(request, rawUser);
-    const user = mergeProfileExtras(rawUser, extras);
-    const ids = userIdsFromUser(user);
+    const settings = readAccountSettingsCookie(request, ids);
+    const user = applyAccountSettings(mergeProfileExtras(rawUser, extras), settings);
 
     return jsonWithExtras(
       {
@@ -169,7 +180,9 @@ export async function GET(request: NextRequest) {
         profile: profileFromUser(user),
       },
       ids,
-      extras
+      extras,
+      undefined,
+      settings
     );
   } catch (error) {
     const status = (error as { status?: number }).status || 500;
@@ -189,26 +202,84 @@ export async function PATCH(request: NextRequest) {
     const settingsOnly = body.settingsOnly === true;
 
     if (settingsOnly) {
-      const settingsPayload = buildSettingsPatchPayload({
-        emailNotifications: body.emailNotifications,
-        password: body.password,
-      });
-      if (!Object.keys(settingsPayload).length) {
+      const password = typeof body.password === 'string' ? body.password.trim() : '';
+      const wantsNotifications = typeof body.emailNotifications === 'boolean';
+      if (!password && !wantsNotifications) {
         return NextResponse.json({ message: 'Nothing to update' }, { status: 400 });
       }
 
-      await patchMe(authHeader, settingsPayload);
+      if (password) {
+        let passwordSaved = false;
+        let lastError: Error | null = null;
+        for (const payload of buildPasswordPatchAttempts(password)) {
+          try {
+            await patchMe(authHeader, payload);
+            passwordSaved = true;
+            break;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : '';
+            if (/invalid updates/i.test(message)) {
+              lastError = error instanceof Error ? error : new Error(message);
+              continue;
+            }
+            throw error;
+          }
+        }
+        if (!passwordSaved) {
+          // Dedicated password routes some backends expose.
+          for (const path of [
+            '/api/auth/change-password',
+            '/api/users/change-password',
+            '/api/auth/password',
+          ]) {
+            try {
+              const response = await fetch(`${API_URL}${path}`, {
+                method: 'POST',
+                headers: {
+                  Authorization: authHeader,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ password, newPassword: password }),
+                signal: AbortSignal.timeout(15000),
+              });
+              if (response.ok) {
+                passwordSaved = true;
+                break;
+              }
+            } catch {
+              // try next
+            }
+          }
+        }
+        if (!passwordSaved) {
+          throw lastError || new Error('Could not update password on the server');
+        }
+      }
+
+      const settings: AccountSettings = wantsNotifications
+        ? { emailNotifications: body.emailNotifications }
+        : {};
+
       const rawUser = await fetchMe(authHeader);
+      const ids = userIdsFromUser(rawUser);
       const extras = await loadExtrasForUser(request, rawUser);
-      const user = mergeProfileExtras(rawUser, extras);
+      const existingSettings = readAccountSettingsCookie(request, ids);
+      const nextSettings: AccountSettings = {
+        ...existingSettings,
+        ...settings,
+      };
+      const user = applyAccountSettings(mergeProfileExtras(rawUser, extras), nextSettings);
+
       return jsonWithExtras(
         {
           success: true,
           user,
           profile: profileFromUser(user),
         },
-        userIdsFromUser(user),
-        extras
+        ids,
+        extras,
+        undefined,
+        nextSettings
       );
     }
 

@@ -77,13 +77,6 @@ export default function Settings() {
     try {
       let token = await getValidAccessToken();
 
-      const payload = {
-        emailNotifications: settings.emailNotifications,
-      };
-      if (settings.newPassword) {
-        payload.password = settings.newPassword;
-      }
-
       const body = {
         settingsOnly: true,
         emailNotifications: settings.emailNotifications,
@@ -117,15 +110,25 @@ export default function Settings() {
       }
 
       try {
-        if (data.user) {
-          cacheMergedUser(applyProfileOverlay(data.user) || data.user);
-          window.dispatchEvent(new Event('eraiiz:account-updated'));
-        }
+        const base =
+          applyProfileOverlay(data.user || {}) ||
+          data.user ||
+          JSON.parse(localStorage.getItem('user') || '{}');
+        const nextUser = {
+          ...base,
+          emailNotifications: settings.emailNotifications,
+        };
+        cacheMergedUser(nextUser);
+        window.dispatchEvent(new Event('eraiiz:account-updated'));
       } catch {
         // ignore
       }
       setSettings((prev) => ({ ...prev, newPassword: '', confirmPassword: '' }));
-      setSuccess('Settings updated successfully!');
+      setSuccess(
+        settings.newPassword
+          ? 'Password and notification settings saved.'
+          : 'Notification settings saved.'
+      );
     } catch (err) {
       setError(err.message || 'Failed to update settings');
     } finally {
