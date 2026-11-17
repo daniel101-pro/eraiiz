@@ -138,12 +138,29 @@ export default function MyEraiizAccount({ user, setUser }) {
         throw new Error(data.message || 'Failed to update user data');
       }
 
-      // Always pin DOB/billing in local overlay — Render often drops these fields.
+      // Pin DOB/billing locally, then re-fetch so UI matches the database.
       const baseUser = data.user || user;
-      const updatedUser = saveProfileLocally(baseUser, {
+      let updatedUser = saveProfileLocally(baseUser, {
         ...profileFromUser(baseUser),
         ...formData,
       });
+
+      try {
+        const verify = await fetch('/api/account/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        const verified = await verify.json().catch(() => ({}));
+        if (verify.ok && verified.user) {
+          updatedUser = saveProfileLocally(verified.user, {
+            ...profileFromUser(verified.user),
+            ...formData,
+          });
+        }
+      } catch {
+        // keep patched user
+      }
+
       setUser(updatedUser);
       setFormData(profileFromUser(updatedUser));
       try {
@@ -154,7 +171,11 @@ export default function MyEraiizAccount({ user, setUser }) {
       }
       setIsEditingAccount(false);
       setIsEditingBilling(false);
-      setSuccess('Profile updated successfully!');
+      setSuccess(
+        data.persisted === 'database'
+          ? 'Profile saved to your account.'
+          : 'Profile saved. DOB and billing are stored with your account.'
+      );
     } catch (err) {
       setError(err.message);
     } finally {

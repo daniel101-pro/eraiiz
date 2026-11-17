@@ -448,7 +448,8 @@ export default function EnvironmentalImpact({ compactHeader = false } = {}) {
 
       {!compactHeader ? (
         <p className="text-center text-xs text-gray-400">
-          XP and ranks update from real orders and product carbon savings.
+          XP, ranks, and badges are calculated from your real completed orders and each product&apos;s
+          carbon footprint in the database.
         </p>
       ) : null}
     </div>

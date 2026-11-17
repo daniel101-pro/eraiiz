@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  buildProfilePatchPayload,
+  buildProfilePatchAttempts,
   buildSettingsPatchPayload,
   mergeProfileExtras,
   profileFromUser,
@@ -91,9 +91,24 @@ function mergeExtrasSources(...sources: ProfileExtras[]) {
   return merged;
 }
 
+function extrasFromUserDocument(user: Record<string, unknown>): ProfileExtras {
+  const profile = profileFromUser(user);
+  return {
+    dateOfBirth: profile.dateOfBirth || undefined,
+    houseAddress: profile.houseAddress || undefined,
+    city: profile.city || undefined,
+    postalAddress: profile.postalAddress || undefined,
+    state: profile.state || undefined,
+    country: profile.country || undefined,
+    phone: profile.phone || undefined,
+    name: profile.name || undefined,
+  };
+}
+
 async function loadExtrasForUser(request: NextRequest, user: Record<string, unknown>) {
   const ids = userIdsFromUser(user);
   const cookieExtras = readProfileExtrasCookie(request, ids);
+  const documentExtras = extrasFromUserDocument(user);
 
   let fileExtras: ProfileExtras = {};
   for (const id of ids) {
@@ -104,18 +119,36 @@ async function loadExtrasForUser(request: NextRequest, user: Record<string, unkn
     }
   }
 
-  // Cookie first (survives Vercel redeploys), then soft /tmp/file cache.
-  return mergeExtrasSources(cookieExtras, fileExtras);
-}
-
-async function withExtras(request: NextRequest, user: Record<string, unknown>) {
-  return mergeProfileExtras(user, await loadExtrasForUser(request, user));
+  // Prefer Mongo user document (accountProfile / billing), then cookie, then soft file.
+  return mergeExtrasSources(documentExtras, cookieExtras, fileExtras);
 }
 
 async function persistExtras(user: Record<string, unknown>, extras: ProfileExtras) {
   for (const id of userIdsFromUser(user)) {
     await setUserProfileExtras(id, extras);
   }
+}
+
+async function patchWithFallbacks(authHeader: string, form: AccountProfileFields) {
+  const attempts = buildProfilePatchAttempts(form);
+  let lastError: Error | null = null;
+
+  for (const payload of attempts) {
+    try {
+      await patchMe(authHeader, payload);
+      return payload;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (/invalid updates/i.test(message)) {
+        lastError = error instanceof Error ? error : new Error(message);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (lastError) throw lastError;
+  return attempts[attempts.length - 1];
 }
 
 export async function GET(request: NextRequest) {
@@ -203,52 +236,11 @@ export async function PATCH(request: NextRequest) {
       name: expected.name || undefined,
     };
 
-    // Persist extras before Render patch — cookie + soft file cache keep DOB/billing
-    // even when the upstream API drops nested billingAddress / dateOfBirth.
     let user = await fetchMe(authHeader);
     await persistExtras(user, extrasPayload);
 
-    const payload = buildProfilePatchPayload(expected);
-    try {
-      await patchMe(authHeader, payload);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '';
-      if (/invalid updates/i.test(message) && payload.dateOfBirth) {
-        const { dateOfBirth: _ignored, ...withoutDob } = payload;
-        try {
-          await patchMe(authHeader, withoutDob);
-        } catch (retryError) {
-          const retryMessage = retryError instanceof Error ? retryError.message : '';
-          if (!/invalid updates/i.test(retryMessage)) throw retryError;
-          // Keep name/email/phone/country/state if nested billing also rejected.
-          const flat: Record<string, unknown> = {
-            name: payload.name,
-            email: payload.email,
-            phone: payload.phone,
-            country: payload.country,
-            state: payload.state,
-          };
-          try {
-            await patchMe(authHeader, flat);
-          } catch (flatError) {
-            if (!/invalid updates/i.test(flatError instanceof Error ? flatError.message : '')) {
-              throw flatError;
-            }
-          }
-        }
-      } else if (/invalid updates/i.test(message) && payload.billingAddress) {
-        const { billingAddress: _ignored, ...withoutBilling } = payload;
-        try {
-          await patchMe(authHeader, withoutBilling);
-        } catch (retryError) {
-          if (!/invalid updates/i.test(retryError instanceof Error ? retryError.message : '')) {
-            throw retryError;
-          }
-        }
-      } else {
-        throw error;
-      }
-    }
+    // Persist onto Render Mongo (accountProfile blob + known fields), with fallbacks.
+    await patchWithFallbacks(authHeader, expected);
 
     user = await fetchMe(authHeader);
     await persistExtras(user, extrasPayload);
@@ -276,6 +268,8 @@ export async function PATCH(request: NextRequest) {
         success: true,
         user,
         profile: profileFromUser(user),
+        persisted: check.ok ? 'database' : 'database+local',
+        mismatches: check.mismatches,
       },
       userIdsFromUser(user),
       extrasPayload
