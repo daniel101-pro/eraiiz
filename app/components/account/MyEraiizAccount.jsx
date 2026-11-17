@@ -1,7 +1,57 @@
 import { useState, useEffect } from 'react';
-import { refreshAccessToken } from '../../utils/auth';
+import { getValidAccessToken, refreshAccessToken } from '../../utils/auth';
 import { User, Mail, Phone, MapPin, Calendar, Globe, Building, Edit3, Save, X, Check, AlertCircle, CreditCard, BarChart3 } from 'lucide-react';
 import EnvironmentalImpact from './EnvironmentalImpact';
+
+function profileFromUser(user) {
+  return {
+    name: user?.name || '',
+    email: user?.email || '',
+    dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+    phone: user?.phone || '',
+    country: user?.country || '',
+    state: user?.state || '',
+    houseAddress: user?.billingAddress?.houseAddress || user?.houseAddress || '',
+    city: user?.billingAddress?.city || user?.city || '',
+    postalAddress: user?.billingAddress?.postalAddress || user?.postalCode || '',
+  };
+}
+
+function buildProfilePayload(formData) {
+  return {
+    name: formData.name,
+    email: formData.email,
+    dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
+    phone: formData.phone,
+    country: formData.country,
+    state: formData.state,
+    billingAddress: {
+      houseAddress: formData.houseAddress,
+      city: formData.city,
+      postalAddress: formData.postalAddress,
+    },
+  };
+}
+
+function cacheUpdatedUser(currentUser, formData, responseData) {
+  const fromApi = responseData?.user || responseData || {};
+  return {
+    ...(currentUser || {}),
+    ...fromApi,
+    name: formData.name || fromApi.name,
+    email: formData.email || fromApi.email,
+    phone: formData.phone || fromApi.phone,
+    country: formData.country || fromApi.country,
+    state: formData.state || fromApi.state,
+    dateOfBirth: formData.dateOfBirth || fromApi.dateOfBirth,
+    billingAddress: {
+      ...(fromApi.billingAddress || currentUser?.billingAddress || {}),
+      houseAddress: formData.houseAddress,
+      city: formData.city,
+      postalAddress: formData.postalAddress,
+    },
+  };
+}
 
 export default function MyEraiizAccount({ user, setUser }) {
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -9,17 +59,7 @@ export default function MyEraiizAccount({ user, setUser }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
-    phone: user?.phone || '',
-    country: user?.country || '',
-    state: user?.state || '',
-    houseAddress: user?.billingAddress?.houseAddress || '',
-    city: user?.billingAddress?.city || '',
-    postalAddress: user?.billingAddress?.postalAddress || '',
-  });
+  const [formData, setFormData] = useState(() => profileFromUser(user));
   const [stats, setStats] = useState({
     purchases: user?.eraizStats?.numberOfPurchases || 0,
     spent: user?.eraizStats?.totalAmountSpent || 0,
@@ -27,6 +67,12 @@ export default function MyEraiizAccount({ user, setUser }) {
     salesAmount: 0,
     toShip: 0,
   });
+
+  useEffect(() => {
+    if (!user) return;
+    if (isEditingAccount || isEditingBilling) return;
+    setFormData(profileFromUser(user));
+  }, [user, isEditingAccount, isEditingBilling]);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -54,7 +100,6 @@ export default function MyEraiizAccount({ user, setUser }) {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    // Clear messages when user starts typing
     if (error) setError(null);
     if (success) setSuccess(null);
   };
@@ -64,80 +109,58 @@ export default function MyEraiizAccount({ user, setUser }) {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
-      let token = localStorage.getItem('accessToken');
-      if (!token) {
+      let token;
+      try {
+        token = await getValidAccessToken();
+      } catch {
         window.location.href = '/login';
         return;
       }
 
-      let res;
-      try {
+      const payload = buildProfilePayload(formData);
+      let res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 401) {
+        try {
+          token = await refreshAccessToken();
+        } catch {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
+          return;
+        }
         res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
           credentials: 'include',
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
-            phone: formData.phone,
-            country: formData.country,
-            state: formData.state,
-            billingAddress: {
-              houseAddress: formData.houseAddress,
-              city: formData.city,
-              postalAddress: formData.postalAddress,
-            },
-          }),
+          body: JSON.stringify(payload),
         });
-      } catch (err) {
-        if (err.cause?.status === 401) {
-          try {
-            token = await refreshAccessToken();
-            res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/users/me', {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                name: formData.name,
-                email: formData.email,
-                dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
-                phone: formData.phone,
-                country: formData.country,
-                state: formData.state,
-                billingAddress: {
-                  houseAddress: formData.houseAddress,
-                  city: formData.city,
-                  postalAddress: formData.postalAddress,
-                },
-              }),
-            });
-          } catch (refreshErr) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
-            return;
-          }
-        } else {
-          throw err;
-        }
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.message || 'Failed to update user data');
       }
-      setUser(data);
+
+      const updatedUser = cacheUpdatedUser(user, formData, data);
+      setUser(updatedUser);
       try {
-        localStorage.setItem('user', JSON.stringify(data));
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        sessionStorage.removeItem('eraiiz_checkout');
+        window.dispatchEvent(new Event('eraiiz:account-updated'));
       } catch (storageErr) {
         console.error('Failed to cache updated account', storageErr);
       }

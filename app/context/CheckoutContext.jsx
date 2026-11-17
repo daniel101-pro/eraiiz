@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getValidAccessToken } from '../utils/auth';
 
 const STORAGE_KEY = 'eraiiz_checkout';
@@ -17,84 +17,114 @@ const defaultBilling = {
 
 const CheckoutContext = createContext(null);
 
-function mapUserToBilling(user) {
+export function mapUserToBilling(user) {
   if (!user) return {};
+  const billingAddress = user.billingAddress || user.billing || {};
 
   return {
     fullName: user.name || user.fullName || '',
     email: user.email || '',
-    phone: user.phone || '',
-    state: user.state || '',
-    address: user.billingAddress?.houseAddress || user.address || '',
-    city: user.billingAddress?.city || '',
-    postalCode: user.billingAddress?.postalAddress || user.postalCode || '',
+    phone: user.phone || user.phoneNumber || '',
+    state: user.state || billingAddress.state || '',
+    address:
+      billingAddress.houseAddress ||
+      billingAddress.address ||
+      user.address ||
+      user.houseAddress ||
+      '',
+    city: billingAddress.city || user.city || '',
+    postalCode:
+      billingAddress.postalAddress ||
+      billingAddress.postalCode ||
+      user.postalCode ||
+      user.postalAddress ||
+      '',
   };
 }
 
-function mergeBilling(base, profile) {
+function applyProfile(base, profile) {
   const next = { ...defaultBilling, ...base };
   const fromProfile = mapUserToBilling(profile);
 
   Object.keys(defaultBilling).forEach((key) => {
-    if (!String(next[key] || '').trim() && fromProfile[key]) {
-      next[key] = fromProfile[key];
-    }
+    const profileValue = String(fromProfile[key] || '').trim();
+    if (profileValue) next[key] = profileValue;
   });
 
   return next;
+}
+
+function readSessionBilling() {
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (!saved) return {};
+    const parsed = JSON.parse(saved);
+    return parsed?.billing && typeof parsed.billing === 'object' ? parsed.billing : {};
+  } catch {
+    return {};
+  }
+}
+
+function readLocalUser() {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    return null;
+  }
 }
 
 export function CheckoutProvider({ children }) {
   const [billing, setBilling] = useState(defaultBilling);
   const [isReady, setIsReady] = useState(false);
 
+  const hydrateFromAccount = useCallback(async () => {
+    let billingState = { ...defaultBilling, ...readSessionBilling() };
+    billingState = applyProfile(billingState, readLocalUser());
+
+    try {
+      const token = await getValidAccessToken();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (token && apiUrl) {
+        const res = await fetch(`${apiUrl}/api/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const user = await res.json();
+          const profile = user?.user || user;
+          localStorage.setItem('user', JSON.stringify(profile));
+          billingState = applyProfile(billingState, profile);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load account for checkout', error);
+    }
+
+    setBilling(billingState);
+    setIsReady(true);
+  }, []);
+
   useEffect(() => {
-    const hydrate = async () => {
-      let billingState = { ...defaultBilling };
+    hydrateFromAccount();
 
-      try {
-        const saved = sessionStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed?.billing) {
-            billingState = { ...defaultBilling, ...parsed.billing };
-          }
-        }
-      } catch (error) {
-        console.error('Failed to restore checkout state', error);
-      }
-
-      try {
-        const localUser = JSON.parse(localStorage.getItem('user') || 'null');
-        billingState = mergeBilling(billingState, localUser);
-      } catch (error) {
-        console.error('Failed to read saved account', error);
-      }
-
-      try {
-        const token = await getValidAccessToken();
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-        if (token && apiUrl) {
-          const res = await fetch(`${apiUrl}/api/users/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-            credentials: 'include',
-          });
-          if (res.ok) {
-            const user = await res.json();
-            localStorage.setItem('user', JSON.stringify(user));
-            billingState = mergeBilling(billingState, user);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load account for checkout', error);
-      }
-
-      setBilling(billingState);
-      setIsReady(true);
+    const onAccountUpdated = () => {
+      const localUser = readLocalUser();
+      setBilling((prev) => applyProfile(prev, localUser));
     };
 
-    hydrate();
-  }, []);
+    const onStorage = (event) => {
+      if (event.key === 'user') onAccountUpdated();
+    };
+
+    window.addEventListener('eraiiz:account-updated', onAccountUpdated);
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('eraiiz:account-updated', onAccountUpdated);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [hydrateFromAccount]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -110,9 +140,10 @@ export function CheckoutProvider({ children }) {
         setBilling(defaultBilling);
         sessionStorage.removeItem(STORAGE_KEY);
       },
+      refreshBillingFromAccount: hydrateFromAccount,
       isReady,
     }),
-    [billing, isReady]
+    [billing, hydrateFromAccount, isReady]
   );
 
   if (!isReady) {
