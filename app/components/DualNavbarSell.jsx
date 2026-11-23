@@ -10,7 +10,7 @@ import Image from 'next/image';
 import axios from 'axios';
 import debounce from 'lodash/debounce';
 import { boostProductsByPlan } from '@/lib/boostProducts';
-import { fetchNotificationFeed } from '../utils/notificationFeed';
+import { clearLocalInbox, fetchNotificationFeed } from '../utils/notificationFeed';
 import { homePathForRole } from '@/lib/authRouting';
 
 // Icons from lucide-react
@@ -81,6 +81,10 @@ export default function DualNavbarSell({ handleLogout }) {
 
       if (!loggedIn) {
         setUserRole(null);
+        setNotifications([]);
+        setNotificationCount(0);
+        setIsNotificationModalOpen(false);
+        setSelectedNotification(null);
         return;
       }
 
@@ -203,11 +207,18 @@ export default function DualNavbarSell({ handleLogout }) {
   const onLogout = () => {
     const token = localStorage.getItem('accessToken');
     clearCart();
+    clearLocalInbox();
     localStorage.removeItem('user');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('role');
     localStorage.removeItem('userId');
+    setIsAuthenticated(false);
+    setUserRole(null);
+    setNotifications([]);
+    setNotificationCount(0);
+    setIsNotificationModalOpen(false);
+    setSelectedNotification(null);
     window.dispatchEvent(new Event('eraiiz:auth-changed'));
 
     if (handleLogout) {
@@ -302,21 +313,35 @@ export default function DualNavbarSell({ handleLogout }) {
     </div>
   );
 
-  // Fetch notifications
+  // Fetch notifications only for signed-in shoppers
   const fetchNotifications = async () => {
+    const token = localStorage.getItem('accessToken');
+    const storedUser = localStorage.getItem('user');
+    if (!token || !storedUser) {
+      setNotifications([]);
+      setNotificationCount(0);
+      return;
+    }
     try {
       const validNotifications = await fetchNotificationFeed();
       setNotifications(validNotifications);
       setNotificationCount(validNotifications.filter((n) => !n.read).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
+      setNotificationCount(0);
     }
   };
 
-  // Fetch notification count — never invent "order confirmed" from unpaid checkout drafts.
   useEffect(() => {
-    fetchNotifications();
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setNotificationCount(0);
+      setIsNotificationModalOpen(false);
+      return undefined;
+    }
 
+    fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
     window.addEventListener('eraiiz-inbox-updated', fetchNotifications);
     window.addEventListener('storage', fetchNotifications);
@@ -326,14 +351,13 @@ export default function DualNavbarSell({ handleLogout }) {
       window.removeEventListener('eraiiz-inbox-updated', fetchNotifications);
       window.removeEventListener('storage', fetchNotifications);
     };
-  }, []);
+  }, [isAuthenticated]);
 
-  // Fetch notifications when modal opens
   useEffect(() => {
-    if (isNotificationModalOpen) {
+    if (isAuthenticated && isNotificationModalOpen) {
       fetchNotifications();
     }
-  }, [isNotificationModalOpen]);
+  }, [isAuthenticated, isNotificationModalOpen]);
 
   return (
     <>
@@ -1225,7 +1249,7 @@ export default function DualNavbarSell({ handleLogout }) {
       )}
 
       {/* Notification Modal */}
-      {isNotificationModalOpen && (
+      {isAuthenticated && isNotificationModalOpen && (
         <div 
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           onClick={() => setIsNotificationModalOpen(false)}
@@ -1323,7 +1347,7 @@ export default function DualNavbarSell({ handleLogout }) {
       )}
 
       {/* Notification Detail Modal */}
-      {selectedNotification && (
+      {isAuthenticated && selectedNotification && (
         <div 
           className="fixed inset-0 z-[102] flex items-center justify-center p-4"
           onClick={() => setSelectedNotification(null)}

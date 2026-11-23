@@ -66,7 +66,10 @@ export function mergeNotifications(...lists) {
 
 export async function fetchNotificationFeed() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-  if (!token) return readLocalInbox();
+  // Guests must never see inbox/notifications UI content
+  if (!token) return [];
+  const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+  if (!storedUser) return [];
 
   const headers = {
     Authorization: `Bearer ${token}`,
