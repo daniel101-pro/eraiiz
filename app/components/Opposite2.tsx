@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef } from "react";
+import Link from "next/link";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/all";
 
@@ -92,9 +93,9 @@ const Opposite = () => {
                   Discover a range of innovative and sustainable products crafted from recycled plastics.
                 </p>
               </div>
-              <button className="mt-4 bg-white text-black px-4 py-2 rounded-lg font-semibold">
+              <Link href="/categories/plastic" className="mt-4 bg-white text-black px-4 py-2 rounded-lg font-semibold w-fit">
                 Start shopping
-              </button>
+              </Link>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-[290px]">
               <div>
@@ -103,9 +104,9 @@ const Opposite = () => {
                   From durable home essentials to stylish accessories, each piece showcases sustainability.
                 </p>
               </div>
-              <button className="mt-4 bg-[#008C00] text-white px-4 py-2 rounded-lg font-semibold">
+              <Link href="/categories/plastic" className="mt-4 bg-[#008C00] text-white px-4 py-2 rounded-lg font-semibold w-fit">
                 Start shopping
-              </button>
+              </Link>
             </div>
           </div>
         </div>

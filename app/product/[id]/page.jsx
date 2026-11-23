@@ -66,13 +66,13 @@ export default function ProductDetail() {
 
   const refreshToken = async () => {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        throw new Error('No refresh token found');
+      const storedRefresh = localStorage.getItem('refreshToken');
+      if (!storedRefresh) {
+        return null;
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const res = await axios.post(`${apiUrl}/api/auth/refresh`, { refreshToken }, {
+      const res = await axios.post(`${apiUrl}/api/auth/refresh`, { refreshToken: storedRefresh }, {
         timeout: 30000,
         withCredentials: true,
       });
@@ -80,15 +80,13 @@ export default function ProductDetail() {
       if (res.data?.accessToken) {
         localStorage.setItem('accessToken', res.data.accessToken);
         return res.data.accessToken;
-      } else {
-        throw new Error('No access token received');
       }
+      return null;
     } catch (err) {
       console.error('Token refresh error:', err);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      router.push('/login');
-      throw err;
+      return null;
     }
   };
 
@@ -115,11 +113,12 @@ export default function ProductDetail() {
         .then((ranksRes) => ranksRes.json())
         .catch(() => null);
 
-      let productRes;
+      let productRes = null;
       let token = localStorage.getItem('accessToken');
       if (!token) {
-        token = await refreshToken().catch(() => null);
+        token = await refreshToken();
       }
+      // Guests use the public endpoint; signed-in users prefer the richer protected payload
       if (token) {
         try {
           productRes = await axios.get(`${apiUrl}/api/products/${id}`, {
@@ -221,11 +220,6 @@ export default function ProductDetail() {
       console.error('Error in fetchProductAndReviews:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load product';
       setError(errorMessage);
-      
-      if (err.response?.status === 401) {
-        showError('Please log in to view this product');
-        router.push('/login');
-      }
     } finally {
       setLoading(false);
     }

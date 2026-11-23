@@ -91,14 +91,14 @@ const Page = () => {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4 sm:mt-6 sm:space-x-4 px-6">
-            <Link href="/signup">
+            <Link href="/for-you">
               <button className="bg-[#008C00] text-white py-3 px-8 rounded-lg w-full sm:w-auto transition-transform duration-300 hover:scale-105">
-                Create your account
+                Start shopping
               </button>
             </Link>
-            <Link href="/login">
+            <Link href="/signup">
               <button className="bg-[#FFFFFF] text-black py-3 px-8 rounded-lg w-full sm:w-auto border border-[#D1D1D1] transition-transform duration-300 hover:scale-105">
-                Start shopping
+                Create your account
               </button>
             </Link>
           </div>
@@ -121,9 +121,11 @@ const Page = () => {
               global consumers thereby reducing the level of carbon footprint in
               the whole supply chain.
             </p>
-            <button className="px-6 py-2 bg-[#008C00] text-white rounded-md hover:bg-black hover:text-white transition-transform duration-300 hover:scale-105">
-              Start Shopping
-            </button>
+            <Link href="/for-you">
+              <button className="px-6 py-2 bg-[#008C00] text-white rounded-md hover:bg-black hover:text-white transition-transform duration-300 hover:scale-105">
+                Start Shopping
+              </button>
+            </Link>
           </div>
         </div>
         <div className="w-full flex flex-col items-center mt-20 mb-20">

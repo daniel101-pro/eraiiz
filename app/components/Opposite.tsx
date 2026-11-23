@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/all";
 
@@ -104,9 +105,12 @@ const Opposite = () => {
                 Discover a range of innovative and sustainable products crafted from recycled plastics.
               </p>
             </div>
-            <button className="relative z-10 bg-white text-black rounded-full py-2 sm:py-2.5 px-5 sm:px-6 text-sm font-medium transition-all duration-300 hover:bg-[#00B300] hover:text-white hover:shadow-lg hover:shadow-[#00B300]/20 transform hover:-translate-y-0.5 active:translate-y-0 w-fit mt-4">
+            <Link
+              href="/categories/plastic"
+              className="relative z-10 bg-white text-black rounded-full py-2 sm:py-2.5 px-5 sm:px-6 text-sm font-medium transition-all duration-300 hover:bg-[#00B300] hover:text-white hover:shadow-lg hover:shadow-[#00B300]/20 transform hover:-translate-y-0.5 active:translate-y-0 w-fit mt-4"
+            >
               Start shopping
-            </button>
+            </Link>
           </div>
 
           {/* Second Image */}
@@ -132,9 +136,12 @@ const Opposite = () => {
                 From durable home essentials to stylish accessories, each piece is designed to showcase the power of sustainability without compromising on quality.
               </p>
             </div>
-            <button className="bg-[#008C00] text-white rounded-full py-2 sm:py-2.5 px-5 sm:px-6 text-sm font-medium transition-all duration-300 hover:bg-[#00B300] hover:shadow-lg hover:shadow-[#00B300]/20 transform hover:-translate-y-0.5 active:translate-y-0 w-fit mt-4">
+            <Link
+              href="/categories/plastic"
+              className="bg-[#008C00] text-white rounded-full py-2 sm:py-2.5 px-5 sm:px-6 text-sm font-medium transition-all duration-300 hover:bg-[#00B300] hover:shadow-lg hover:shadow-[#00B300]/20 transform hover:-translate-y-0.5 active:translate-y-0 w-fit mt-4"
+            >
               Start shopping
-            </button>
+            </Link>
           </div>
         </div>
       </div>

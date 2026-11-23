@@ -18,11 +18,11 @@ export default function SoloNavbar({ handleLogout }) {
         const role = parsedUser?.role || 'buyer'; // Default to 'buyer' if role is not found
         router.push(homePathForRole(role, parsedUser?.email));
       } else {
-        router.push('/login'); // Redirect to login if no user is found
+        router.push('/for-you');
       }
     } catch (err) {
       console.error('Error parsing user data:', err);
-      router.push('/login'); // Fallback to login on error
+      router.push('/for-you');
     }
   };
 

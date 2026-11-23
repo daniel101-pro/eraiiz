@@ -13,47 +13,37 @@ export default function ProductList() {
 
   const fetchProducts = async () => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const token = localStorage.getItem('accessToken');
-      if (!token) {
-        window.location.href = '/login';
-        return;
-      }
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
 
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/products', {
+      let res = await fetch(`${apiUrl}/api/products`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
         credentials: 'include',
       });
 
-      if (!res.ok) {
-        if (res.status === 401) {
-          const newToken = await refreshAccessToken();
-          if (!newToken) {
-            window.location.href = '/login';
-            return;
-          }
-          // Retry with new token
-          const retryRes = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/products', {
+      if (res.status === 401 && token) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          res = await fetch(`${apiUrl}/api/products`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${newToken}`,
+              Authorization: `Bearer ${newToken}`,
             },
             credentials: 'include',
           });
-          if (!retryRes.ok) throw new Error('Failed to fetch products');
-          const data = await retryRes.json();
-          setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(data)));
-        } else {
-          throw new Error('Failed to fetch products');
         }
-      } else {
-        const data = await res.json();
-        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(data)));
       }
+
+      if (!res.ok) throw new Error('Failed to fetch products');
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.products || [];
+      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(list)));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -65,7 +55,13 @@ export default function ProductList() {
     fetchProducts();
   }, []);
 
-  if (isLoading) return <div className="flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div></div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500" />
+      </div>
+    );
+  }
   if (error) return <div className="text-red-600 text-center">{error}</div>;
 
   return (

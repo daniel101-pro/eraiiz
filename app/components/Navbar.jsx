@@ -6,7 +6,7 @@ import Link from "next/link";
 import { FiMenu, FiX } from "react-icons/fi";
 const navLinks = [
   { label: "About Eraiiz", href: "/about" },
-  { label: "Products", href: "/login" },
+  { label: "Products", href: "/for-you" },
   { label: "FAQs", href: "/faqs" },
 ];
 

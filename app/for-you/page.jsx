@@ -29,15 +29,22 @@ export default function ForYouPage() {
     } catch {
       // ignore bad referrer
     }
-    router.push(homePathForRole(localStorage.getItem('role')));
+    const role = localStorage.getItem('role');
+    if (role) {
+      router.push(homePathForRole(role));
+    } else {
+      router.push('/');
+    }
   };
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        const token = localStorage.getItem('accessToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const res = await axios.get(`${apiUrl}/api/products/random`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+          headers,
           timeout: 30000,
         });
         const list = Array.isArray(res.data) ? res.data : res.data?.products || [];

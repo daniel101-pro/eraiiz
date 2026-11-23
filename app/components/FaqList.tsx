@@ -25,7 +25,7 @@ const faqs: FAQItem[] = [
     answer: (
       <>
         Recycled and sustainably made goods across plastic, rubber, glass, wood, palm frond, and general recycled categories.{' '}
-        <Link href="/login" className="underline hover:text-green-950">
+        <Link href="/for-you" className="underline hover:text-green-950">
           Browse the shop
         </Link>
         .

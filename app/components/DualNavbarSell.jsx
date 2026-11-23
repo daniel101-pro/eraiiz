@@ -120,16 +120,12 @@ export default function DualNavbarSell({ handleLogout }) {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        console.error('No access token found');
-        return;
-      }
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const res = await axios.get(
         `${apiUrl}/api/products/?search=${encodeURIComponent(query)}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
           timeout: 30000,
         }
       );
@@ -174,7 +170,7 @@ export default function DualNavbarSell({ handleLogout }) {
       }
       router.push(homePathForRole(userRole, email));
     } else {
-      router.push('/login');
+      router.push('/for-you');
     }
   };
 
