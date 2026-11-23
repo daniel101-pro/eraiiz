@@ -14,7 +14,26 @@ import { fetchNotificationFeed } from '../utils/notificationFeed';
 import { homePathForRole } from '@/lib/authRouting';
 
 // Icons from lucide-react
-import { ShoppingCart, User, ChevronDown, Search, Filter, Menu, X, LogOut, Clock, ArrowRight, Globe, Bell } from 'lucide-react';
+import { ShoppingCart, User, ChevronDown, Search, Filter, Menu, X, LogOut, Clock, ArrowRight, Globe, Bell, Star, RotateCcw } from 'lucide-react';
+
+const FILTER_CATEGORIES = [
+  { value: '', label: 'All' },
+  { value: 'Plastic Made Products', label: 'Plastic' },
+  { value: 'Rubber Made Products', label: 'Rubber' },
+  { value: 'Glass Made Products', label: 'Glass' },
+  { value: 'Wood Made Products', label: 'Wood' },
+  { value: 'Palm Frond Made Products', label: 'Palm' },
+  { value: 'General Recycled Items', label: 'Recycled' },
+  { value: 'Fruits Waste Products', label: 'Fruits' },
+];
+
+const EMPTY_FILTERS = {
+  category: '',
+  minPrice: '',
+  maxPrice: '',
+  inStock: false,
+  minRating: '',
+};
 
 export default function DualNavbarSell({ handleLogout }) {
   const router = useRouter();
@@ -29,13 +48,7 @@ export default function DualNavbarSell({ handleLogout }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
-  const [filterSettings, setFilterSettings] = useState({
-    category: '',
-    minPrice: '',
-    maxPrice: '',
-    inStock: false,
-    minRating: '',
-  });
+  const [filterSettings, setFilterSettings] = useState(EMPTY_FILTERS);
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [userRole, setUserRole] = useState(null); // Initially null to avoid SSR mismatch
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -229,6 +242,20 @@ export default function DualNavbarSell({ handleLogout }) {
     }));
   };
 
+  const setFilterField = (name, value) => {
+    setFilterSettings((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const clearFilters = () => setFilterSettings(EMPTY_FILTERS);
+
+  const activeFilterCount = [
+    filterSettings.category,
+    filterSettings.minPrice,
+    filterSettings.maxPrice,
+    filterSettings.inStock,
+    filterSettings.minRating,
+  ].filter(Boolean).length;
+
   // Handle filter submission
   const handleFilterSubmit = () => {
     const params = new URLSearchParams();
@@ -241,6 +268,8 @@ export default function DualNavbarSell({ handleLogout }) {
     router.push(`/filter?${params.toString()}`);
     setIsFilterModalOpen(false);
   };
+
+  const currencySymbol = currencies.find((c) => c.code === selectedCurrency)?.symbol || '₦';
 
   // Handle search query changes
   const handleSearchChange = (e) => {
@@ -981,11 +1010,16 @@ export default function DualNavbarSell({ handleLogout }) {
               <div className="flex items-center gap-4">
                 <button
                   onClick={toggleFilterModal}
-                  className="filter-button flex items-center gap-2 text-sm text-gray-600 hover:text-green-600 whitespace-nowrap relative group"
+                  className="filter-button relative group flex items-center gap-2 whitespace-nowrap text-sm text-gray-600 hover:text-green-600"
                   aria-label="Open Filter Modal"
                 >
-                  <Filter className="h-4 w-4 group-hover:animate-spin-slow" /> 
+                  <Filter className="h-4 w-4 group-hover:animate-spin-slow" />
                   <span className="group-hover:animate-float">Filters</span>
+                  {activeFilterCount > 0 ? (
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#008C00] px-1 text-[10px] font-semibold text-white">
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
                   <span className="nav-link-effect"></span>
                 </button>
               </div>
@@ -999,106 +1033,192 @@ export default function DualNavbarSell({ handleLogout }) {
 
       {/* Filter Modal */}
       {isFilterModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Filter Products</h2>
-              <button onClick={toggleFilterModal} aria-label="Close Filter Modal">
-                <X className="h-6 w-6 text-gray-600" />
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
+          onClick={toggleFilterModal}
+        >
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" />
+          <div
+            className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-[#E5E5E5] bg-white shadow-2xl sm:rounded-2xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="filter-products-title"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[#E5E5E5] px-5 py-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#008C00]">Refine</p>
+                <h2 id="filter-products-title" className="mt-0.5 text-lg font-semibold text-[#1A1A1A]">
+                  Filter products
+                </h2>
+                <p className="mt-0.5 text-xs text-[#666666]">
+                  {activeFilterCount
+                    ? `${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} selected`
+                    : 'Browse by category, price, stock, and rating'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleFilterModal}
+                aria-label="Close filters"
+                className="rounded-full border border-[#E5E5E5] p-2 text-[#666666] transition hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
+              >
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-                  Category
-                </label>
-                <select
-                  id="category"
-                  name="category"
-                  value={filterSettings.category}
-                  onChange={handleFilterChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-600 focus:border-green-600"
-                >
-                  <option value="">All Categories</option>
-                  <option value="Plastic Made Products">Plastic Made Products</option>
-                  <option value="Rubber Made Products">Rubber Made Products</option>
-                  <option value="Glass Made Products">Glass Made Products</option>
-                  <option value="Wood Made Products">Wood Made Products</option>
-                  <option value="Palm Frond Made Products">Palm Frond Made Products</option>
-                  <option value="General Recycled Items">General Recycled Items</option>
-                  <option value="Fruits Waste Products">Fruits Waste Products</option>
-                </select>
-              </div>
 
+            <div className="space-y-6 overflow-y-auto px-5 py-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Price Range ({currencies.find(c => c.code === selectedCurrency)?.symbol})</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    name="minPrice"
-                    value={filterSettings.minPrice}
-                    onChange={handleFilterChange}
-                    placeholder={`Min Price (${currencies.find(c => c.code === selectedCurrency)?.symbol})`}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-600 focus:border-green-600"
-                  />
-                  <input
-                    type="number"
-                    name="maxPrice"
-                    value={filterSettings.maxPrice}
-                    onChange={handleFilterChange}
-                    placeholder={`Max Price (${currencies.find(c => c.code === selectedCurrency)?.symbol})`}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-600 focus:border-green-600"
-                  />
+                <div className="mb-2.5 flex items-center justify-between">
+                  <p className="text-sm font-medium text-[#1A1A1A]">Category</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {FILTER_CATEGORIES.map((category) => {
+                    const selected = filterSettings.category === category.value;
+                    return (
+                      <button
+                        key={category.label}
+                        type="button"
+                        onClick={() => setFilterField('category', category.value)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                          selected
+                            ? 'border-[#008C00] bg-[#008C00] text-white'
+                            : 'border-[#E5E5E5] bg-white text-[#1A1A1A] hover:border-[#008C00]/
+                        }`}
+                      >
+                        {category.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="inStock"
-                  name="inStock"
-                  checked={filterSettings.inStock}
-                  onChange={handleFilterChange}
-                  className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-600"
-                />
-                <label htmlFor="inStock" className="ml-2 text-sm text-gray-700">
-                  In Stock Only
-                </label>
+              <div>
+                <p className="mb-2.5 text-sm font-medium text-[#1A1A1A]">Price range ({currencySymbol})</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] uppercase tracking-wide text-[#666666]">Min</span>
+                    <div className="flex items-center rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] px-3 focus-within:border-[#008C00] focus-within:bg-white">
+                      <span className="mr-1 text-sm text-[#666666]">{currencySymbol}</span>
+                      <input
+                        type="number"
+                        name="minPrice"
+                        min="0"
+                        value={filterSettings.minPrice}
+                        onChange={handleFilterChange}
+                        placeholder="0"
+                        className="w-full bg-transparent py-2.5 text-sm text-[#1A1A1A] outline-none"
+                      />
+                    </div>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] uppercase tracking-wide text-[#666666]">Max</span>
+                    <div className="flex items-center rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] px-3 focus-within:border-[#008C00] focus-within:bg-white">
+                      <span className="mr-1 text-sm text-[#666666]">{currencySymbol}</span>
+                      <input
+                        type="number"
+                        name="maxPrice"
+                        min="0"
+                        value={filterSettings.maxPrice}
+                        onChange={handleFilterChange}
+                        placeholder="Any"
+                        className="w-full bg-transparent py-2.5 text-sm text-[#1A1A1A] outline-none"
+                      />
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div>
-                <label htmlFor="minRating" className="block text-sm font-medium text-gray-700">
-                  Minimum Rating
-                </label>
-                <select
-                  id="minRating"
-                  name="minRating"
-                  value={filterSettings.minRating}
-                  onChange={handleFilterChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-600 focus:border-green-600"
-                >
-                  <option value="">Any Rating</option>
-                  <option value="1">1 Star & Up</option>
-                  <option value="2">2 Stars & Up</option>
-                  <option value="3">3 Stars & Up</option>
-                  <option value="4">4 Stars & Up</option>
-                  <option value="5">5 Stars</option>
-                </select>
+                <p className="mb-2.5 text-sm font-medium text-[#1A1A1A]">Minimum rating</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFilterField('minRating', '')}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                      !filterSettings.minRating
+                        ? 'border-[#008C00] bg-[#008C00] text-white'
+                        : 'border-[#E5E5E5] bg-white text-[#1A1A1A] hover:border-[#008C00]'
+                    }`}
+                  >
+                    Any
+                  </button>
+                  {[1, 2, 3, 4, 5].map((rating) => {
+                    const selected = String(filterSettings.minRating) === String(rating);
+                    return (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => setFilterField('minRating', String(rating))}
+                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                          selected
+                            ? 'border-[#008C00] bg-[#008C00] text-white'
+                            : 'border-[#E5E5E5] bg-white text-[#1A1A1A] hover:border-[#008C00]'
+                        }`}
+                      >
+                        <Star
+                          className={`h-3 w-3 ${selected ? 'fill-white text-white' : 'fill-amber-400 text-amber-400'}`}
+                        />
+                        {rating}+
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setFilterField('inStock', !filterSettings.inStock)}
+                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
+                  filterSettings.inStock
+                    ? 'border-[#008C00] bg-[#F3FBF3]'
+                    : 'border-[#E5E5E5] bg-white hover:border-[#008C00]/
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-medium text-[#1A1A1A]">In stock only</p>
+                  <p className="text-xs text-[#666666]">Hide listings that are sold out</p>
+                </div>
+                <span
+                  className={`relative h-6 w-11 rounded-full transition ${
+                    filterSettings.inStock ? 'bg-[#008C00]' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                      filterSettings.inStock ? 'left-[22px]' : 'left-0.5'
+                    }`}
+                  />
+                </span>
+              </button>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-[#E5E5E5] bg-white px-5 py-4">
               <button
-                onClick={toggleFilterModal}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
+                type="button"
+                onClick={clearFilters}
+                disabled={!activeFilterCount}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E5E5] px-3 py-2.5 text-sm font-medium text-[#1A1A1A] transition hover:border-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Cancel
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
               </button>
-              <button
-                onClick={handleFilterSubmit}
-                className="px-4 py-2 text-sm text-white bg-green-600 rounded hover:bg-green-700"
-              >
-                Apply Filters
-              </button>
+              <div className="ml-auto flex gap-2">
+                <button
+                  type="button"
+                  onClick={toggleFilterModal}
+                  className="rounded-xl border border-[#E5E5E5] px-4 py-2.5 text-sm font-medium text-[#666666] transition hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFilterSubmit}
+                  className="rounded-xl bg-[#008C00] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
+                >
+                  Show results
+                </button>
+              </div>
             </div>
           </div>
         </div>
