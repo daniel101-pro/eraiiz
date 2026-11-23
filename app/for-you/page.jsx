@@ -32,6 +32,10 @@ function ProductSkeleton() {
   );
 }
 
+function usableProducts(list) {
+  return (Array.isArray(list) ? list : []).filter((product) => product?._id && product?.images?.[0]);
+}
+
 export default function ForYouPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +43,7 @@ export default function ForYouPage() {
 
   useEffect(() => {
     document.title = 'Shop | Eraiiz';
+    let cancelled = false;
 
     const fetchProducts = async () => {
       try {
@@ -51,7 +56,7 @@ export default function ForYouPage() {
           const res = await axios.get(`${apiUrl}/api/products`, {
             headers,
             params: { limit: 48 },
-            timeout: 30000,
+            timeout: 15000,
           });
           list = Array.isArray(res.data) ? res.data : res.data?.products || [];
         } catch {
@@ -61,21 +66,39 @@ export default function ForYouPage() {
         if (!list.length) {
           const res = await axios.get(`${apiUrl}/api/products/random`, {
             headers,
-            timeout: 30000,
+            timeout: 15000,
           });
           list = Array.isArray(res.data) ? res.data : res.data?.products || [];
         }
 
-        const enriched = await boostProductsByPlan(await enrichProductsWithCurrency(list));
-        setProducts(enriched.filter((product) => product?._id && product?.images?.[0]));
+        // Paint immediately so visitors aren't stuck on skeletons
+        const firstPass = usableProducts(await boostProductsByPlan(list));
+        if (!cancelled) {
+          setProducts(firstPass);
+          setLoading(false);
+        }
+
+        // Refine currencies in the background with a hard budget
+        const enriched = usableProducts(
+          await boostProductsByPlan(
+            await enrichProductsWithCurrency(list, { concurrency: 6, budgetMs: 7000 })
+          )
+        );
+        if (!cancelled && enriched.length) {
+          setProducts(enriched);
+        }
       } catch (err) {
-        setError(err.message || 'Failed to load products');
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setError(err.message || 'Failed to load products');
+          setLoading(false);
+        }
       }
     };
 
     fetchProducts();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const countLabel = useMemo(() => {
