@@ -333,8 +333,8 @@ export default function ProductDetail() {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        showError('Please log in to add items to cart');
-        router.push('/login');
+        showError('Please sign in to add items to cart');
+        router.push(`/login?next=${encodeURIComponent(`/product/${id}`)}`);
         return;
       }
 
@@ -383,8 +383,8 @@ export default function ProductDetail() {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        showError('Please log in to proceed with purchase');
-        router.push('/login');
+        showError('Please sign in to continue to checkout');
+        router.push(`/login?next=${encodeURIComponent(`/product/${id}`)}`);
         return;
       }
 

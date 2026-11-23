@@ -88,7 +88,8 @@ export default function ProductCard({ product }) {
     // Check if user is logged in
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      showError('Please login to add favorites');
+      showError('Sign in to save favorites');
+      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       return;
     }
 

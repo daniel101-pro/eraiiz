@@ -1,7 +1,7 @@
 'use client';
 import Navbar from '../components/Navbar';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Image from 'next/image';
@@ -21,7 +21,19 @@ export default function SignupPage() {
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+234'); // Default to Nigeria
   const [isLoading, setIsLoading] = useState(false);
+  const [loginHref, setLoginHref] = useState('/login');
   const router = useRouter();
+
+  useEffect(() => {
+    try {
+      const next = new URLSearchParams(window.location.search).get('next');
+      if (next?.startsWith('/') && !next.startsWith('//')) {
+        setLoginHref(`/login?next=${encodeURIComponent(next)}`);
+      }
+    } catch {
+      setLoginHref('/login');
+    }
+  }, []);
 
   // Derive country name from countryCode
   const selectedCountry = countryCodes.find((code) => code.code === countryCode)?.name || 'Nigeria';
@@ -204,7 +216,7 @@ export default function SignupPage() {
                   {isLoading ? <LoadingSpinner size={20} color="#ffffff" /> : 'Create my account'}
                 </button>
                 <p className="text-center text-gray-600">
-                  Already have an account? <a href="/login" className="text-green-600 hover:underline">Sign in here</a>
+                  Already have an account? <a href={loginHref} className="text-green-600 hover:underline">Sign in here</a>
                 </p>
               </form>
             </div>

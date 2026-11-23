@@ -73,7 +73,14 @@ export default function GoogleAuthButton({ text, onSuccess }: GoogleAuthButtonPr
 
         showAuthToast('Successfully signed in with Google!', 'success');
         onSuccess?.();
-        router.push(homePathForRole(data.user.role, data.user.email));
+        let nextPath: string | null = null;
+        try {
+          const raw = new URLSearchParams(window.location.search).get('next');
+          if (raw?.startsWith('/') && !raw.startsWith('//')) nextPath = raw;
+        } catch {
+          nextPath = null;
+        }
+        router.push(nextPath || homePathForRole(data.user.role, data.user.email));
       } catch (error: unknown) {
         console.error('Google auth error:', error);
         const message = axios.isAxiosError(error)

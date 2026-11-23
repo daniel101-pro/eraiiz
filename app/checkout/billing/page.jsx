@@ -37,7 +37,7 @@ export default function BillingPage() {
     const boot = async () => {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        router.push('/login');
+        router.push('/login?next=%2Fcheckout%2Fbilling');
         return;
       }
 

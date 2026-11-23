@@ -12,6 +12,7 @@ import SettingsSection from '../components/account/Settings';
 import UploadedProducts from '../components/account/UploadedProducts';
 import Sales from '../components/account/Sales';
 import DualNavbarSell from '../components/DualNavbarSell';
+import AuthRequiredGate from '../components/AuthRequiredGate';
 import Billing from '../components/account/Billing';
 import ShippingDashboard from '../components/seller/ShippingDashboard';
 import { useCart } from '../context/CartContext';
@@ -27,7 +28,7 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeSection, setActiveSection] = useState('My Eraiiz Account');
-  const [showModal, setShowModal] = useState(false); // State for modal visibility
+  const [needsAuth, setNeedsAuth] = useState(false);
   const router = useRouter();
   const { clearCart } = useCart();
 
@@ -87,23 +88,31 @@ export default function AccountPage() {
         try {
           token = await getValidAccessToken();
         } catch {
-          setShowModal(true);
-          setTimeout(() => router.push('/login'), 2000);
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          localStorage.removeItem('role');
+          setUser(null);
+          setNeedsAuth(true);
           return;
         }
 
         try {
           await fetchUser(token);
+          setNeedsAuth(false);
         } catch (err) {
           if (err.cause?.status === 401 || err.message.includes('Invalid or expired token')) {
             try {
               token = await refreshAccessToken();
               await fetchUser(token);
-            } catch (refreshErr) {
+              setNeedsAuth(false);
+            } catch {
               localStorage.removeItem('accessToken');
               localStorage.removeItem('refreshToken');
-              setShowModal(true);
-              setTimeout(() => router.push('/login'), 2000);
+              localStorage.removeItem('user');
+              localStorage.removeItem('role');
+              setUser(null);
+              setNeedsAuth(true);
               return;
             }
           } else {
@@ -159,13 +168,14 @@ export default function AccountPage() {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('role');
-    router.push('/login');
+    window.dispatchEvent(new Event('eraiiz:auth-changed'));
+    router.push('/for-you');
   };
 
   const handleTokenError = useCallback(() => {
-    setShowModal(true);
-    setTimeout(() => router.push('/login'), 2000);
-  }, [router]);
+    setUser(null);
+    setNeedsAuth(true);
+  }, []);
 
   if (isLoading) {
     return (
@@ -183,25 +193,36 @@ export default function AccountPage() {
     );
   }
 
-  if (error) return <div className="text-red-600 text-center">{error}</div>;
-  if (!user) return <div className="text-center">No user data found.</div>;
+  if (needsAuth || !user) {
+    return (
+      <AuthRequiredGate
+        title="Sign in to your account"
+        description="Orders, favorites, notifications, and settings are available after you sign in. You can keep browsing products without an account."
+        nextPath="/account"
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DualNavbarSell handleLogout={handleLogout} />
+        <div className="mx-auto max-w-lg px-4 pt-32 text-center">
+          <p className="text-red-600">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full text-center animate-fadeIn md:p-8">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">A Gentle Reminder</h2>
-            <p className="text-gray-600 mb-6">
-              It seems your session has expired. Kindly log in anew to continue your journey with us.
-            </p>
-            <div className="flex justify-center">
-              <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <DualNavbarSell handleLogout={handleLogout} />
       <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
         <aside className="fixed left-0 top-0 w-12 md:w-64 h-screen bg-white border-r p-2 md:p-6 pt-24 md:pt-40 z-40 overflow-y-auto">

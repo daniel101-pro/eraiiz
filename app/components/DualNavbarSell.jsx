@@ -42,6 +42,7 @@ export default function DualNavbarSell({ handleLogout }) {
   });
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [userRole, setUserRole] = useState(null); // Initially null to avoid SSR mismatch
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -61,10 +62,19 @@ export default function DualNavbarSell({ handleLogout }) {
     { code: 'INR', symbol: '₹', name: 'Indian Rupee', flag: '🇮🇳' },
   ];
 
-  // Load user role from localStorage only on the client
+  // Load auth + role from localStorage only on the client
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const syncAuth = () => {
+      const token = localStorage.getItem('accessToken');
+      const storedUser = localStorage.getItem('user');
+      const loggedIn = Boolean(token && storedUser);
+      setIsAuthenticated(loggedIn);
+
+      if (!loggedIn) {
+        setUserRole(null);
+        return;
+      }
+
       try {
         const parsedUser = JSON.parse(storedUser);
         setUserRole(parsedUser?.role || 'buyer');
@@ -72,9 +82,15 @@ export default function DualNavbarSell({ handleLogout }) {
         console.error('Error parsing user data:', err);
         setUserRole('buyer');
       }
-    } else {
-      setUserRole('buyer');
-    }
+    };
+
+    syncAuth();
+    window.addEventListener('eraiiz:auth-changed', syncAuth);
+    window.addEventListener('storage', syncAuth);
+    return () => {
+      window.removeEventListener('eraiiz:auth-changed', syncAuth);
+      window.removeEventListener('storage', syncAuth);
+    };
   }, []);
 
   // Load search history from localStorage
@@ -161,7 +177,7 @@ export default function DualNavbarSell({ handleLogout }) {
 
   // Handle logo click to redirect based on user role
   const handleLogoClick = () => {
-    if (userRole) {
+    if (isAuthenticated && userRole) {
       let email = '';
       try {
         email = JSON.parse(localStorage.getItem('user') || '{}')?.email || '';
@@ -189,7 +205,7 @@ export default function DualNavbarSell({ handleLogout }) {
       handleLogout(token);
     }
 
-    router.push('/login');
+    router.push('/for-you');
   };
 
   // Toggle sidebar visibility
@@ -345,20 +361,22 @@ export default function DualNavbarSell({ handleLogout }) {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setIsNotificationModalOpen(true)}
-                className="text-gray-600 hover:text-green-600 relative"
-                aria-label="Notifications"
-              >
-                <div className="relative">
-                  <Bell className="h-5 w-5" />
-                  {notificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[14px] h-3.5 flex items-center justify-center px-0.5 font-medium">
-                      {notificationCount > 99 ? '99+' : notificationCount}
-                    </span>
-                  )}
-                </div>
-              </button>
+              {isAuthenticated ? (
+                <button 
+                  onClick={() => setIsNotificationModalOpen(true)}
+                  className="text-gray-600 hover:text-green-600 relative"
+                  aria-label="Notifications"
+                >
+                  <div className="relative">
+                    <Bell className="h-5 w-5" />
+                    {notificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[14px] h-3.5 flex items-center justify-center px-0.5 font-medium">
+                        {notificationCount > 99 ? '99+' : notificationCount}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ) : null}
               <div className="relative">
                 <button 
                   onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} 
@@ -489,7 +507,11 @@ export default function DualNavbarSell({ handleLogout }) {
               <Link href="/cart" className="text-gray-600 hover:text-green-600" aria-label="Cart">
                 <CartBadge />
               </Link>
-              <Link href="/account" className="text-gray-600 hover:text-green-600" aria-label="Account">
+              <Link
+                href={isAuthenticated ? '/account' : '/login?next=%2Faccount'}
+                className="text-gray-600 hover:text-green-600"
+                aria-label={isAuthenticated ? 'Account' : 'Sign in'}
+              >
                 <User className="h-5 w-5" />
               </Link>
             </div>
@@ -534,24 +556,35 @@ export default function DualNavbarSell({ handleLogout }) {
             <div className="flex-1 overflow-y-auto bg-white">
               <div className="p-4 flex flex-col gap-4">
                 <nav className="flex flex-col gap-3 text-sm text-gray-600">
-                  <button 
-                    onClick={() => {
-                      setIsNotificationModalOpen(true);
-                      toggleSidebar();
-                    }}
-                    className="nav-link hover:text-green-600 relative group flex items-center gap-2 w-full text-left"
-                  >
-                    <div className="relative">
-                      <Bell className="h-4 w-4 group-hover:animate-float" />
-                      {notificationCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[12px] h-3 flex items-center justify-center px-0.5 font-medium">
-                          {notificationCount > 99 ? '99+' : notificationCount}
-                        </span>
-                      )}
-                    </div>
-                    <span className="group-hover:animate-float">Notifications</span>
-                    <span className="nav-link-effect"></span>
-                  </button>
+                  {isAuthenticated ? (
+                    <button 
+                      onClick={() => {
+                        setIsNotificationModalOpen(true);
+                        toggleSidebar();
+                      }}
+                      className="nav-link hover:text-green-600 relative group flex items-center gap-2 w-full text-left"
+                    >
+                      <div className="relative">
+                        <Bell className="h-4 w-4 group-hover:animate-float" />
+                        {notificationCount > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[12px] h-3 flex items-center justify-center px-0.5 font-medium">
+                            {notificationCount > 99 ? '99+' : notificationCount}
+                          </span>
+                        )}
+                      </div>
+                      <span className="group-hover:animate-float">Notifications</span>
+                      <span className="nav-link-effect"></span>
+                    </button>
+                  ) : (
+                    <Link
+                      href="/login?next=%2Faccount"
+                      className="nav-link hover:text-green-600 relative group"
+                      onClick={toggleSidebar}
+                    >
+                      <span className="group-hover:animate-float">Sign in</span>
+                      <span className="nav-link-effect"></span>
+                    </Link>
+                  )}
                   <Link href="/seller-about" className="nav-link hover:text-green-600 relative group" onClick={toggleSidebar}>
                     <span className="group-hover:animate-float">About Eraiiz</span>
                     <span className="nav-link-effect"></span>
@@ -574,15 +607,17 @@ export default function DualNavbarSell({ handleLogout }) {
                       <span className="nav-link-effect"></span>
                     </Link>
                   )}
-                  <button
-                    onClick={() => { onLogout(); toggleSidebar(); }}
-                    className="nav-link flex items-center gap-2 text-sm text-gray-600 hover:text-green-600 relative group"
-                    aria-label="Logout"
-                  >
-                    <LogOut className="h-4 w-4 group-hover:animate-spin-slow" />
-                    <span className="group-hover:animate-float">Logout</span>
-                    <span className="nav-link-effect"></span>
-                  </button>
+                  {isAuthenticated ? (
+                    <button
+                      onClick={() => { onLogout(); toggleSidebar(); }}
+                      className="nav-link flex items-center gap-2 text-sm text-gray-600 hover:text-green-600 relative group"
+                      aria-label="Logout"
+                    >
+                      <LogOut className="h-4 w-4 group-hover:animate-spin-slow" />
+                      <span className="group-hover:animate-float">Logout</span>
+                      <span className="nav-link-effect"></span>
+                    </button>
+                  ) : null}
                 </nav>
 
                 <hr className="my-2 border-gray-200" />
@@ -684,15 +719,26 @@ export default function DualNavbarSell({ handleLogout }) {
                   </div>
                 </div>
 
-                {/* Logout in Mobile Sidebar */}
+                {/* Auth action in Mobile Sidebar */}
                 <div className="px-4 py-3 border-t border-gray-200 mt-auto">
-                  <button
-                    onClick={onLogout}
-                    className="w-full flex items-center gap-3 p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                  >
-                    <LogOut className="h-5 w-5" />
-                    <span className="text-sm font-medium">Logout</span>
-                  </button>
+                  {isAuthenticated ? (
+                    <button
+                      onClick={onLogout}
+                      className="w-full flex items-center gap-3 p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span className="text-sm font-medium">Logout</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href="/login?next=%2Faccount"
+                      onClick={toggleSidebar}
+                      className="w-full flex items-center justify-center gap-2 p-3 bg-[#008C00] text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                    >
+                      <User className="h-5 w-5" />
+                      <span className="text-sm font-medium">Sign in</span>
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
@@ -898,21 +944,27 @@ export default function DualNavbarSell({ handleLogout }) {
                     )}
                   </div>
                 </Link>
-                <button 
-                  onClick={() => setIsNotificationModalOpen(true)}
+                {isAuthenticated ? (
+                  <button 
+                    onClick={() => setIsNotificationModalOpen(true)}
+                    className="text-gray-600 hover:text-green-600 relative group transform transition-transform hover:-translate-y-1"
+                    aria-label="Notifications"
+                  >
+                    <div className="relative">
+                      <Bell className="h-6 w-6 group-hover:animate-float" />
+                      {notificationCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 font-medium animate-pulse">
+                          {notificationCount > 99 ? '99+' : notificationCount}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ) : null}
+                <Link
+                  href={isAuthenticated ? '/account' : '/login?next=%2Faccount'}
                   className="text-gray-600 hover:text-green-600 relative group transform transition-transform hover:-translate-y-1"
-                  aria-label="Notifications"
+                  aria-label={isAuthenticated ? 'Account' : 'Sign in'}
                 >
-                  <div className="relative">
-                    <Bell className="h-6 w-6 group-hover:animate-float" />
-                    {notificationCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 font-medium animate-pulse">
-                        {notificationCount > 99 ? '99+' : notificationCount}
-                      </span>
-                    )}
-                  </div>
-                </button>
-                <Link href="/account" className="text-gray-600 hover:text-green-600 relative group transform transition-transform hover:-translate-y-1" aria-label="Account">
                   <User className="h-6 w-6 group-hover:animate-float" />
                 </Link>
               </div>

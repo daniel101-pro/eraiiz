@@ -47,7 +47,7 @@ export default function SoloNavbar({ handleLogout }) {
             <Link href="/cart" className="text-gray-600 hover:text-green-600">
               <ShoppingCart className="h-5 w-5" />
             </Link>
-            <Link href="/account" className="text-gray-600 hover:text-green-600">
+            <Link href="/login?next=%2Faccount" className="text-gray-600 hover:text-green-600" aria-label="Sign in">
               <User className="h-5 w-5" />
             </Link>
             <div className="flex items-center gap-1 text-sm">
@@ -159,7 +159,7 @@ export default function SoloNavbar({ handleLogout }) {
             <Link href="/cart" className="text-gray-600 hover:text-green-600">
               <ShoppingCart className="h-5 w-5" />
             </Link>
-            <Link href="/account" className="text-gray-600 hover:text-green-600">
+            <Link href="/login?next=%2Faccount" className="text-gray-600 hover:text-green-600" aria-label="Sign in">
               <User className="h-5 w-5" />
             </Link>
             <div className="flex items-center gap-1 text-sm">

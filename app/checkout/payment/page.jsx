@@ -31,7 +31,7 @@ export default function PaymentPage() {
 
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      router.push('/login');
+      router.push('/login?next=%2Fcheckout%2Fpayment');
       return;
     }
 

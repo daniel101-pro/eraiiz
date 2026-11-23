@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -9,6 +9,12 @@ import Navbar from '../components/Navbar';
 import GoogleAuthButton from '../components/GoogleAuthButton';
 import { showAuthToast } from '../utils/toast';
 import { homePathForRole } from '@/lib/authRouting';
+
+function safeNextPath(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  if (!raw.startsWith('/') || raw.startsWith('//')) return null;
+  return raw;
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -19,7 +25,17 @@ export default function Login() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [nextPath, setNextPath] = useState(null);
   const router = useRouter();
+  const signupHref = nextPath ? `/signup?next=${encodeURIComponent(nextPath)}` : '/signup';
+
+  useEffect(() => {
+    try {
+      setNextPath(safeNextPath(new URLSearchParams(window.location.search).get('next')));
+    } catch {
+      setNextPath(null);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +56,7 @@ export default function Login() {
       localStorage.removeItem('userId');
       window.dispatchEvent(new Event('eraiiz:auth-changed'));
       showAuthToast('Successfully logged in!', 'success');
-      router.push(homePathForRole(data.user.role, data.user.email));
+      router.push(nextPath || homePathForRole(data.user.role, data.user.email));
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
       const errorData = err.response?.data;
@@ -153,7 +169,10 @@ export default function Login() {
                     Forgot Password? <a href="/reset-password" className="text-green-600 hover:underline">Reset here</a>
                   </p>
                   <p className="text-center text-gray-600">
-                    Don't have an account? <a href="/signup" className="text-green-600 hover:underline">Sign up here</a>
+                    Don't have an account?{' '}
+                    <a href={signupHref} className="text-green-600 hover:underline">
+                      Sign up here
+                    </a>
                   </p>
                 </form>
               )}
