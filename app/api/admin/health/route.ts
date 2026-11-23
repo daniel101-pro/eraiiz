@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
 import { secureAdminJson } from '@/lib/adminSecurity';
 import { isPaystackConfigured, isStripeConfigured } from '@/lib/paymentConfig';
+import { isEmailConfigured } from '@/lib/email';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
     { id: 'stripe', label: 'Stripe configured', ok: isStripeConfigured, status: isStripeConfigured ? 200 : 0, ms: 0 },
     { id: 'paystack', label: 'Paystack configured', ok: isPaystackConfigured, status: isPaystackConfigured ? 200 : 0, ms: 0 },
     { id: 'admin-emails', label: 'Admin allowlist env', ok: Boolean(process.env.ADMIN_EMAILS), status: process.env.ADMIN_EMAILS ? 200 : 0, ms: 0 },
+    { id: 'resend', label: 'Resend email', ok: isEmailConfigured(), status: isEmailConfigured() ? 200 : 0, ms: 0 },
   ];
 
   const healthy = checks.every((check) => check.ok);

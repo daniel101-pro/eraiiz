@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAdminMail } from '@/lib/adminMailStore';
-import { sendEraiizEmail, escapeHtml } from '@/lib/email';
+import { adminNotifyEmail, escapeHtml, notifyAdminInbox, sendEraiizEmail } from '@/lib/email';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -28,11 +28,21 @@ export async function POST(request: NextRequest) {
       fromName: name,
       fromEmail: email,
       toName: 'Eraiiz',
-      toEmail: 'projecterraiz@gmail.com',
+      toEmail: adminNotifyEmail(),
       subject,
       text: message,
     });
 
+    // Durable path: deliver to admin inbox via Resend
+    await notifyAdminInbox({
+      subject: `[Support] ${subject}`,
+      text: `From: ${name} <${email}>\n\n${message}`,
+      html: `<p><strong>From:</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;</p><p style="white-space:pre-wrap">${escapeHtml(message)}</p>`,
+      replyTo: email,
+      idempotencyKey: `support:${email}:${subject}:${message.slice(0, 40)}`,
+    });
+
+    // Receipt to the sender
     try {
       await sendEraiizEmail({
         to: email,
@@ -41,7 +51,7 @@ export async function POST(request: NextRequest) {
         html: `<p>Hi ${escapeHtml(name)},</p><p>We received your message.</p><blockquote style="border-left:3px solid #ddd;padding-left:12px;color:#555">${escapeHtml(message)}</blockquote>`,
       });
     } catch {
-      // inbound mail is stored even if the receipt send fails
+      // inbound mail is stored/notified even if the receipt send fails
     }
 
     return NextResponse.json({ message: 'Message sent successfully' });

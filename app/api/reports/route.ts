@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAdminMail } from '@/lib/adminMailStore';
 import { getVerifiedUser } from '@/lib/sellerPayoutStore';
+import { adminNotifyEmail, escapeHtml, notifyAdminInbox } from '@/lib/email';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -30,11 +31,19 @@ export async function POST(request: NextRequest) {
     fromName: email.split('@')[0],
     fromEmail: email,
     toName: 'Eraiiz',
-    toEmail: 'projecterraiz@gmail.com',
+    toEmail: adminNotifyEmail(),
     subject: `Report · ${reason.replace(/_/g, ' ')}`,
     text: description,
     productId,
     reason,
+  });
+
+  await notifyAdminInbox({
+    subject: `[Report] ${reason.replace(/_/g, ' ')} · ${productId}`,
+    text: `Reporter: ${email}\nProduct: ${productId}\nReason: ${reason}\n\n${description}`,
+    html: `<p><strong>Reporter:</strong> ${escapeHtml(email)}</p><p><strong>Product:</strong> ${escapeHtml(productId)}</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p><p style="white-space:pre-wrap">${escapeHtml(description)}</p>`,
+    replyTo: email,
+    idempotencyKey: `report:${email}:${productId}:${reason}:${description.slice(0, 40)}`,
   });
 
   try {

@@ -45,11 +45,14 @@ function Mailbox() {
   const [compose, setCompose] = useState(false);
   const [draft, setDraft] = useState({ to: '', subject: '', text: '', threadId: '' });
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const [provider, setProvider] = useState<{ resend?: boolean; from?: string }>({});
 
   const load = useCallback(async () => {
     const data = await adminFetch(`/api/admin/mail?folder=${folder}&q=${encodeURIComponent(query)}`);
     setMessages(data.messages || []);
     setCounts(data.counts || {});
+    setProvider(data.provider || {});
   }, [folder, query]);
 
   useEffect(() => {
@@ -58,14 +61,27 @@ function Mailbox() {
 
   const open = async (id: string) => {
     setActiveId(id);
-    const data = await adminFetch(`/api/admin/mail/${id}`);
-    setThread(data.thread || [data.message]);
-    if (!data.message.read) {
-      await adminFetch(`/api/admin/mail/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ read: true }),
-      });
-      load().catch(() => {});
+    // Resend-hydrated sent items may only exist in the list payload
+    if (String(id).startsWith('resend:')) {
+      const local = messages.find((item) => item.id === id);
+      if (local) {
+        setThread([local]);
+        return;
+      }
+    }
+    try {
+      const data = await adminFetch(`/api/admin/mail/${id}`);
+      setThread(data.thread || [data.message]);
+      if (data.message && !data.message.read) {
+        await adminFetch(`/api/admin/mail/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ read: true }),
+        });
+        load().catch(() => {});
+      }
+    } catch {
+      const local = messages.find((item) => item.id === id);
+      setThread(local ? [local] : []);
     }
   };
 
@@ -109,6 +125,7 @@ function Mailbox() {
   const send = async (event: React.FormEvent) => {
     event.preventDefault();
     setSending(true);
+    setSendError('');
     try {
       await adminFetch('/api/admin/mail', {
         method: 'POST',
@@ -118,6 +135,8 @@ function Mailbox() {
       setDraft({ to: '', subject: '', text: '', threadId: '' });
       setFolder('sent');
       await load();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Failed to send via Resend');
     } finally {
       setSending(false);
     }
@@ -141,6 +160,7 @@ function Mailbox() {
           <button
             type="button"
             onClick={() => {
+              setSendError('');
               setDraft({ to: '', subject: '', text: '', threadId: '' });
               setCompose(true);
             }}
@@ -148,6 +168,9 @@ function Mailbox() {
           >
             Compose
           </button>
+          <p className={`mt-2 text-[11px] ${provider.resend ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {provider.resend ? 'Resend connected' : 'Resend not configured'}
+          </p>
         </div>
         {folders.map((item) => (
           <button
@@ -321,12 +344,18 @@ function Mailbox() {
               placeholder="Write"
               required
             />
+            {sendError ? <p className="mt-2 text-sm text-red-600">{sendError}</p> : null}
+            {!provider.resend ? (
+              <p className="mt-2 text-xs text-amber-700">
+                Set RESEND_API_KEY and EMAIL_FROM on Vercel before sending.
+              </p>
+            ) : null}
             <button
               type="submit"
-              disabled={sending}
+              disabled={sending || provider.resend === false}
               className="mt-3 bg-green-900 px-4 py-3 text-sm font-medium text-white hover:bg-green-800 disabled:bg-gray-300 md:py-2"
             >
-              {sending ? 'Sending…' : 'Send'}
+              {sending ? 'Sending via Resend…' : 'Send with Resend'}
             </button>
           </form>
         </div>

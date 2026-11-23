@@ -33,10 +33,23 @@ export default function AdminPeoplePage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [query, setQuery] = useState('');
   const [role, setRole] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [sources, setSources] = useState<string[]>([]);
 
   const load = async (q = query) => {
-    const data = await adminFetch(`/api/admin/people?q=${encodeURIComponent(q)}`);
-    setPeople(data.people || []);
+    setLoading(true);
+    setError('');
+    try {
+      const data = await adminFetch(`/api/admin/people?q=${encodeURIComponent(q)}`);
+      setPeople(data.people || []);
+      setSources(data.meta?.sources || []);
+    } catch (err) {
+      setPeople([]);
+      setError(err instanceof Error ? err.message : 'Failed to load people');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -68,8 +81,12 @@ export default function AdminPeoplePage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">People</h1>
           <p className="text-sm text-gray-500">
-            {totals.people} accounts · {totals.orders} orders · ₦{totals.spend.toLocaleString()} spend
+            {loading
+              ? 'Loading people…'
+              : `${totals.people} accounts · ${totals.orders} orders · ₦${totals.spend.toLocaleString()} spend`}
+            {sources.length ? ` · sources: ${sources.join(', ')}` : ''}
           </p>
+          {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
@@ -103,8 +120,12 @@ export default function AdminPeoplePage() {
       </div>
 
       <div className="mt-4 space-y-2 md:hidden">
-        {filtered.length === 0 ? (
-          <p className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-500">No people</p>
+        {loading ? (
+          <p className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-500">Loading…</p>
+        ) : filtered.length === 0 ? (
+          <p className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-500">
+            No people found yet. Sellers are loaded from catalog profiles and any available admin user API.
+          </p>
         ) : (
           filtered.map((person) => (
             <div key={`${person.role}-${person.id}`} className="rounded-xl border border-gray-200 bg-white p-4">
@@ -132,10 +153,16 @@ export default function AdminPeoplePage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
-                  No people
+                  Loading…
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
+                  No people found yet. Sellers are loaded from catalog profiles and any available admin user API.
                 </td>
               </tr>
             ) : (
