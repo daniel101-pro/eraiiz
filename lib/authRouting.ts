@@ -11,6 +11,19 @@ function adminAllowlist() {
   return new Set([...DEFAULT_ADMIN_EMAILS, ...extra]);
 }
 
+export function adminAllowlistStatus() {
+  const envExtras = String(process.env.ADMIN_EMAILS || '')
+    .split(/[,\s]+/)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  return {
+    ok: adminAllowlist().size > 0,
+    count: adminAllowlist().size,
+    hasEnvExtras: envExtras.length > 0,
+    usingDefaults: DEFAULT_ADMIN_EMAILS.length > 0,
+  };
+}
+
 export function normalizeRole(role?: string | null) {
   return String(role || '').trim().toLowerCase();
 }

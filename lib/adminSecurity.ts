@@ -189,7 +189,7 @@ export function adminSecuritySnapshot() {
       apiUrl: Boolean(process.env.NEXT_PUBLIC_API_URL),
       stripe: Boolean(process.env.STRIPE_SECRET_KEY),
       paystack: Boolean(process.env.PAYSTACK_SECRET_KEY),
-      adminEmails: Boolean(process.env.ADMIN_EMAILS),
+      adminEmails: true, // built-in defaults always active; ADMIN_EMAILS adds extras
       googleClient: Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID),
     },
   };

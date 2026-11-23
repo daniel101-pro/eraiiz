@@ -4,6 +4,7 @@ import { secureAdminJson } from '@/lib/adminSecurity';
 import { isPaystackConfigured, isStripeConfigured } from '@/lib/paymentConfig';
 import { isEmailConfigured } from '@/lib/email';
 import { adminGateToken } from '@/lib/adminGate';
+import { adminAllowlistStatus } from '@/lib/authRouting';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -35,12 +36,20 @@ export async function GET(request: NextRequest) {
     ping(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.eraiiz.com'),
   ]);
 
+  const allowlist = adminAllowlistStatus();
+
   const checks = [
     { id: 'api', label: 'Product API', ...api },
     { id: 'site', label: 'Storefront', ...site },
     { id: 'stripe', label: 'Stripe configured', ok: isStripeConfigured, status: isStripeConfigured ? 200 : 0, ms: 0 },
     { id: 'paystack', label: 'Paystack configured', ok: isPaystackConfigured, status: isPaystackConfigured ? 200 : 0, ms: 0 },
-    { id: 'admin-emails', label: 'Admin allowlist env', ok: Boolean(process.env.ADMIN_EMAILS), status: process.env.ADMIN_EMAILS ? 200 : 0, ms: 0 },
+    {
+      id: 'admin-emails',
+      label: allowlist.hasEnvExtras ? 'Admin allowlist (env + defaults)' : 'Admin allowlist (built-in defaults)',
+      ok: allowlist.ok,
+      status: allowlist.ok ? 200 : 0,
+      ms: 0,
+    },
     { id: 'resend', label: 'Resend email', ok: isEmailConfigured(), status: isEmailConfigured() ? 200 : 0, ms: 0 },
     { id: 'admin-gate', label: 'Admin secret gate', ok: Boolean(adminGateToken()), status: adminGateToken() ? 200 : 0, ms: 0 },
   ];
