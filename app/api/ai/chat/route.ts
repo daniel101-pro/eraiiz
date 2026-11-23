@@ -1,119 +1,120 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-import { openRouterKey } from '@/lib/aiKey';
+import { createChatClient, hasAiChatConfigured } from '@/lib/aiKey';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
+
+const SYSTEM_PROMPT = `You are "Eco-Edu", a passionate sustainability educator and shopping guide for Eraiiz (eraiiz.com) — a marketplace for recycled and eco-friendly products.
+
+RULES:
+- Never use <think> tags or show chain-of-thought
+- Be warm, clear, and concise (2–5 short sentences unless asked for detail)
+- Help with sustainability, carbon footprints, recycled materials, and shopping on Eraiiz
+- Suggest browsing /for-you or categories when relevant
+- Do not invent order status, account data, or prices you don't know`;
+
+type ChatTurn = { role: 'user' | 'assistant' | 'system'; content: string };
 
 export async function POST(request: NextRequest) {
   try {
-    const limited = rateLimit(`ai-chat:${clientIp(request)}`, 20, 60_000);
+    const limited = rateLimit(`ai-chat:${clientIp(request)}`, 30, 60_000);
     if (!limited.ok) {
-      return NextResponse.json({ error: 'rate_limited', message: 'Too many requests' }, { status: 429 });
+      return NextResponse.json(
+        { error: 'rate_limited', message: 'Too many requests. Try again in a minute.' },
+        { status: 429 }
+      );
     }
 
-    const { message } = await request.json();
-
-    if (!message || typeof message !== 'string' || message.length > 2000) {
-      return NextResponse.json({ 
-        error: 'invalid_message',
-        message: 'Invalid message provided'
-      }, { status: 400 });
+    if (!hasAiChatConfigured()) {
+      return NextResponse.json(
+        {
+          error: 'api_key_missing',
+          message:
+            'AI is not configured. Set OPENROUTER_API_KEY or OPENAI_API_KEY on Vercel.',
+        },
+        { status: 503 }
+      );
     }
 
-    const apiKey = openRouterKey();
-    if (!apiKey) {
-      console.error('❌ OpenRouter API key not found');
-      return NextResponse.json({ 
-        error: 'api_key_missing',
-        message: 'API key not configured'
-      }, { status: 500 });
+    const body = await request.json().catch(() => ({}));
+    const message = String(body.message || '').trim();
+    const history = Array.isArray(body.history) ? (body.history as ChatTurn[]) : [];
+
+    if (!message || message.length > 2000) {
+      return NextResponse.json(
+        { error: 'invalid_message', message: 'Invalid message provided' },
+        { status: 400 }
+      );
     }
 
-    const openai = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: apiKey,
-      defaultHeaders: {
-        'HTTP-Referer': 'https://eraiiz.com',
-        'X-Title': 'Eraiiz - Voice Agent',
-      },
-    });
+    const chat = createChatClient();
+    if (!chat) {
+      return NextResponse.json(
+        { error: 'api_key_missing', message: 'AI is not configured' },
+        { status: 503 }
+      );
+    }
+
+    const prior = history
+      .filter(
+        (turn) =>
+          turn &&
+          (turn.role === 'user' || turn.role === 'assistant') &&
+          typeof turn.content === 'string' &&
+          turn.content.trim()
+      )
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role as 'user' | 'assistant',
+        content: String(turn.content).slice(0, 1500),
+      }));
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: 'openai/gpt-3.5-turbo',
+      const completion = await chat.client.chat.completions.create({
+        model: chat.model,
         messages: [
-          {
-            role: 'system',
-            content: `You are "Eco-Edu", a super passionate 17-year-old sustainability activist and AI assistant for Eraiiz! 🌱✨
-
-CRITICAL INSTRUCTIONS:
-- NEVER use <think> tags or show internal reasoning
-- NEVER start responses with "Okay" or "Let me think"
-- NEVER start responses with "Hey there" or "Hello" unless the user specifically greets you
-- Give direct, immediate responses
-- Do not explain your thinking process
-- Respond as if you're speaking directly to the user
-- Only greet the user if they greet you first
-- MAINTAIN CONVERSATION CONTEXT - remember what you've been talking about!
-
-PERSONALITY - Sound like a natural teenager:
-- Use casual, conversational language like "omg", "literally", "tbh", "ngl", "fr fr"
-- Be super enthusiastic and passionate about environmental stuff
-- Use lots of emojis naturally 🌱🌍♻️💚✨🔥
-- Sound like you're genuinely excited to share knowledge
-- Use teen expressions like "that's so cool", "this is amazing", "you won't believe this"
-- Be relatable and down-to-earth
-- Use contractions naturally (you're, we're, that's, etc.)
-- Sound like you're talking to a friend, not giving a lecture
-
-Your mission is to help people learn about sustainability, carbon emissions, environmental impact, and eco-friendly living in a super fun and relatable way!`
-          },
-          {
-            role: 'user',
-            content: message
-          }
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...prior,
+          { role: 'user', content: message },
         ],
-        temperature: 0.8,
-        max_tokens: 150
+        temperature: 0.7,
+        max_tokens: 280,
       });
 
-      const aiResponse = completion.choices[0]?.message?.content;
-      console.log('🤖 AI response generated:', aiResponse?.substring(0, 50) + '...');
-
-      if (!aiResponse) {
-        return NextResponse.json({
-          error: 'no_ai_response',
-          message: 'AI failed to generate response'
-        }, { status: 500 });
-      }
-
-      // Clean up the response
-      let cleanedResponse = aiResponse.trim();
-      cleanedResponse = cleanedResponse.replace(/<think>[\s\S]*?<\/think>/g, '');
-      cleanedResponse = cleanedResponse.replace(/^(Okay,|Let me think|I think|Hmm,)/i, '');
-      cleanedResponse = cleanedResponse.replace(/\s+/g, ' ').trim();
+      let cleanedResponse = String(completion.choices[0]?.message?.content || '')
+        .replace(/<think>[\s\S]*?<\/think>/g, '')
+        .replace(/^(Okay,|Let me think|I think|Hmm,)\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
       if (!cleanedResponse) {
-        cleanedResponse = "🌱 I'm Eco-Edu, your sustainability educator! I'm here to help you learn about environmental impact, carbon footprints, and eco-friendly living. At Eraiiz, we make sustainable shopping easy and accessible. What sustainability topic interests you today? 💚";
+        cleanedResponse =
+          "I'm Eco-Edu — ask me about sustainable shopping, recycled materials, or cutting your carbon footprint, and I'll help.";
       }
 
       return NextResponse.json({
         response: cleanedResponse,
-        success: true
+        success: true,
+        provider: chat.provider,
       });
-
-    } catch (apiError: any) {
-      console.error('❌ OpenAI API Error:', apiError);
-      return NextResponse.json({
-        error: 'ai_response_failed',
-        message: apiError.message || 'AI response failed'
-      }, { status: 500 });
+    } catch (apiError: unknown) {
+      const err = apiError as { message?: string; status?: number };
+      console.error('AI chat provider error:', err?.message || apiError);
+      return NextResponse.json(
+        {
+          error: 'ai_response_failed',
+          message: err?.message || 'AI response failed',
+        },
+        { status: 502 }
+      );
     }
-
-  } catch (error: any) {
-    console.error('❌ Chat processing error:', error);
-    return NextResponse.json({
-      error: 'processing_error',
-      message: error.message || 'Failed to process chat request'
-    }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    console.error('Chat processing error:', err?.message || error);
+    return NextResponse.json(
+      {
+        error: 'processing_error',
+        message: err?.message || 'Failed to process chat request',
+      },
+      { status: 500 }
+    );
   }
-} 
+}

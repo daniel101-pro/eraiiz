@@ -404,40 +404,7 @@ export default function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = () => {
-      try {
-        const accessToken = localStorage.getItem('accessToken');
-        const user = localStorage.getItem('user');
-        
-        if (accessToken && user) {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('Error checking authentication:', error);
-        setIsAuthenticated(false);
-      } finally {
-        setIsCheckingAuth(false);
-      }
-    };
-
-    checkAuth();
-
-    // Listen for storage changes (login/logout)
-    const handleStorageChange = () => {
-      checkAuth();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -448,19 +415,32 @@ export default function AIAssistant() {
 
   const getAIResponse = async (userMessage: string): Promise<string> => {
     try {
+      const history = messages
+        .filter((msg) => !msg.loading && msg.content)
+        .slice(-8)
+        .map((msg) => ({ role: msg.role, content: msg.content }));
+
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.slice(0, 2000) }),
+        body: JSON.stringify({
+          message: userMessage.slice(0, 2000),
+          history,
+        }),
       });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 503 || data.error === 'api_key_missing') {
+        return "Eco-Edu isn't connected yet — add OPENROUTER_API_KEY (or OPENAI_API_KEY) on Vercel, then refresh.";
+      }
       if (!response.ok || !data.response) {
-        return "omg sorry, my brain is glitching rn! 😅 try asking me again in a sec! 🌱";
+        return data.message
+          ? `Sorry, I hit a snag: ${data.message}`
+          : "Sorry, I couldn't reply just now. Try again in a moment.";
       }
       return String(data.response);
     } catch (error) {
-      console.error('❌ AI response error details:', error);
-      return "omg sorry, my brain is glitching rn! 😅 try asking me again in a sec! 🌱";
+      console.error('AI response error details:', error);
+      return "Sorry, I couldn't reach the AI service. Check your connection and try again.";
     }
   };
 
@@ -611,11 +591,6 @@ export default function AIAssistant() {
     };
     setMessages(prev => [...prev, aiMessage]);
   };
-
-  // Don't render anything if not authenticated or still checking auth
-  if (isCheckingAuth || !isAuthenticated) {
-    return null;
-  }
 
   return (
     <>

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-import { openRouterKey } from '@/lib/aiKey';
+import { createAudioClient, openAiKey } from '@/lib/aiKey';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -19,26 +18,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🎤 Transcription request received:', audioFile.size, 'bytes', 'type:', audioFile.type);
+    if (!openAiKey()) {
+      return NextResponse.json({
+        error: 'api_key_missing',
+        message: 'Voice needs OPENAI_API_KEY on Vercel (OpenRouter does not support Whisper).',
+      }, { status: 503 });
+    }
 
-    // Initialize OpenAI client for OpenRouter
-    const apiKey = openRouterKey();
-    if (!apiKey) {
-      console.error('❌ OpenRouter API key not found');
+    const openai = createAudioClient();
+    if (!openai) {
       return NextResponse.json({ 
         error: 'api_key_missing',
         message: 'API key not configured'
-      }, { status: 500 });
+      }, { status: 503 });
     }
-
-    const openai = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: apiKey,
-      defaultHeaders: {
-        'HTTP-Referer': 'https://eraiiz.com',
-        'X-Title': 'Eraiiz - Voice Agent',
-      },
-    });
 
     try {
       // Convert File to ArrayBuffer for OpenAI API
