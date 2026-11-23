@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
-import { collectAdminPeople } from '@/lib/adminPeople';
+import { collectAdminPeople, isUserRole } from '@/lib/adminPeople';
 import { secureAdminJson } from '@/lib/adminSecurity';
 
 export async function GET(request: NextRequest) {
@@ -11,13 +11,13 @@ export async function GET(request: NextRequest) {
   const q = (request.nextUrl.searchParams.get('q') || '').trim().toLowerCase();
   const role = (request.nextUrl.searchParams.get('role') || 'all').trim().toLowerCase();
 
-  const { people, sources } = await collectAdminPeople(authHeader);
+  const { people, sources, warnings } = await collectAdminPeople(authHeader);
 
   const list = people.filter((person) => {
     const roleOk =
       role === 'all' ||
       (role === 'seller' && person.role === 'seller') ||
-      (role === 'user' && person.role !== 'seller' && person.role !== 'admin') ||
+      (role === 'user' && isUserRole(person.role)) ||
       person.role === role;
     if (!roleOk) return false;
     if (!q) return true;
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
       count: list.length,
       role,
       sources,
+      warnings,
       generatedAt: new Date().toISOString(),
     },
   });

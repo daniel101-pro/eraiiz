@@ -50,6 +50,8 @@ export default function DirectoryPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [sources, setSources] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const load = async (q = query) => {
     setLoading(true);
@@ -57,8 +59,12 @@ export default function DirectoryPanel({
     try {
       const data = await adminFetch(`/api/admin/people?role=${role}&q=${encodeURIComponent(q)}`);
       setPeople(data.people || []);
+      setSources(Array.isArray(data.meta?.sources) ? data.meta.sources : []);
+      setWarnings(Array.isArray(data.meta?.warnings) ? data.meta.warnings : []);
     } catch (err) {
       setPeople([]);
+      setSources([]);
+      setWarnings([]);
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
       setLoading(false);
@@ -106,6 +112,14 @@ export default function DirectoryPanel({
             {role === 'seller' && !loading ? ` · ${totals.listings} listings seen` : ''}
           </p>
           {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
+          {!loading && sources.length ? (
+            <p className="mt-1 text-xs text-gray-400">Sources: {sources.join(', ')}</p>
+          ) : null}
+          {!loading && !people.length && warnings.length ? (
+            <p className="mt-1 text-xs text-amber-700">
+              Backend user list unavailable ({warnings[0]}). Showing paystack/catalog matches only.
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <input
