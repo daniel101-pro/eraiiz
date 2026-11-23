@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/adminAuth';
-import { backendAdminAuthHeader } from '@/lib/adminPeople';
+import { resolveBackendAdminAuth } from '@/lib/backendAdminAuth';
 import { recordAdminAudit, secureAdminJson } from '@/lib/adminSecurity';
+import {
+  filterSuppressedProducts,
+  suppressProduct,
+  suppressedProductIdSet,
+} from '@/lib/suppressedProductsStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -42,7 +48,6 @@ async function enrichProduct(item: RawProduct, authHeader: string) {
   const id = String(item._id || item.id || '');
   if (!id) return mapProduct(item);
 
-  // List endpoint is sparse — hydrate from public detail when fields are missing.
   const needsDetail =
     !item.description ||
     !item.sellerId ||
@@ -76,9 +81,13 @@ export async function GET(request: NextRequest) {
   const status = (request.nextUrl.searchParams.get('status') || 'all').trim().toLowerCase();
   const category = (request.nextUrl.searchParams.get('category') || 'all').trim().toLowerCase();
   const id = request.nextUrl.searchParams.get('id');
+  const suppressed = await suppressedProductIdSet();
 
   try {
     if (id) {
+      if (suppressed.has(id)) {
+        return NextResponse.json({ message: 'Product not found' }, { status: 404 });
+      }
       const response = await fetch(`${API_URL}/api/products/${id}/public`, {
         headers: authHeader ? { Authorization: authHeader } : {},
         signal: AbortSignal.timeout(12000),
@@ -98,9 +107,10 @@ export async function GET(request: NextRequest) {
     });
     const data = await response.json().catch(() => []);
     const list = Array.isArray(data) ? data : data.products || [];
+    const visible = filterSuppressedProducts(list as RawProduct[], suppressed);
 
     const enriched = await Promise.all(
-      (list as RawProduct[]).map((item) => enrichProduct(item, authHeader))
+      visible.map((item) => enrichProduct(item, authHeader))
     );
 
     const products = enriched
@@ -160,7 +170,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: 'No updates provided' }, { status: 400 });
   }
 
-  const authHeader = backendAdminAuthHeader(request.headers.get('authorization'));
+  const authHeader = await resolveBackendAdminAuth(request.headers.get('authorization'));
   const updatePaths = [
     `${API_URL}/api/admin/products/${id}`,
     `${API_URL}/api/admin/product/${id}`,
@@ -189,7 +199,6 @@ export async function PATCH(request: NextRequest) {
       ok = true;
       break;
     }
-    // Try next path on not-found / method issues; keep auth failures for later paths too
     if (![401, 403, 404, 405].includes(response.status)) break;
   }
 
@@ -241,11 +250,7 @@ async function backendDeleteProduct(id: string, authHeader: string) {
     }
   }
 
-  // Fallback: soft-remove by archiving when hard delete is owner-only
-  for (const url of [
-    `${API_URL}/api/admin/products/${id}`,
-    `${API_URL}/api/products/${id}`,
-  ]) {
+  for (const url of [`${API_URL}/api/admin/products/${id}`, `${API_URL}/api/products/${id}`]) {
     for (const status of ['archived', 'inactive', 'deleted']) {
       const response = await fetch(url, {
         method: 'PATCH',
@@ -275,26 +280,38 @@ export async function DELETE(request: NextRequest) {
     String((await request.json().catch(() => ({}))).id || '').trim();
   if (!id) return NextResponse.json({ message: 'Product id required' }, { status: 400 });
 
-  const authHeader = backendAdminAuthHeader(request.headers.get('authorization'));
+  const authHeader = await resolveBackendAdminAuth(request.headers.get('authorization'));
   const result = await backendDeleteProduct(id, authHeader);
 
+  // Next allowlist admins can still take listings down even when Render role≠admin.
   if (!result.ok) {
+    await suppressProduct({
+      id,
+      by: session.email,
+      reason: `fallback:${result.status}:${result.message}`.slice(0, 180),
+    });
+    revalidatePath('/api/catalog/products');
+    revalidatePath('/for-you');
     await recordAdminAudit(request, session, {
       action: 'products.delete',
       resource: `product:${id}`,
-      ok: false,
-      detail: result.message,
+      detail: 'suppressed-storefront',
     });
-    return NextResponse.json(
-      {
-        message:
-          result.message.includes('not authorized') || result.status === 403
-            ? 'Backend blocked this delete. Your account needs admin role on the API (not only the admin email allowlist), or delete as the listing seller.'
-            : result.message,
-      },
-      { status: result.status }
-    );
+    return secureAdminJson({
+      ok: true,
+      softDeleted: true,
+      suppressed: true,
+      message: 'Removed from the Eraiiz storefront. Backend role was missing, so it was hidden instead of hard-deleted on Render.',
+    });
   }
+
+  await suppressProduct({
+    id,
+    by: session.email,
+    reason: result.soft ? `soft:${result.status}` : 'hard',
+  });
+  revalidatePath('/api/catalog/products');
+  revalidatePath('/for-you');
 
   await recordAdminAudit(request, session, {
     action: 'products.delete',

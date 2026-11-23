@@ -114,12 +114,21 @@ export default function ProductDetail() {
         .catch(() => null);
 
       let productRes = null;
+      // Same-origin catalog proxy honors admin takedowns / suppressions
+      try {
+        productRes = await axios.get(`/api/catalog/products/${id}`);
+      } catch (catalogErr) {
+        if (catalogErr?.response?.status === 404) {
+          throw new Error('Product not found');
+        }
+        productRes = null;
+      }
       let token = localStorage.getItem('accessToken');
       if (!token) {
         token = await refreshToken();
       }
       // Guests use the public endpoint; signed-in users prefer the richer protected payload
-      if (token) {
+      if (!productRes && token) {
         try {
           productRes = await axios.get(`${apiUrl}/api/products/${id}`, {
             headers: { Authorization: `Bearer ${token}` },

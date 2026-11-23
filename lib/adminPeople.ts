@@ -8,21 +8,11 @@ import {
 import { listCustomers, listTransactions } from '@/lib/paystack';
 import { listDirectoryUsers } from '@/lib/userDirectoryStore';
 
+import { backendAdminAuthHeader, resolveBackendAdminAuth } from '@/lib/backendAdminAuth';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
-/** Prefer a dedicated backend admin JWT when the signed-in user is only allowlisted in Next. */
-export function backendAdminAuthHeader(requestAuthHeader?: string | null) {
-  const serviceToken = String(
-    process.env.BACKEND_ADMIN_TOKEN ||
-      process.env.ERAIIZ_BACKEND_ADMIN_TOKEN ||
-      process.env.ADMIN_API_TOKEN ||
-      ''
-  ).trim();
-  if (serviceToken) {
-    return serviceToken.startsWith('Bearer ') ? serviceToken : `Bearer ${serviceToken}`;
-  }
-  return String(requestAuthHeader || '').trim();
-}
+export { backendAdminAuthHeader, resolveBackendAdminAuth };
 
 export type AdminPerson = {
   id: string;
@@ -501,7 +491,7 @@ export async function collectAdminPeople(authHeader: string) {
   const sources: string[] = [];
   const warnings: string[] = [];
   const orderMap = new Map<string, SellerOrder>();
-  const adminAuth = backendAdminAuthHeader(authHeader);
+  const adminAuth = await resolveBackendAdminAuth(authHeader);
 
   const [backendUsers, backendOrders, paystack, catalog, localOrders, directory] = await Promise.all([
     collectBackendUsers(adminAuth, ranks),

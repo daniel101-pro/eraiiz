@@ -166,9 +166,16 @@ export default function AdminProductsPage() {
     setBusy(true);
     setError('');
     try {
-      await adminFetch(`/api/admin/products?id=${encodeURIComponent(product.id)}`, { method: 'DELETE' });
+      const data = await adminFetch(`/api/admin/products?id=${encodeURIComponent(product.id)}`, {
+        method: 'DELETE',
+      });
       setProducts((prev) => prev.filter((item) => item.id !== product.id));
       if (editing?.id === product.id) setEditing(null);
+      setNotice(
+        data?.suppressed
+          ? 'Removed from the storefront (hidden while Render admin role is missing).'
+          : 'Product deleted'
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed');
     } finally {

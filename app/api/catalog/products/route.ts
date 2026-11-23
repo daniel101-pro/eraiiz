@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BACKEND_API_URL, fetchBackend } from '@/lib/backendApi';
+import { filterSuppressedProducts, suppressedProductIdSet } from '@/lib/suppressedProductsStore';
 
 export const revalidate = 60;
 
@@ -40,9 +41,14 @@ export async function GET(request: NextRequest) {
       products = extractProducts(await response.json().catch(() => []));
     }
 
-    const list = products
-      .filter((item) => item && typeof item === 'object')
-      .slice(0, limit);
+    const suppressed = await suppressedProductIdSet();
+    const list = filterSuppressedProducts(
+      products.filter((item) => item && typeof item === 'object') as Array<{
+        _id?: unknown;
+        id?: unknown;
+      }>,
+      suppressed
+    ).slice(0, limit);
 
     return NextResponse.json(
       {
