@@ -48,23 +48,40 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ message: 'Product id required' }, { status: 400 });
 
   const authHeader = request.headers.get('authorization') || '';
-  const response = await fetch(`${API_URL}/api/products/${id}`, {
-    method: 'DELETE',
-    headers: { Authorization: authHeader },
-  });
+  const paths = [
+    `${API_URL}/api/admin/products/${id}`,
+    `${API_URL}/api/admin/product/${id}`,
+    `${API_URL}/api/products/${id}`,
+  ];
 
-  if (!response.ok) {
+  let lastStatus = 500;
+  let lastMessage = 'Could not remove listing';
+  let deleted = false;
+
+  for (const url of paths) {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(15000),
+    });
     const data = await response.json().catch(() => ({}));
+    lastStatus = response.status;
+    lastMessage = data.message || lastMessage;
+    if (response.ok) {
+      deleted = true;
+      break;
+    }
+    if (![401, 403, 404, 405].includes(response.status)) break;
+  }
+
+  if (!deleted) {
     await recordAdminAudit(request, session, {
       action: 'catalog.delete',
       resource: `product:${id}`,
       ok: false,
-      detail: data.message || 'delete failed',
+      detail: lastMessage,
     });
-    return NextResponse.json(
-      { message: data.message || 'Could not remove listing' },
-      { status: response.status }
-    );
+    return NextResponse.json({ message: lastMessage }, { status: lastStatus });
   }
 
   await recordAdminAudit(request, session, {

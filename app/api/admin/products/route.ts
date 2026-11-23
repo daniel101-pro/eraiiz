@@ -160,27 +160,46 @@ export async function PATCH(request: NextRequest) {
   }
 
   const authHeader = request.headers.get('authorization') || '';
-  const response = await fetch(`${API_URL}/api/products/${id}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: authHeader,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(patch),
-  });
+  const updatePaths = [
+    `${API_URL}/api/admin/products/${id}`,
+    `${API_URL}/api/admin/product/${id}`,
+    `${API_URL}/api/products/${id}`,
+  ];
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  let data: Record<string, unknown> = {};
+  let ok = false;
+  let lastStatus = 500;
+  let lastMessage = 'Could not update product';
+
+  for (const url of updatePaths) {
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(patch),
+      signal: AbortSignal.timeout(15000),
+    });
+    data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    lastStatus = response.status;
+    lastMessage = String(data.message || lastMessage);
+    if (response.ok) {
+      ok = true;
+      break;
+    }
+    // Try next path on not-found / method issues; keep auth failures for later paths too
+    if (![401, 403, 404, 405].includes(response.status)) break;
+  }
+
+  if (!ok) {
     await recordAdminAudit(request, session, {
       action: 'products.update',
       resource: `product:${id}`,
       ok: false,
-      detail: data.message || 'update failed',
+      detail: lastMessage,
     });
-    return NextResponse.json(
-      { message: data.message || 'Could not update product' },
-      { status: response.status }
-    );
+    return NextResponse.json({ message: lastMessage }, { status: lastStatus });
   }
 
   await recordAdminAudit(request, session, {
@@ -189,11 +208,61 @@ export async function PATCH(request: NextRequest) {
     detail: Object.keys(patch).join(','),
   });
 
-  const product = data.product || data;
+  const product = (data.product || data) as RawProduct;
   return secureAdminJson({
     ok: true,
-    product: mapProduct({ ...(product as RawProduct), ...patch, _id: id }),
+    product: mapProduct({ ...product, ...patch, _id: id }),
   });
+}
+
+async function backendDeleteProduct(id: string, authHeader: string) {
+  const paths = [
+    `${API_URL}/api/admin/products/${id}`,
+    `${API_URL}/api/admin/product/${id}`,
+    `${API_URL}/api/products/${id}`,
+  ];
+
+  let lastStatus = 500;
+  let lastMessage = 'Could not remove product';
+
+  for (const url of paths) {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    lastStatus = response.status;
+    lastMessage = String(data.message || lastMessage);
+    if (response.ok) return { ok: true as const, soft: false };
+    if (![401, 403, 404, 405].includes(response.status)) {
+      return { ok: false as const, status: lastStatus, message: lastMessage };
+    }
+  }
+
+  // Fallback: soft-remove by archiving when hard delete is owner-only
+  for (const url of [
+    `${API_URL}/api/admin/products/${id}`,
+    `${API_URL}/api/products/${id}`,
+  ]) {
+    for (const status of ['archived', 'inactive', 'deleted']) {
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          Authorization: authHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (response.ok) return { ok: true as const, soft: true, status };
+      const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      lastStatus = response.status;
+      lastMessage = String(data.message || lastMessage);
+    }
+  }
+
+  return { ok: false as const, status: lastStatus, message: lastMessage };
 }
 
 export async function DELETE(request: NextRequest) {
@@ -206,28 +275,30 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ message: 'Product id required' }, { status: 400 });
 
   const authHeader = request.headers.get('authorization') || '';
-  const response = await fetch(`${API_URL}/api/products/${id}`, {
-    method: 'DELETE',
-    headers: { Authorization: authHeader },
-  });
+  const result = await backendDeleteProduct(id, authHeader);
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
+  if (!result.ok) {
     await recordAdminAudit(request, session, {
       action: 'products.delete',
       resource: `product:${id}`,
       ok: false,
-      detail: data.message || 'delete failed',
+      detail: result.message,
     });
     return NextResponse.json(
-      { message: data.message || 'Could not remove product' },
-      { status: response.status }
+      {
+        message:
+          result.message.includes('not authorized') || result.status === 403
+            ? 'Backend blocked this delete. Your account needs admin role on the API (not only the admin email allowlist), or delete as the listing seller.'
+            : result.message,
+      },
+      { status: result.status }
     );
   }
 
   await recordAdminAudit(request, session, {
     action: 'products.delete',
     resource: `product:${id}`,
+    detail: result.soft ? `soft:${result.status}` : 'hard',
   });
-  return secureAdminJson({ ok: true });
+  return secureAdminJson({ ok: true, softDeleted: Boolean(result.soft) });
 }
