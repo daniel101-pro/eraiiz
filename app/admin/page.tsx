@@ -45,7 +45,7 @@ function money(n: number) {
 const QUICK = [
   { href: '/admin/orders', label: 'Update fulfillment', icon: ShoppingBag },
   { href: '/admin/mail?folder=reports', label: 'Triage reports', icon: AlertTriangle },
-  { href: '/admin/catalog', label: 'Moderate listings', icon: Boxes },
+  { href: '/admin/products', label: 'Manage products', icon: Boxes },
   { href: '/admin/sellers', label: 'Review sellers', icon: Store },
   { href: '/admin/users', label: 'Track users', icon: Users },
   { href: '/admin/security', label: 'Security center', icon: Shield },
@@ -74,7 +74,7 @@ export default function AdminOverviewPage() {
     { label: 'Revenue', value: money(data.revenue), href: '/admin/analytics' },
     { label: 'Unread mail', value: data.unread, href: '/admin/mail' },
     { label: 'Reports', value: data.reports, href: '/admin/mail?folder=reports' },
-    { label: 'Listings', value: data.listings, href: '/admin/catalog' },
+    { label: 'Products', value: data.listings, href: '/admin/products' },
     { label: 'Sellers', value: data.sellers, href: '/admin/sellers' },
   ];
 
