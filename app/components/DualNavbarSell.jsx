@@ -21,10 +21,6 @@ export default function DualNavbarSell({ handleLogout }) {
   const { selectedCurrency, setSelectedCurrency, getCurrencyInfo, loading: currencyLoading, detectedCountryName, currencyManual } = useCurrency();
   const { cartItems, clearCart } = useCart();
 
-  // State for navbar visibility
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
-
   // State for sidebar, filter modal, filter settings, and user role
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -277,30 +273,6 @@ export default function DualNavbarSell({ handleLogout }) {
     </div>
   );
 
-  // Handle scroll events
-  const handleScroll = useCallback(() => {
-    const currentScrollY = window.scrollY;
-    
-    if (currentScrollY < 60) {
-      setIsVisible(true);
-    } else {
-      setIsVisible(currentScrollY < lastScrollY);
-    }
-    
-    setLastScrollY(currentScrollY);
-  }, [lastScrollY]);
-
-  // Add scroll event listener
-  useEffect(() => {
-    const controlNavbar = debounce(handleScroll, 100);
-
-    window.addEventListener('scroll', controlNavbar);
-
-    return () => {
-      window.removeEventListener('scroll', controlNavbar);
-    };
-  }, [handleScroll]);
-
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
@@ -336,11 +308,7 @@ export default function DualNavbarSell({ handleLogout }) {
 
   return (
     <>
-      <div 
-        className={`fixed top-0 left-0 right-0 bg-white z-50 shadow transition-transform duration-300 ${
-          isVisible ? 'translate-y-0' : '-translate-y-full'
-        }`}
-      >
+      <div className="fixed top-0 left-0 right-0 bg-white z-50 shadow">
         {/* Mobile Navbar */}
         <header className="md:hidden">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
