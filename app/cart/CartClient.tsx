@@ -29,35 +29,30 @@ const BackButton = () => {
 };
 
 const ProgressBar = () => {
+    // Mobile skips this — DualNavbarSell already reserves nav space.
     return (
-        <>
-            {/* Mobile: no step chrome — just clear the fixed nav */}
-            <div className="md:hidden h-[72px]" aria-hidden="true" />
-
-            {/* Desktop Progress */}
-            <div className="mx-auto mb-8 mt-[120px] hidden max-w-3xl items-center justify-center space-x-4 px-4 md:flex">
-                <div className="flex items-center">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-green-500 bg-white text-green-500">
-                        1
-                    </div>
-                    <span className="ml-2 text-green-500">Cart review</span>
+        <div className="mx-auto mb-6 mt-4 hidden max-w-3xl items-center justify-center space-x-4 px-4 md:flex">
+            <div className="flex items-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-green-500 bg-white text-green-500">
+                    1
                 </div>
-                <div className="h-[1px] flex-1 bg-gray-200"></div>
-                <div className="flex items-center">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500">
-                        2
-                    </div>
-                    <span className="ml-2 text-gray-500">Billing address</span>
-                </div>
-                <div className="h-[1px] flex-1 bg-gray-200"></div>
-                <div className="flex items-center">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500">
-                        3
-                    </div>
-                    <span className="ml-2 text-gray-500">Payment</span>
-                </div>
+                <span className="ml-2 text-green-500">Cart review</span>
             </div>
-        </>
+            <div className="h-[1px] flex-1 bg-gray-200" />
+            <div className="flex items-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500">
+                    2
+                </div>
+                <span className="ml-2 text-gray-500">Billing address</span>
+            </div>
+            <div className="h-[1px] flex-1 bg-gray-200" />
+            <div className="flex items-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500">
+                    3
+                </div>
+                <span className="ml-2 text-gray-500">Payment</span>
+            </div>
+        </div>
     );
 };
 
@@ -172,9 +167,9 @@ export default function CartClient() {
     
             
             {/* Mobile Layout */}
-            <div className="md:hidden px-4 py-6">
+            <div className="px-4 pb-6 pt-2 md:hidden">
                 <BackButton />
-                <h2 className="text-xs sm:text-sm md:text-base text-gray-900 mb-6">Cart items</h2>
+                <h2 className="mb-4 text-base font-medium text-gray-900">Cart items</h2>
 
                 <div className="space-y-6">
                     {displayCartItems.map((item: CartItem) => (
