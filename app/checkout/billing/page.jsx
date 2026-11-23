@@ -22,6 +22,25 @@ const fields = [
 
 const hasValue = (value) => Boolean(String(value || '').trim());
 
+async function maybeJoinMailingList(billing) {
+  if (!billing?.marketingOptIn || !billing?.email) return;
+  try {
+    await fetch('/api/mailing-list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: billing.email,
+        name: billing.fullName,
+        phone: billing.phone,
+        source: 'checkout',
+        optedIn: true,
+      }),
+    });
+  } catch {
+    // checkout should still continue if marketing signup fails
+  }
+}
+
 export default function BillingPage() {
   const router = useRouter();
   const { cartItems } = useCart();
@@ -29,6 +48,7 @@ export default function BillingPage() {
   const { formatPrice, convertPrice } = useCurrency();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true);
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const skippedRef = useRef(false);
 
   useEffect(() => {
@@ -36,10 +56,7 @@ export default function BillingPage() {
 
     const boot = async () => {
       const token = localStorage.getItem('accessToken');
-      if (!token) {
-        router.push('/login?next=%2Fcheckout%2Fbilling');
-        return;
-      }
+      setIsSignedIn(Boolean(token));
 
       if (cartItems.length === 0) {
         router.push('/cart');
@@ -49,8 +66,8 @@ export default function BillingPage() {
       const nextBilling = (await refreshBillingFromAccount?.()) || billing;
       if (cancelled) return;
 
-      // If account already has a full billing address, skip straight to payment.
-      if (!skippedRef.current && isBillingComplete(nextBilling)) {
+      // Signed-in shoppers with a full saved address can skip to payment.
+      if (token && !skippedRef.current && isBillingComplete(nextBilling)) {
         skippedRef.current = true;
         router.replace('/checkout/payment');
         return;
@@ -66,8 +83,8 @@ export default function BillingPage() {
   }, [cartItems.length, refreshBillingFromAccount, router]);
 
   const handleChange = (event) => {
-    const { name, value } = event.target;
-    updateBilling({ [name]: value });
+    const { name, value, type, checked } = event.target;
+    updateBilling({ [name]: type === 'checkbox' ? checked : value });
   };
 
   const handleSubmit = async (event) => {
@@ -81,6 +98,8 @@ export default function BillingPage() {
 
     setIsSubmitting(true);
     try {
+      await maybeJoinMailingList(billing);
+
       const token = localStorage.getItem('accessToken');
       if (token) {
         const currentRes = await fetch('/api/account/profile', {
@@ -147,16 +166,34 @@ export default function BillingPage() {
             ← Back to Cart
           </Link>
 
-          <h2 className="text-2xl font-semibold mb-2">Billing details</h2>
-          <p className="text-gray-600 mb-6">
-            Order total: <span className="font-semibold text-green-700">{formatPrice(orderTotal)}</span>
-          </p>
+          <div className="mb-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-green-700">
+              {isSignedIn ? 'Checkout' : 'Guest checkout'}
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold text-gray-900">Billing details</h2>
+            <p className="mt-1 text-gray-600">
+              Order total:{' '}
+              <span className="font-semibold text-green-700">{formatPrice(orderTotal)}</span>
+            </p>
+            {!isSignedIn ? (
+              <p className="mt-2 text-sm text-gray-500">
+                No account needed — fill in your details to pay.{' '}
+                <Link
+                  href={`/login?next=${encodeURIComponent('/checkout/billing')}`}
+                  className="font-medium text-green-700 hover:underline"
+                >
+                  Sign in
+                </Link>{' '}
+                if you already shop with Eraiiz.
+              </p>
+            ) : null}
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {fields.map((field) => (
                 <div key={field.name} className={field.fullWidth ? 'md:col-span-2' : ''}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
                     {field.label}
                   </label>
                   <input
@@ -165,20 +202,47 @@ export default function BillingPage() {
                     value={billing[field.name] || ''}
                     onChange={handleChange}
                     required={field.required}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full rounded-md border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               ))}
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <Link href="/account" className="text-sm text-green-700 hover:underline">
-                Update in account
-              </Link>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
+              <input
+                type="checkbox"
+                name="marketingOptIn"
+                checked={Boolean(billing.marketingOptIn)}
+                onChange={handleChange}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-600"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900">
+                  Email me deals, drops, and eco promotions
+                </span>
+                <span className="mt-0.5 block text-xs text-gray-600">
+                  Get early access to recycled finds and exclusive offers. Unsubscribe anytime.
+                </span>
+              </span>
+            </label>
+
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              {isSignedIn ? (
+                <Link href="/account" className="text-sm text-green-700 hover:underline">
+                  Update in account
+                </Link>
+              ) : (
+                <Link
+                  href={`/signup?next=${encodeURIComponent('/checkout/billing')}`}
+                  className="text-sm text-gray-500 hover:text-green-700 hover:underline"
+                >
+                  Create an account after checkout
+                </Link>
+              )}
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center px-6 py-3 rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-60"
+                className="inline-flex items-center rounded-md bg-green-600 px-6 py-3 text-white hover:bg-green-700 disabled:opacity-60"
               >
                 Continue to Payment
               </button>

@@ -29,12 +29,6 @@ export default function PaymentPage() {
   useEffect(() => {
     if (isCompleting) return;
 
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      router.push('/login?next=%2Fcheckout%2Fpayment');
-      return;
-    }
-
     if (checkoutItems.length === 0) {
       router.push('/cart');
       return;

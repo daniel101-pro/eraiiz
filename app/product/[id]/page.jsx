@@ -331,13 +331,6 @@ export default function ProductDetail() {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        showError('Please sign in to add items to cart');
-        router.push(`/login?next=${encodeURIComponent(`/product/${id}`)}`);
-        return;
-      }
-
       setIsAddingToCart(true);
       
       // Show success toast immediately with a unique ID
@@ -358,7 +351,7 @@ export default function ProductDetail() {
             : product.sellerId,
       };
 
-      // Add to cart in the background
+      // Guests can shop — cart lives in local storage until checkout
       await addToCart(cartItem);
       setIsInCartState(true);
       
@@ -381,16 +374,9 @@ export default function ProductDetail() {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        showError('Please sign in to continue to checkout');
-        router.push(`/login?next=${encodeURIComponent(`/product/${id}`)}`);
-        return;
-      }
-
       setIsBuyingNow(true);
       
-      // First add to cart
+      // First add to cart (works for guests too)
       await handleAddToCart();
       // Then redirect to billing page
       router.push('/checkout/billing');

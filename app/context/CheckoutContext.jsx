@@ -16,6 +16,7 @@ const defaultBilling = {
   state: '',
   postalCode: '',
   country: '',
+  marketingOptIn: true,
 };
 
 const CheckoutContext = createContext(null);
@@ -61,7 +62,12 @@ function readSessionBilling() {
     const saved = sessionStorage.getItem(STORAGE_KEY);
     if (!saved) return {};
     const parsed = JSON.parse(saved);
-    return parsed?.billing && typeof parsed.billing === 'object' ? parsed.billing : {};
+    const billing = parsed?.billing && typeof parsed.billing === 'object' ? parsed.billing : {};
+    return {
+      ...billing,
+      marketingOptIn:
+        typeof billing.marketingOptIn === 'boolean' ? billing.marketingOptIn : true,
+    };
   } catch {
     return {};
   }
