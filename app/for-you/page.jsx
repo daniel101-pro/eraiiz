@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import DualNavbarSell from '../components/DualNavbarSell';
 import ProductCard from '../components/ProductCard';
-import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 import { boostProductsByPlan } from '@/lib/boostProducts';
 
 function usableProducts(list) {
@@ -22,43 +20,17 @@ export default function ForYouPage() {
 
     const fetchProducts = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-        const token = localStorage.getItem('accessToken');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-        let list = [];
-        try {
-          const res = await axios.get(`${apiUrl}/api/products`, {
-            headers,
-            params: { limit: 48 },
-            timeout: 15000,
-          });
-          list = Array.isArray(res.data) ? res.data : res.data?.products || [];
-        } catch {
-          list = [];
-        }
-
-        if (!list.length) {
-          const res = await axios.get(`${apiUrl}/api/products/random`, {
-            headers,
-            timeout: 15000,
-          });
-          list = Array.isArray(res.data) ? res.data : res.data?.products || [];
-        }
-
+        // Same-origin cached catalog — avoids cold Render on every visit
+        const res = await fetch('/api/catalog/products?limit=48', {
+          cache: 'default',
+        });
+        const data = await res.json().catch(() => ({}));
+        const list = Array.isArray(data.products) ? data.products : [];
         const firstPass = usableProducts(await boostProductsByPlan(list));
+
         if (!cancelled) {
           setProducts(firstPass);
           setLoading(false);
-        }
-
-        const enriched = usableProducts(
-          await boostProductsByPlan(
-            await enrichProductsWithCurrency(list, { concurrency: 6, budgetMs: 7000 })
-          )
-        );
-        if (!cancelled && enriched.length) {
-          setProducts(enriched);
         }
       } catch (err) {
         if (!cancelled) {

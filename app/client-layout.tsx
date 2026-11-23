@@ -12,6 +12,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { GOOGLE_CLIENT_ID } from '@/lib/googleClient';
 
 const AIAssistant = dynamic(() => import('./components/AIAssistant/AIAssistant'), { ssr: false });
+const ApiWarmup = dynamic(() => import('./components/ApiWarmup'), { ssr: false });
 
 export default function ClientLayout({
   children,
@@ -54,6 +55,7 @@ export default function ClientLayout({
               }}
             />
             {isAdmin ? null : <AIAssistant />}
+            {isAdmin ? null : <ApiWarmup />}
             </FavoritesProvider>
         </CartProvider>
       </CurrencyProvider>

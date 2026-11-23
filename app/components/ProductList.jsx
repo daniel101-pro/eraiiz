@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { refreshAccessToken } from '../../app/utils/auth';
 import ProductCard from './ProductCard';
 import { boostProductsByPlan } from '@/lib/boostProducts';
-import { enrichProductsWithCurrency } from '@/lib/productCurrency';
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -13,29 +12,28 @@ export default function ProductList() {
 
   const fetchProducts = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const token = localStorage.getItem('accessToken');
       const headers = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      let res = await fetch(`${apiUrl}/api/products`, {
+      let res = await fetch('/api/catalog/products?limit=48', {
         method: 'GET',
         headers,
-        credentials: 'include',
+        cache: 'default',
       });
 
       if (res.status === 401 && token) {
         const newToken = await refreshAccessToken();
         if (newToken) {
-          res = await fetch(`${apiUrl}/api/products`, {
+          res = await fetch('/api/catalog/products?limit=48', {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${newToken}`,
             },
-            credentials: 'include',
+            cache: 'default',
           });
         }
       }
@@ -43,7 +41,8 @@ export default function ProductList() {
       if (!res.ok) throw new Error('Failed to fetch products');
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.products || [];
-      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(list, { concurrency: 6, budgetMs: 7000 })));
+      // Paint fast — skip N+1 currency enrichment on list views
+      setProducts(await boostProductsByPlan(list));
     } catch (err) {
       setError(err.message);
     } finally {
