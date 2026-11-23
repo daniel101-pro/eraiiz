@@ -54,6 +54,23 @@ const config: NextConfig = {
         { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
       ],
     },
+    {
+      source: '/admin/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, private' },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+      ],
+    },
+    {
+      source: '/api/admin/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, private' },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+      ],
+    },
   ],
 };
 

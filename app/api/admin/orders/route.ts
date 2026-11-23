@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
 import { getAllSellerOrders, updateSellerOrder } from '@/lib/sellerOrderStore';
+import { recordAdminAudit, secureAdminJson } from '@/lib/adminSecurity';
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAdmin(request);
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       )
     : orders;
 
-  return NextResponse.json({
+  return secureAdminJson({
     orders: filtered.map((order) => ({
       id: order._id,
       reference: order.reference,
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { error } = await requireAdmin(request);
+  const { session, error } = await requireAdmin(request);
   if (error) return error;
 
   const body = await request.json().catch(() => ({}));
@@ -47,5 +48,10 @@ export async function PATCH(request: NextRequest) {
   if (!current) return NextResponse.json({ message: 'Order not found' }, { status: 404 });
 
   const updated = await updateSellerOrder([current.sellerId], orderId, { status });
-  return NextResponse.json(updated);
+  await recordAdminAudit(request, session, {
+    action: 'order.status.update',
+    resource: `order:${orderId}`,
+    detail: `${current.status} → ${status}`,
+  });
+  return secureAdminJson(updated);
 }

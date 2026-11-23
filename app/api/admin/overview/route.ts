@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
 import { getAllSellerOrders } from '@/lib/sellerOrderStore';
 import { adminMailCounts } from '@/lib/adminMailStore';
 import { getAllSellerPlanRanks } from '@/lib/sellerSubscriptionStore';
+import { secureAdminJson } from '@/lib/adminSecurity';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   const sellers = new Set(orders.map((order) => order.sellerId).filter(Boolean));
   const paidPlans = Object.values(ranks).filter((plan) => plan === 'growth' || plan === 'pro').length;
 
-  return NextResponse.json({
+  return secureAdminJson({
     orders: orders.length,
     revenue,
     unread: mail.unread,

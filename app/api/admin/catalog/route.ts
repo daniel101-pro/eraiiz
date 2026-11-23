@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
+import { recordAdminAudit, secureAdminJson } from '@/lib/adminSecurity';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -33,14 +34,14 @@ export async function GET(request: NextRequest) {
           : true
       );
 
-    return NextResponse.json({ products });
+    return secureAdminJson({ products });
   } catch {
-    return NextResponse.json({ products: [] });
+    return secureAdminJson({ products: [] });
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  const { error } = await requireAdmin(request);
+  const { session, error } = await requireAdmin(request);
   if (error) return error;
 
   const id = request.nextUrl.searchParams.get('id');
@@ -54,11 +55,21 @@ export async function DELETE(request: NextRequest) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
+    await recordAdminAudit(request, session, {
+      action: 'catalog.delete',
+      resource: `product:${id}`,
+      ok: false,
+      detail: data.message || 'delete failed',
+    });
     return NextResponse.json(
       { message: data.message || 'Could not remove listing' },
       { status: response.status }
     );
   }
 
-  return NextResponse.json({ ok: true });
+  await recordAdminAudit(request, session, {
+    action: 'catalog.delete',
+    resource: `product:${id}`,
+  });
+  return secureAdminJson({ ok: true });
 }
