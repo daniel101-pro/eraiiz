@@ -98,18 +98,18 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-green-200 hover:shadow-md">
-      <Link href={`/product/${product._id}`} className="relative block aspect-[4/5] overflow-hidden bg-gray-100">
+    <article className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-green-200 hover:shadow-sm">
+      <Link href={`/product/${product._id}`} className="relative block aspect-square overflow-hidden bg-gray-100">
         <Image
           src={imageSrc}
           alt={product.name || 'Product'}
           fill
-          className="object-cover transition duration-500 group-hover:scale-[1.03]"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover transition duration-300 group-hover:scale-[1.03]"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
         />
         {product.featured ? (
           <span
-            className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${
+            className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white ${
               product.sellerPlan === 'pro' ? 'bg-purple-600' : 'bg-[#008C00]'
             }`}
           >
@@ -120,34 +120,26 @@ export default function ProductCard({ product }) {
           type="button"
           onClick={handleFavoriteClick}
           aria-label={favorited ? 'Remove from favorites' : 'Save to favorites'}
-          className="absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-gray-500 shadow-sm transition hover:text-red-500"
+          className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-gray-500 shadow-sm transition hover:text-red-500"
         >
-          <Heart className={`h-4 w-4 ${favorited ? 'fill-red-500 text-red-500' : ''}`} />
+          <Heart className={`h-3.5 w-3.5 ${favorited ? 'fill-red-500 text-red-500' : ''}`} />
         </button>
       </Link>
 
-      <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
-        <div className="min-h-[3.25rem]">
-          <Link href={`/product/${product._id}`} className="block">
-            <h3 className="line-clamp-2 text-sm font-medium leading-snug text-gray-900 sm:text-[15px]">
-              {product.name}
-            </h3>
-          </Link>
-          {product.category ? (
-            <p className="mt-1 truncate text-xs text-gray-500">{product.category}</p>
-          ) : null}
-        </div>
+      <div className="flex flex-1 flex-col gap-2 p-2.5 sm:p-3">
+        <Link href={`/product/${product._id}`} className="block min-h-[2.5rem]">
+          <h3 className="line-clamp-2 text-[13px] font-medium leading-snug text-gray-900">
+            {product.name}
+          </h3>
+        </Link>
 
-        <div className="mt-auto flex items-end justify-between gap-2">
-          <div>
-            <p className="text-base font-semibold tracking-tight text-gray-900 sm:text-lg">
-              {formatPrice(convertPrice(listingPrice, productCurrency))}
-            </p>
-            <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-              <span>{rating > 0 ? rating.toFixed(1) : 'New'}</span>
-              {reviewCount > 0 ? <span>· {reviewCount}</span> : null}
-            </div>
+        <div className="mt-auto flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold tracking-tight text-gray-900">
+            {formatPrice(convertPrice(listingPrice, productCurrency))}
+          </p>
+          <div className="flex items-center gap-0.5 text-[11px] text-gray-500">
+            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+            <span>{rating > 0 ? rating.toFixed(1) : 'New'}</span>
           </div>
         </div>
 
@@ -156,28 +148,28 @@ export default function ProductCard({ product }) {
             <button
               type="button"
               onClick={handleAddToCart}
-              className="w-full rounded-xl bg-[#008C00] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
+              className="w-full rounded-lg bg-[#008C00] px-2 py-2 text-xs font-semibold text-white transition hover:bg-green-700"
             >
               Add to cart
             </button>
           ) : (
-            <div className="flex items-center justify-between rounded-xl bg-gray-100 px-2 py-1.5">
+            <div className="flex items-center justify-between rounded-lg bg-gray-100 px-1.5 py-1">
               <button
                 type="button"
                 onClick={handleDecrement}
                 aria-label="Decrease quantity"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-green-700 shadow-sm"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-green-700 shadow-sm"
               >
-                <Minus className="h-4 w-4" />
+                <Minus className="h-3.5 w-3.5" />
               </button>
-              <span className="text-sm font-semibold text-gray-900">{quantity}</span>
+              <span className="text-xs font-semibold text-gray-900">{quantity}</span>
               <button
                 type="button"
                 onClick={handleIncrement}
                 aria-label="Increase quantity"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-green-700 shadow-sm"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-green-700 shadow-sm"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
           )}

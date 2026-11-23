@@ -943,54 +943,38 @@ export default function DualNavbarSell({ handleLogout }) {
           <div className="h-px bg-gradient-to-r from-transparent via-green-600/30 to-transparent"></div>
 
           <nav className="bg-white">
-            <div className="container mx-auto px-4 py-2 flex items-center justify-between">
-              <nav className="flex items-center space-x-6 xl:space-x-6 lg:space-x-4 md:space-x-2 text-sm text-gray-600 overflow-x-auto no-scrollbar">
+            <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-3 py-2 sm:px-4 lg:px-6">
+              <nav className="flex min-w-0 items-center gap-3 overflow-x-auto text-sm text-gray-600 no-scrollbar md:gap-4">
                 <Link href="/categories/plastic" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">Plastic Made Products</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Plastic</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Plastic</span>
+                  Plastic
                   <span className="nav-link-effect"></span>
                 </Link>
                 <Link href="/categories/glass" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">Glass Made Products</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Glass</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Glass</span>
+                  Glass
                   <span className="nav-link-effect"></span>
                 </Link>
                 <Link href="/categories/rubber" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">Rubber Made Products</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Rubber</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Rubber</span>
+                  Rubber
                   <span className="nav-link-effect"></span>
                 </Link>
                 <Link href="/categories/wood" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">Wood Made Products</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Wood</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Wood</span>
+                  Wood
                   <span className="nav-link-effect"></span>
                 </Link>
                 <Link href="/categories/palm-frond" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">Palm Frond Made Products</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Palm</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Palm</span>
+                  Palm
                   <span className="nav-link-effect"></span>
                 </Link>
                 <Link href="/categories/recycled" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">General Recycled Items</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Recycled</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Recycled</span>
+                  Recycled
                   <span className="nav-link-effect"></span>
                 </Link>
                 <Link href="/categories/fruits" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">Fruits Waste Products</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Fruits</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Fruits</span>
+                  Fruits
                   <span className="nav-link-effect"></span>
                 </Link>
                 <Link href="/categories" className="nav-link hover:text-green-600 whitespace-nowrap relative group">
-                  <span className="hidden 2xl:inline group-hover:animate-float">Others</span>
-                  <span className="hidden xl:inline 2xl:hidden group-hover:animate-float">Others</span>
-                  <span className="xl:hidden md:inline group-hover:animate-float">Others</span>
+                  Others
                   <span className="nav-link-effect"></span>
                 </Link>
               </nav>
