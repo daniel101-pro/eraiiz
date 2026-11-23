@@ -716,8 +716,8 @@ export default function DualNavbarSell({ handleLogout }) {
         {/* Desktop Dual Navbar */}
         <div className="hidden md:block">
           <header>
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-6">
+            <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-3 py-3 sm:px-4 lg:px-6">
+              <div className="flex min-w-0 items-center gap-4 lg:gap-5">
                 <div className="flex items-center">
                   <button onClick={handleLogoClick} className="flex items-center focus:outline-none group" aria-label="Go to dashboard">
                     <Image
@@ -729,13 +729,13 @@ export default function DualNavbarSell({ handleLogout }) {
                     />
                   </button>
                 </div>
-                <nav className="hidden md:flex items-center space-x-6 text-sm text-gray-600">
+                <nav className="hidden md:flex items-center gap-3 text-sm text-gray-600 lg:gap-4">
                   <Link href="/seller-about" className="nav-link hover:text-green-600 relative group">
-                    <span className="group-hover:animate-float">About Eraiiz</span>
+                    <span className="group-hover:animate-float">About</span>
                     <span className="nav-link-effect"></span>
                   </Link>
                   <Link href="/contact" className="nav-link hover:text-green-600 relative group">
-                    <span className="group-hover:animate-float">Contact Support</span>
+                    <span className="group-hover:animate-float">Contact</span>
                     <span className="nav-link-effect"></span>
                   </Link>
                   <Link href="/policies" className="nav-link hover:text-green-600 relative group">
@@ -744,13 +744,13 @@ export default function DualNavbarSell({ handleLogout }) {
                   </Link>
                   {userRole === 'buyer' && (
                     <Link href="/supplier/migrate" className="nav-link hover:text-green-600 relative group">
-                      <span className="group-hover:animate-float">Become a Seller</span>
+                      <span className="group-hover:animate-float">Sell</span>
                       <span className="nav-link-effect"></span>
                     </Link>
                   )}
                 </nav>
               </div>
-              <div className="flex-1 max-w-xl mx-8 relative">
+              <div className="relative mx-4 max-w-xl flex-1 lg:mx-6">
                 <div className="relative group">
                   <form onSubmit={(e) => {
                     e.preventDefault();
