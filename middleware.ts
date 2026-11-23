@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { countryFromHeaders, currencyFromCountry } from '@/lib/geoLocation';
+import { ADMIN_GATE_COOKIE, adminGateToken, hasValidAdminGateCookie } from '@/lib/adminGate';
 
 export function middleware(request: NextRequest) {
   const host = request.headers.get('host')?.toLowerCase() || '';
@@ -13,6 +14,24 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
+  const pathname = request.nextUrl.pathname;
+  const gateConfigured = Boolean(adminGateToken());
+  const isAdminSurface = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+
+  if (isAdminSurface && gateConfigured) {
+    const gateCookie = request.cookies.get(ADMIN_GATE_COOKIE)?.value;
+    if (!hasValidAdminGateCookie(gateCookie)) {
+      // Hide admin entirely unless the secret gate link was opened first
+      return new NextResponse('Not Found', {
+        status: 404,
+        headers: {
+          'Cache-Control': 'no-store',
+          'X-Robots-Tag': 'noindex, nofollow',
+        },
+      });
+    }
+  }
+
   const country = countryFromHeaders(request.headers);
   const response = NextResponse.next();
   if (country) {
@@ -23,14 +42,14 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  const pathname = request.nextUrl.pathname;
-  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+  if (isAdminSurface) {
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     response.headers.set('Pragma', 'no-cache');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('Referrer-Policy', 'no-referrer');
     response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     response.headers.set(
       'Content-Security-Policy',
       [

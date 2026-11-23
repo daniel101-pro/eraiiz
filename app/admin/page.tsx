@@ -10,6 +10,7 @@ import {
   Mail,
   Shield,
   ShoppingBag,
+  Store,
   Users,
 } from 'lucide-react';
 import { adminFetch } from '../components/admin/adminApi';
@@ -45,7 +46,8 @@ const QUICK = [
   { href: '/admin/orders', label: 'Update fulfillment', icon: ShoppingBag },
   { href: '/admin/mail?folder=reports', label: 'Triage reports', icon: AlertTriangle },
   { href: '/admin/catalog', label: 'Moderate listings', icon: Boxes },
-  { href: '/admin/people', label: 'Review sellers', icon: Users },
+  { href: '/admin/sellers', label: 'Review sellers', icon: Store },
+  { href: '/admin/users', label: 'Track users', icon: Users },
   { href: '/admin/security', label: 'Security center', icon: Shield },
   { href: '/admin/health', label: 'System health', icon: Activity },
 ];
@@ -73,7 +75,7 @@ export default function AdminOverviewPage() {
     { label: 'Unread mail', value: data.unread, href: '/admin/mail' },
     { label: 'Reports', value: data.reports, href: '/admin/mail?folder=reports' },
     { label: 'Listings', value: data.listings, href: '/admin/catalog' },
-    { label: 'Sellers', value: data.sellers, href: '/admin/people' },
+    { label: 'Sellers', value: data.sellers, href: '/admin/sellers' },
   ];
 
   return (

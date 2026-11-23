@@ -13,6 +13,7 @@ import {
   Search,
   Shield,
   ShoppingBag,
+  Store,
   Users,
   X,
 } from 'lucide-react';
@@ -22,7 +23,8 @@ const NAV = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard, group: 'Operate' },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag, group: 'Operate' },
   { href: '/admin/catalog', label: 'Catalog', icon: Boxes, group: 'Operate' },
-  { href: '/admin/people', label: 'People', icon: Users, group: 'Operate' },
+  { href: '/admin/sellers', label: 'Sellers', icon: Store, group: 'Operate' },
+  { href: '/admin/users', label: 'Users', icon: Users, group: 'Operate' },
   { href: '/admin/mail', label: 'Mail', icon: Mail, group: 'Operate' },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, group: 'Insight' },
   { href: '/admin/health', label: 'Health', icon: Activity, group: 'Insight' },
@@ -181,8 +183,8 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
       <main className="min-h-[calc(100dvh-7rem)] pb-20 md:ml-60 md:min-h-screen md:pb-0">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
-        {NAV.slice(0, 4).map((item) => {
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+        {NAV.filter((item) => ['/admin', '/admin/orders', '/admin/sellers', '/admin/users', '/admin/mail'].includes(item.href)).map((item) => {
           const active = item.href === '/admin' ? pathname === '/admin' : pathname.startsWith(item.href);
           return (
             <Link
