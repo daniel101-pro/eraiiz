@@ -994,8 +994,8 @@ export default function DualNavbarSell({ handleLogout }) {
         </div>
       </div>
 
-      {/* Add minimal padding for navbar */}
-      <div className="h-[50px] md:h-[85px]"></div>
+      {/* Clear fixed dual navbar (mobile single bar + desktop header + category row) */}
+      <div className="h-[56px] md:h-[116px]" aria-hidden="true" />
 
       {/* Filter Modal */}
       {isFilterModalOpen && (

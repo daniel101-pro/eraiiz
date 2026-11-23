@@ -156,8 +156,8 @@ export default function ProductCard({ product }) {
           animation: heartBounce 0.6s ease-in-out;
         }
       `}</style>
-      <Link href={`/product/${product._id}`} className="block max-w-[320px]">
-        <div className="bg-white rounded-[24px] overflow-hidden p-5 border border-[#E5E5E5]">
+      <Link href={`/product/${product._id}`} className="block h-full w-full">
+        <div className="h-full bg-white rounded-[24px] overflow-hidden p-4 sm:p-5 border border-[#E5E5E5]">
           {/* Product Details Section */}
           <div className="relative">
             {/* Title */}

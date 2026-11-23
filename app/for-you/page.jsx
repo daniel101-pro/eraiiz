@@ -46,7 +46,6 @@ export default function ForYouPage() {
           list = Array.isArray(res.data) ? res.data : res.data?.products || [];
         }
 
-        // Paint immediately so visitors aren't stuck loading
         const firstPass = usableProducts(await boostProductsByPlan(list));
         if (!cancelled) {
           setProducts(firstPass);
@@ -76,26 +75,29 @@ export default function ForYouPage() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex min-h-screen flex-col bg-white">
       <DualNavbarSell />
       <main className="flex-1">
-        <div className="px-4 md:px-8 lg:px-16 py-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Products for You</h2>
+        <div className="mx-auto w-full max-w-[1400px] px-3 pb-10 pt-4 sm:px-4 sm:pt-5 lg:px-6">
+          <div className="mb-4 flex items-baseline justify-between gap-3 border-b border-[#E5E5E5] pb-3">
+            <p className="text-sm font-medium text-[#1A1A1A]">Shop</p>
+            <p className="text-xs text-[#666666]">
+              {loading ? 'Loading…' : `${products.length} products`}
+            </p>
           </div>
 
           {loading && (
-            <div className="flex items-center justify-center min-h-[300px]">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600" />
+            <div className="flex min-h-[280px] items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-green-600" />
             </div>
           )}
 
           {!loading && error && (
-            <div className="text-center py-16">
-              <p className="text-red-600 mb-4">{error}</p>
+            <div className="py-16 text-center">
+              <p className="mb-4 text-red-600">{error}</p>
               <button
                 onClick={() => window.location.reload()}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
               >
                 Try Again
               </button>
@@ -103,11 +105,11 @@ export default function ForYouPage() {
           )}
 
           {!loading && !error && products.length === 0 && (
-            <p className="text-gray-600">No products available at the moment.</p>
+            <p className="text-sm text-gray-600">No products available at the moment.</p>
           )}
 
           {!loading && !error && products.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 items-start">
+            <div className="grid items-stretch gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))] sm:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))] lg:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
               {products.map((product) => (
                 <ProductCard key={product._id} product={product} />
               ))}
