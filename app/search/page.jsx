@@ -45,7 +45,7 @@ export default function Search() {
         throw new Error('Invalid response format');
       }
 
-      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productsData)));
+      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productsData, { concurrency: 6, budgetMs: 7000 })));
     } catch (err) {
       console.error('Error searching products:', err);
       setError('Failed to search products. Please try again.');

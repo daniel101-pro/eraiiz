@@ -13,7 +13,7 @@ export default function ProductsForYou({ limit = 8 }) {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         const res = await axios.get(`${apiUrl}/api/products/random?limit=${limit}`);
-        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(res.data || [])));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(res.data || [], { concurrency: 6, budgetMs: 7000 })));
       } catch (err) {
         console.error('ProductsForYou fetch error:', err.response?.data || err.message);
       }

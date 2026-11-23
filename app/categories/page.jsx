@@ -165,7 +165,7 @@ export default function CategoriesPage() {
       }
       
       console.log('Products data:', productData);
-      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productData)));
+      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productData, { concurrency: 6, budgetMs: 7000 })));
     } catch (error) {
       console.error('Error fetching products:', error);
       setError('Failed to load products');

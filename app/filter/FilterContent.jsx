@@ -48,7 +48,7 @@ export default function FilterContent() {
           throw new Error('No products found or invalid response');
         }
 
-        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(list)));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(list, { concurrency: 6, budgetMs: 7000 })));
       } catch (err) {
         console.error('Error fetching filtered products:', err);
         setError('Failed to fetch filtered products. Please try again.');

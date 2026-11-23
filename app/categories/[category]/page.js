@@ -73,7 +73,7 @@ export default function CategoryPage({ params }) {
           throw new Error(`Unexpected API response format: ${JSON.stringify(response.data)}`);
         }
 
-        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productData)));
+        setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(productData, { concurrency: 6, budgetMs: 7000 })));
       } catch (err) {
         console.error(`Client: ${categoryName} Fetch Error:`, err.response?.data || err.message, err.config?.url);
         setError('Failed to load products');

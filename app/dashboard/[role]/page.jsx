@@ -154,7 +154,7 @@ export default function UnifiedDashboard() {
           headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
           timeout: 30000,
         });
-        setProductsForYou(await boostProductsByPlan(await enrichProductsWithCurrency(res.data)));
+        setProductsForYou(await boostProductsByPlan(await enrichProductsWithCurrency(res.data, { concurrency: 6, budgetMs: 7000 })));
       } catch (err) {
         console.error('Error fetching products for you:', {
           message: err.message,

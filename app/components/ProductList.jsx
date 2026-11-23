@@ -43,7 +43,7 @@ export default function ProductList() {
       if (!res.ok) throw new Error('Failed to fetch products');
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.products || [];
-      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(list)));
+      setProducts(await boostProductsByPlan(await enrichProductsWithCurrency(list, { concurrency: 6, budgetMs: 7000 })));
     } catch (err) {
       setError(err.message);
     } finally {
