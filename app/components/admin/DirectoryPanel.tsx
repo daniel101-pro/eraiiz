@@ -41,7 +41,7 @@ export default function DirectoryPanel({
 }: {
   title: string;
   subtitle: string;
-  role: 'seller' | 'user';
+  role: 'seller' | 'user' | 'all';
 }) {
   const [people, setPeople] = useState<Person[]>([]);
   const [query, setQuery] = useState('');
@@ -52,6 +52,7 @@ export default function DirectoryPanel({
   const [activityLoading, setActivityLoading] = useState(false);
   const [sources, setSources] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [backendLinked, setBackendLinked] = useState(true);
 
   const load = async (q = query) => {
     setLoading(true);
@@ -61,10 +62,12 @@ export default function DirectoryPanel({
       setPeople(data.people || []);
       setSources(Array.isArray(data.meta?.sources) ? data.meta.sources : []);
       setWarnings(Array.isArray(data.meta?.warnings) ? data.meta.warnings : []);
+      setBackendLinked(Boolean(data.meta?.backendLinked));
     } catch (err) {
       setPeople([]);
       setSources([]);
       setWarnings([]);
+      setBackendLinked(false);
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
       setLoading(false);
@@ -115,9 +118,11 @@ export default function DirectoryPanel({
           {!loading && sources.length ? (
             <p className="mt-1 text-xs text-gray-400">Sources: {sources.join(', ')}</p>
           ) : null}
-          {!loading && !people.length && warnings.length ? (
-            <p className="mt-1 text-xs text-amber-700">
-              Backend user list unavailable ({warnings[0]}). Showing paystack/catalog matches only.
+          {!loading && !backendLinked ? (
+            <p className="mt-1 max-w-2xl text-xs text-amber-700">
+              Full account list isn’t linked yet — backend `/api/admin/users` needs an admin-role token.
+              Add `BACKEND_ADMIN_TOKEN` in Vercel (a JWT for a user with `role: admin` on Render), then refresh.
+              {warnings[0] ? ` (${warnings[0]})` : ''}
             </p>
           ) : null}
         </div>
@@ -128,7 +133,7 @@ export default function DirectoryPanel({
             onKeyDown={(event) => {
               if (event.key === 'Enter') load();
             }}
-            placeholder={`Search ${role === 'seller' ? 'sellers' : 'users'}`}
+            placeholder={`Search ${role === 'seller' ? 'sellers' : role === 'all' ? 'accounts' : 'users'}`}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-emerald-700 focus:outline-none sm:w-72"
           />
           <button

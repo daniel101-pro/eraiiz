@@ -296,6 +296,34 @@ export async function listTransactions(
   return results;
 }
 
+export type PaystackCustomer = {
+  id?: number;
+  customer_code?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+};
+
+export async function listCustomers(
+  params: { perPage?: number; maxPages?: number } = {}
+): Promise<PaystackCustomer[]> {
+  const results: PaystackCustomer[] = [];
+  const perPage = params.perPage || 50;
+  const maxPages = params.maxPages || 20;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const batch = await paystackRequest<PaystackCustomer[]>(
+      `/customer?perPage=${perPage}&page=${page}`
+    );
+    const items = Array.isArray(batch) ? batch : [];
+    results.push(...items);
+    if (items.length < perPage) break;
+  }
+
+  return results;
+}
+
 export function verifyWebhookSignature(
   rawBody: string,
   signature: string | null

@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const role = (request.nextUrl.searchParams.get('role') || 'all').trim().toLowerCase();
 
   const { people, sources, warnings } = await collectAdminPeople(authHeader);
+  const backendLinked = sources.some((source) => source.includes('/api/admin/users'));
 
   const list = people.filter((person) => {
     const roleOk =
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
       role,
       sources,
       warnings,
+      backendLinked,
       generatedAt: new Date().toISOString(),
     },
   });

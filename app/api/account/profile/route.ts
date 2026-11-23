@@ -26,8 +26,19 @@ import {
   readProfileExtrasCookie,
   writeProfileExtrasCookie,
 } from '@/lib/profileExtrasCookie';
+import { upsertDirectoryUser } from '@/lib/userDirectoryStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
+
+function rememberUser(user: Record<string, unknown>) {
+  void upsertDirectoryUser({
+    id: String(user._id || user.id || ''),
+    email: String(user.email || ''),
+    name: String(user.name || ''),
+    role: String(user.role || 'buyer'),
+    source: 'profile',
+  }).catch(() => {});
+}
 
 function apiErrorMessage(data: Record<string, unknown>, fallback: string) {
   return String(data.message || data.error || fallback);
@@ -169,6 +180,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const rawUser = await fetchMe(authHeader);
+    rememberUser(rawUser);
     const ids = userIdsFromUser(rawUser);
     const extras = await loadExtrasForUser(request, rawUser);
     const settings = readAccountSettingsCookie(request, ids);

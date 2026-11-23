@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
+import { backendAdminAuthHeader } from '@/lib/adminPeople';
 import { recordAdminAudit, secureAdminJson } from '@/lib/adminSecurity';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
@@ -159,7 +160,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: 'No updates provided' }, { status: 400 });
   }
 
-  const authHeader = request.headers.get('authorization') || '';
+  const authHeader = backendAdminAuthHeader(request.headers.get('authorization'));
   const updatePaths = [
     `${API_URL}/api/admin/products/${id}`,
     `${API_URL}/api/admin/product/${id}`,
@@ -274,7 +275,7 @@ export async function DELETE(request: NextRequest) {
     String((await request.json().catch(() => ({}))).id || '').trim();
   if (!id) return NextResponse.json({ message: 'Product id required' }, { status: 400 });
 
-  const authHeader = request.headers.get('authorization') || '';
+  const authHeader = backendAdminAuthHeader(request.headers.get('authorization'));
   const result = await backendDeleteProduct(id, authHeader);
 
   if (!result.ok) {

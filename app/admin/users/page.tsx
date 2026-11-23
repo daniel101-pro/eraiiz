@@ -6,8 +6,8 @@ export default function AdminUsersPage() {
   return (
     <DirectoryPanel
       title="Users"
-      subtitle="Buyers and shoppers — purchases, spend, and full activity trail."
-      role="user"
+      subtitle="All registered accounts — buyers, sellers, and shoppers."
+      role="all"
     />
   );
 }

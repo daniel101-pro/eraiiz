@@ -5,9 +5,24 @@ import {
   parsePaystackMetadata,
   sellerOrdersFromPayment,
 } from '@/lib/marketplaceOrders';
-import { listTransactions } from '@/lib/paystack';
+import { listCustomers, listTransactions } from '@/lib/paystack';
+import { listDirectoryUsers } from '@/lib/userDirectoryStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
+
+/** Prefer a dedicated backend admin JWT when the signed-in user is only allowlisted in Next. */
+export function backendAdminAuthHeader(requestAuthHeader?: string | null) {
+  const serviceToken = String(
+    process.env.BACKEND_ADMIN_TOKEN ||
+      process.env.ERAIIZ_BACKEND_ADMIN_TOKEN ||
+      process.env.ADMIN_API_TOKEN ||
+      ''
+  ).trim();
+  if (serviceToken) {
+    return serviceToken.startsWith('Bearer ') ? serviceToken : `Bearer ${serviceToken}`;
+  }
+  return String(requestAuthHeader || '').trim();
+}
 
 export type AdminPerson = {
   id: string;
@@ -82,19 +97,31 @@ function normalizeUser(raw: Record<string, unknown>, source: string): AdminPerso
   };
 }
 
-function extractArray(data: unknown): unknown[] {
-  if (!data) return [];
+function extractArray(data: unknown, depth = 0): unknown[] {
+  if (!data || depth > 3) return [];
   if (Array.isArray(data)) return data;
   if (typeof data !== 'object') return [];
   const obj = data as Record<string, unknown>;
-  for (const key of ['users', 'people', 'customers', 'buyers', 'sellers', 'data', 'results', 'items', 'docs', 'rows']) {
+  for (const key of [
+    'users',
+    'people',
+    'customers',
+    'buyers',
+    'sellers',
+    'accounts',
+    'data',
+    'results',
+    'items',
+    'docs',
+    'rows',
+    'list',
+    'records',
+  ]) {
     const value = obj[key];
     if (Array.isArray(value)) return value;
     if (value && typeof value === 'object') {
-      const nested = value as Record<string, unknown>;
-      for (const inner of ['users', 'people', 'customers', 'data', 'results', 'items', 'docs']) {
-        if (Array.isArray(nested[inner])) return nested[inner] as unknown[];
-      }
+      const nested = extractArray(value, depth + 1);
+      if (nested.length) return nested;
     }
   }
   return [];
@@ -227,42 +254,84 @@ async function collectBackendUsers(authHeader: string, ranks: Record<string, str
   const people = new Map<string, AdminPerson>();
   const warnings: string[] = [];
   const sources: string[] = [];
-  const paths = [
+  const auth = backendAdminAuthHeader(authHeader);
+
+  const basePaths = [
     '/api/admin/users',
-    '/api/admin/users?limit=500',
-    '/api/admin/users?page=1&limit=500',
     '/api/admin/customers',
     '/api/admin/buyers',
   ];
 
-  for (const path of paths) {
-    const result = await fetchJson(`${API_URL}${path}`, authHeader);
-    if (!result.ok) {
-      warnings.push(`${path} → ${result.status || result.error || 'failed'}`);
-      continue;
+  for (const base of basePaths) {
+    let gotAny = false;
+    for (let page = 1; page <= 30; page += 1) {
+      const candidates = [
+        page === 1 ? base : null,
+        `${base}?page=${page}&limit=100`,
+        `${base}?page=${page}&perPage=100`,
+        `${base}?skip=${(page - 1) * 100}&limit=100`,
+      ].filter(Boolean) as string[];
+
+      let pageCount = 0;
+      for (const path of candidates) {
+        const result = await fetchJson(`${API_URL}${path}`, auth);
+        if (!result.ok) {
+          if (page === 1) warnings.push(`${path} → ${result.status || result.error || 'failed'}`);
+          continue;
+        }
+        const list = extractArray(result.body);
+        if (!list.length) continue;
+        gotAny = true;
+        pageCount = list.length;
+        sources.push(path);
+        for (const item of list) {
+          if (!item || typeof item !== 'object') continue;
+          const person = normalizeUser(item as Record<string, unknown>, 'backend');
+          if (!person) continue;
+          if (person.role === 'seller' && !person.plan) person.plan = ranks[person.id] || 'commission';
+          upsert(people, person);
+        }
+        break;
+      }
+
+      if (!gotAny || pageCount < 50) break;
     }
-    const list = extractArray(result.body);
-    if (!list.length) {
-      warnings.push(`${path} → empty`);
-      continue;
-    }
-    sources.push(path);
-    for (const item of list) {
-      if (!item || typeof item !== 'object') continue;
-      const person = normalizeUser(item as Record<string, unknown>, 'backend');
-      if (!person) continue;
-      if (person.role === 'seller' && !person.plan) person.plan = ranks[person.id] || 'commission';
-      upsert(people, person);
-    }
+    if (people.size) break;
   }
 
-  return { people, warnings, sources };
+  if (!people.size) {
+    warnings.push(
+      'backend users empty — set BACKEND_ADMIN_TOKEN to a backend admin JWT, or give this account role=admin on Render'
+    );
+  }
+
+  return { people, warnings, sources: [...new Set(sources)], authMode: auth.startsWith('Bearer ') ? 'token' : 'none' };
 }
 
 async function collectPaystackPeopleAndOrders() {
   const people = new Map<string, AdminPerson>();
   const orders: SellerOrder[] = [];
   const warnings: string[] = [];
+
+  try {
+    const customers = await listCustomers({ maxPages: 30 });
+    for (const customer of customers) {
+      const email = String(customer.email || '').trim().toLowerCase();
+      if (!email) continue;
+      const name = [customer.first_name, customer.last_name].filter(Boolean).join(' ') || email.split('@')[0];
+      upsert(people, {
+        id: String(customer.customer_code || customer.id || email),
+        email,
+        name,
+        role: 'buyer',
+        orders: 0,
+        spend: 0,
+        source: 'paystack-customers',
+      });
+    }
+  } catch (error) {
+    warnings.push(`paystack-customers → ${error instanceof Error ? error.message : 'failed'}`);
+  }
 
   try {
     const transactions = await listTransactions({ status: 'success', maxPages: 10 });
@@ -432,13 +501,15 @@ export async function collectAdminPeople(authHeader: string) {
   const sources: string[] = [];
   const warnings: string[] = [];
   const orderMap = new Map<string, SellerOrder>();
+  const adminAuth = backendAdminAuthHeader(authHeader);
 
-  const [backendUsers, backendOrders, paystack, catalog, localOrders] = await Promise.all([
-    collectBackendUsers(authHeader, ranks),
-    collectBackendOrders(authHeader),
+  const [backendUsers, backendOrders, paystack, catalog, localOrders, directory] = await Promise.all([
+    collectBackendUsers(adminAuth, ranks),
+    collectBackendOrders(adminAuth),
     collectPaystackPeopleAndOrders(),
     collectCatalogSellers(ranks),
     getAllSellerOrders(),
+    listDirectoryUsers().catch(() => []),
   ]);
 
   for (const person of backendUsers.people.values()) upsert(people, person);
@@ -452,6 +523,19 @@ export async function collectAdminPeople(authHeader: string) {
   for (const person of catalog.people.values()) upsert(people, person);
   if (catalog.people.size) sources.push('catalog');
   warnings.push(...catalog.warnings);
+
+  for (const user of directory) {
+    upsert(people, {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: normalizeRole(user.role),
+      orders: 0,
+      spend: 0,
+      source: 'directory',
+    });
+  }
+  if (directory.length) sources.push('directory');
 
   for (const order of [...backendOrders.orders, ...paystack.orders, ...localOrders]) {
     if (!order?._id) continue;
