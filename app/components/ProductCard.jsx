@@ -6,6 +6,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useFavorites } from '../context/FavoritesContext';
 import { useState, useEffect } from 'react';
+import { Heart, Star, Minus, Plus } from 'lucide-react';
 
 import { showCartToast, showError, showSuccess } from '../utils/toast';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
@@ -15,11 +16,9 @@ export default function ProductCard({ product }) {
   const { addToCart, removeFromCart, updateQuantity, cartItems } = useCart();
   const { toggleFavorite, isFavorited } = useFavorites();
   const [quantity, setQuantity] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Check if item is in cart and get its quantity
   useEffect(() => {
-    const cartItem = cartItems.find(item => item._id === product._id);
+    const cartItem = cartItems.find((item) => item._id === product._id);
     setQuantity(cartItem ? cartItem.quantity : 0);
   }, [cartItems, product._id]);
 
@@ -32,60 +31,51 @@ export default function ProductCard({ product }) {
     product?.sizeOptions?.[0] ||
     'One size';
   const imageSrc = product?.images?.[0] || '/placeholder-product.png';
-  const ratingLabel =
-    Number(product?.averageRating) > 0 ? Number(product.averageRating).toFixed(1) : '—';
+  const rating = Number(product?.averageRating) || 0;
+  const reviewCount = Number(product?.totalReviews) || 0;
+  const favorited = isFavorited(product._id);
+
+  const cartPayload = {
+    _id: product._id,
+    name: product.name,
+    price: listingPrice,
+    currency: productCurrency,
+    quantity: 1,
+    selectedSize: defaultSize,
+    images: product.images,
+  };
 
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const cartItem = {
-      _id: product._id,
-      name: product.name,
-      price: listingPrice,
-      currency: productCurrency,
-      quantity: 1,
-      selectedSize: defaultSize,
-      images: product.images
-    };
-    addToCart(cartItem);
+    addToCart(cartPayload);
     showCartToast('Added to cart!', 'success');
   };
 
   const handleIncrement = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const cartItem = {
-      _id: product._id,
-      name: product.name,
-      price: listingPrice,
-      currency: productCurrency,
-      quantity: 1,
-      selectedSize: defaultSize,
-      images: product.images
-    };
-    addToCart(cartItem);
+    addToCart(cartPayload);
     showCartToast('Added to cart!', 'success');
   };
 
   const handleDecrement = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (quantity > 0) {
-      const newQuantity = quantity - 1;
-      if (newQuantity === 0) {
-        removeFromCart(product._id, defaultSize);
-        showCartToast('Removed from cart', 'error');
-      } else {
-        updateQuantity(product._id, defaultSize, newQuantity);
-      }
+    if (quantity <= 0) return;
+    const next = quantity - 1;
+    if (next === 0) {
+      removeFromCart(product._id, defaultSize);
+      showCartToast('Removed from cart', 'error');
+    } else {
+      updateQuantity(product._id, defaultSize, next);
     }
   };
 
   const handleFavoriteClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Check if user is logged in
+
     const token = localStorage.getItem('accessToken');
     if (!token) {
       showError('Sign in to save favorites');
@@ -93,184 +83,106 @@ export default function ProductCard({ product }) {
       return;
     }
 
-    setIsAnimating(true);
-    
     try {
-      const wasFavorited = isFavorited(product._id);
+      const wasFavorited = favorited;
       const success = await toggleFavorite(product._id);
-      
       if (success) {
-        const isNowFavorited = !wasFavorited; // Toggle state
-        showSuccess(
-          isNowFavorited ? 'Added to favorites! ❤️' : 'Removed from favorites'
-        );
+        showSuccess(wasFavorited ? 'Removed from favorites' : 'Saved to favorites');
       } else {
         showError('Failed to update favorites');
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
       showError('Something went wrong');
-    } finally {
-      // Reset animation after different delays based on animation type
-      const animationDuration = isFavorited(product._id) ? 600 : 300; // heart-bounce is longer
-      setTimeout(() => setIsAnimating(false), animationDuration);
     }
   };
 
   return (
-    <>
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-green-200 hover:shadow-md">
+      <Link href={`/product/${product._id}`} className="relative block aspect-[4/5] overflow-hidden bg-gray-100">
+        <Image
+          src={imageSrc}
+          alt={product.name || 'Product'}
+          fill
+          className="object-cover transition duration-500 group-hover:scale-[1.03]"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+        />
+        {product.featured ? (
+          <span
+            className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${
+              product.sellerPlan === 'pro' ? 'bg-purple-600' : 'bg-[#008C00]'
+            }`}
+          >
+            {product.sellerPlan === 'pro' ? 'Pro' : 'Featured'}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleFavoriteClick}
+          aria-label={favorited ? 'Remove from favorites' : 'Save to favorites'}
+          className="absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-gray-500 shadow-sm transition hover:text-red-500"
+        >
+          <Heart className={`h-4 w-4 ${favorited ? 'fill-red-500 text-red-500' : ''}`} />
+        </button>
+      </Link>
 
-      <style jsx>{`
-        @keyframes heartPulse {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.3);
-          }
-          100% {
-            transform: scale(1);
-          }
-        }
-        
-        .heart-pulse {
-          animation: heartPulse 0.3s ease-in-out;
-        }
-        
-        @keyframes heartBounce {
-          0%, 100% {
-            transform: scale(1);
-          }
-          25% {
-            transform: scale(1.1);
-          }
-          50% {
-            transform: scale(1.2);
-          }
-          75% {
-            transform: scale(1.1);
-          }
-        }
-        
-        .heart-bounce {
-          animation: heartBounce 0.6s ease-in-out;
-        }
-      `}</style>
-      <Link href={`/product/${product._id}`} className="block max-w-[320px]">
-        <div className="bg-white rounded-[24px] overflow-hidden p-5 border border-[#E5E5E5]">
-          {/* Product Details Section */}
-          <div className="relative">
-            {/* Title */}
-            <h3 className="text-xs sm:text-xs md:text-xs text-[#1A1A1A] font-medium leading-tight">
+      <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
+        <div className="min-h-[3.25rem]">
+          <Link href={`/product/${product._id}`} className="block">
+            <h3 className="line-clamp-2 text-sm font-medium leading-snug text-gray-900 sm:text-[15px]">
               {product.name}
             </h3>
+          </Link>
+          {product.category ? (
+            <p className="mt-1 truncate text-xs text-gray-500">{product.category}</p>
+          ) : null}
+        </div>
 
-            {/* Price and Reviews in same line */}
-            <div className="flex items-center justify-between mt-2">
-              <div className="text-xs sm:text-xs md:text-xs text-[#1A1A1A] font-semibold">
-                {formatPrice(convertPrice(listingPrice, productCurrency))}
-              </div>
-              <div className="text-[#666666] text-[8px] sm:text-xs">
-                {product.totalReviews || '0'} reviews
-              </div>
-            </div>
-
-            {/* Category Tag */}
-            <div className="mt-3">
-              <span className="inline-block bg-[#EBF6FF] text-[#1A1A1A] px-1.5 py-0.5 rounded-full text-[8px] sm:text-xs">
-                {product.category || 'Uncategorized'}
-              </span>
-            </div>
-
-            {/* Product Image */}
-            <div className="mt-4 mb-4">
-              <div className="relative rounded-xl overflow-hidden h-[140px] sm:h-[180px] md:h-[220px]">
-                <Image
-                  src={imageSrc}
-                  alt={product.name || 'Product'}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                />
-                {product.featured && (
-                  <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    product.sellerPlan === 'pro'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-green-600 text-white'
-                  }`}>
-                    {product.sellerPlan === 'pro' ? 'Pro featured' : 'Featured'}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Add to Cart Button or Quantity Controls */}
-            <div onClick={(e) => e.stopPropagation()}>
-              {quantity === 0 ? (
-                <button
-                  onClick={handleAddToCart}
-                  className="w-full bg-[#3F8E3F] text-white py-1.5 text-xs sm:text-xs font-medium rounded-[14px] hover:bg-[#357C35] transition-colors"
-                  style={{
-                    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.12)',
-                    textShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)'
-                  }}
-                >
-                  Add to cart
-                </button>
-              ) : (
-                <div className="flex items-center justify-between bg-[#F5F5F5] rounded-[14px] p-1.5">
-                  <button
-                    onClick={handleDecrement}
-                    className="w-6 h-6 flex items-center justify-center text-[#3F8E3F] text-base font-semibold bg-white rounded-full shadow-sm hover:bg-gray-50"
-                  >
-                    -
-                  </button>
-                  <span className="text-xs font-medium text-[#1A1A1A]">{Number.isFinite(quantity) ? quantity : 0}</span>
-                  <button
-                    onClick={handleIncrement}
-                    className="w-6 h-6 flex items-center justify-center text-[#3F8E3F] text-base font-semibold bg-white rounded-full shadow-sm hover:bg-gray-50"
-                  >
-                    +
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Favorite and Rating Icons - moved below the button */}
-            <div className="flex items-center justify-between mt-3">
-              {/* Favorite Heart Icon */}
-              <button
-                onClick={handleFavoriteClick}
-                className={`flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-200 ${
-                  isAnimating ? (isFavorited(product._id) ? 'heart-bounce' : 'heart-pulse') : ''
-                }`}
-              >
-                <svg 
-                  className={`w-3 h-3 transition-all duration-200 ${
-                    isFavorited(product._id) 
-                      ? 'text-red-500 fill-current' 
-                      : 'text-gray-400 hover:text-red-400'
-                  }`} 
-                  viewBox="0 0 24 24" 
-                  fill={isFavorited(product._id) ? "currentColor" : "none"} 
-                  stroke="currentColor" 
-                  strokeWidth="2"
-                >
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-              </button>
-
-              {/* Rating Badge */}
-              <div className="flex items-center gap-1 bg-white rounded-full px-2 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
-                <svg className="w-2 h-2 text-[#3F8E3F]" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="text-[#3F8E3F] text-[8px] sm:text-xs font-medium">{ratingLabel}</span>
-              </div>
+        <div className="mt-auto flex items-end justify-between gap-2">
+          <div>
+            <p className="text-base font-semibold tracking-tight text-gray-900 sm:text-lg">
+              {formatPrice(convertPrice(listingPrice, productCurrency))}
+            </p>
+            <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+              <span>{rating > 0 ? rating.toFixed(1) : 'New'}</span>
+              {reviewCount > 0 ? <span>· {reviewCount}</span> : null}
             </div>
           </div>
         </div>
-      </Link>
-    </>
+
+        <div onClick={(e) => e.stopPropagation()}>
+          {quantity === 0 ? (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              className="w-full rounded-xl bg-[#008C00] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
+            >
+              Add to cart
+            </button>
+          ) : (
+            <div className="flex items-center justify-between rounded-xl bg-gray-100 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={handleDecrement}
+                aria-label="Decrease quantity"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-green-700 shadow-sm"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-semibold text-gray-900">{quantity}</span>
+              <button
+                type="button"
+                onClick={handleIncrement}
+                aria-label="Increase quantity"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-green-700 shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
   );
-} 
+}
