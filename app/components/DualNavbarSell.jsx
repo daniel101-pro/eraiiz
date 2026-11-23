@@ -1107,7 +1107,7 @@ export default function DualNavbarSell({ handleLogout }) {
                         className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                           selected
                             ? 'border-[#008C00] bg-[#008C00] text-white'
-                            : 'border-[#E5E5E5] bg-white text-[#1A1A1A] hover:border-[#008C00]/
+                            : 'border-[#E5E5E5] bg-white text-[#1A1A1A] hover:border-[#008C00]'
                         }`}
                       >
                         {category.label}
@@ -1196,7 +1196,7 @@ export default function DualNavbarSell({ handleLogout }) {
                 className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
                   filterSettings.inStock
                     ? 'border-[#008C00] bg-[#F3FBF3]'
-                    : 'border-[#E5E5E5] bg-white hover:border-[#008C00]/
+                    : 'border-[#E5E5E5] bg-white hover:border-[#008C00]'
                 }`}
               >
                 <div>
