@@ -12,12 +12,12 @@ import {
 } from '@/lib/adminMailStore';
 import {
   adminNotifyEmail,
-  escapeHtml,
   getResendEmail,
   isEmailConfigured,
   listResendEmails,
   sendEraiizEmail,
 } from '@/lib/email';
+import { renderAdminMailHtml } from '@/lib/emailLayout';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
 import { recordAdminAudit, secureAdminJson } from '@/lib/adminSecurity';
 
@@ -237,7 +237,11 @@ export async function POST(request: NextRequest) {
     to,
     subject,
     text,
-    html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#111;white-space:pre-wrap">${escapeHtml(text)}</div>`,
+    html: renderAdminMailHtml({
+      text,
+      subject,
+      fromLabel: fromName,
+    }),
     replyTo,
     from: fromHeader,
     throwOnError: false,

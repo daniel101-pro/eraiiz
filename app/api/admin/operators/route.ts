@@ -7,6 +7,7 @@ import {
   revokeAdminOperator,
 } from '@/lib/adminOperatorsStore';
 import { escapeHtml, isEmailConfigured, sendEraiizEmail } from '@/lib/email';
+import { renderEraiizEmailHtml } from '@/lib/emailLayout';
 import { recordAdminAudit, secureAdminJson } from '@/lib/adminSecurity';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
 
@@ -83,15 +84,18 @@ export async function POST(request: NextRequest) {
           '',
           '— Eraiiz',
         ].join('\n'),
-        html: `
-          <div style="font-family:Arial,sans-serif;line-height:1.5;color:#202124">
-            <p>Hi${name ? ` ${escapeHtml(name)}` : ''},</p>
-            <p><strong>${escapeHtml(session.name || session.email)}</strong> invited you to the Eraiiz admin panel.</p>
-            <p><a href="${escapeHtml(joinUrl)}" style="display:inline-block;background:#0b57d0;color:#fff;padding:10px 16px;border-radius:999px;text-decoration:none">Accept invite</a></p>
-            <p style="color:#5f6368;font-size:13px">Or open this link:<br/>${escapeHtml(joinUrl)}</p>
-            <p style="color:#5f6368;font-size:13px">Expires in 7 days. Sign in with <strong>${escapeHtml(email)}</strong>.</p>
-          </div>
-        `,
+        html: renderEraiizEmailHtml({
+          eyebrow: 'Admin access',
+          title: 'You’re invited to Eraiiz Admin',
+          bodyHtml: `
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#14231a">Hi${name ? ` ${escapeHtml(name)}` : ''},</p>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#14231a"><strong>${escapeHtml(session.name || session.email)}</strong> invited you to the Eraiiz admin panel.</p>
+            <p style="margin:0;font-size:13px;line-height:1.5;color:#5b6b61">Sign in with <strong>${escapeHtml(email)}</strong>. This invite expires in 7 days.</p>
+          `,
+          cta: { label: 'Accept invite', href: joinUrl },
+          fromLabel: 'Eraiiz Admin',
+          footerNote: 'If you weren’t expecting this, you can ignore the email.',
+        }),
         idempotencyKey: `admin-invite:${email}:${invite.inviteToken}`,
       });
       emailed = sent.ok;

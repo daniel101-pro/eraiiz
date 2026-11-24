@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAdminMail } from '@/lib/adminMailStore';
-import { adminNotifyEmail, escapeHtml, isEmailConfigured, notifyAdminInbox, sendEraiizEmail } from '@/lib/email';
+import { adminNotifyEmail, isEmailConfigured, notifyAdminInbox, sendEraiizEmail } from '@/lib/email';
+import { renderAdminAlertHtml, renderContactReceiptHtml } from '@/lib/emailLayout';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -40,7 +41,14 @@ export async function POST(request: NextRequest) {
     const notify = await notifyAdminInbox({
       subject: `[Support] ${subject}`,
       text: `From: ${name} <${email}>\n\n${message}`,
-      html: `<p><strong>From:</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;</p><p style="white-space:pre-wrap">${escapeHtml(message)}</p>`,
+      html: renderAdminAlertHtml({
+        title: subject,
+        rows: [
+          { label: 'From', value: `${name} <${email}>` },
+          { label: 'Type', value: 'Contact form' },
+        ],
+        body: message,
+      }),
       replyTo: email,
       idempotencyKey: `support:${email}:${subject}:${message.slice(0, 40)}`,
     });
@@ -52,7 +60,7 @@ export async function POST(request: NextRequest) {
         to: email,
         subject: `We got your message: ${subject}`,
         text: `Hi ${name},\n\nWe received your message and will reply soon.\n\n— Eraiiz Support`,
-        html: `<p>Hi ${escapeHtml(name)},</p><p>We received your message and will reply soon.</p><blockquote style="border-left:3px solid #ddd;padding-left:12px;color:#555">${escapeHtml(message)}</blockquote><p>— Eraiiz Support</p>`,
+        html: renderContactReceiptHtml({ name, subject, message }),
       });
       receiptOk = receipt.ok;
     } catch {

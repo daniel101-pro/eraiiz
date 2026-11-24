@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAdminMail } from '@/lib/adminMailStore';
 import { getVerifiedUser } from '@/lib/sellerPayoutStore';
-import { adminNotifyEmail, escapeHtml, notifyAdminInbox } from '@/lib/email';
+import { adminNotifyEmail, notifyAdminInbox } from '@/lib/email';
+import { renderAdminAlertHtml } from '@/lib/emailLayout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://eraiiz-backend.onrender.com';
 
@@ -41,7 +42,15 @@ export async function POST(request: NextRequest) {
   await notifyAdminInbox({
     subject: `[Report] ${reason.replace(/_/g, ' ')} · ${productId}`,
     text: `Reporter: ${email}\nProduct: ${productId}\nReason: ${reason}\n\n${description}`,
-    html: `<p><strong>Reporter:</strong> ${escapeHtml(email)}</p><p><strong>Product:</strong> ${escapeHtml(productId)}</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p><p style="white-space:pre-wrap">${escapeHtml(description)}</p>`,
+    html: renderAdminAlertHtml({
+      title: `Report · ${reason.replace(/_/g, ' ')}`,
+      rows: [
+        { label: 'Reporter', value: email },
+        { label: 'Product', value: productId },
+        { label: 'Reason', value: reason.replace(/_/g, ' ') },
+      ],
+      body: description,
+    }),
     replyTo: email,
     idempotencyKey: `report:${email}:${productId}:${reason}:${description.slice(0, 40)}`,
   });
