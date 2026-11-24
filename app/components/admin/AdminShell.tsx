@@ -107,6 +107,56 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   }
 
   const groups = ['Operate', 'Insight'];
+  const isMail = pathname.startsWith('/admin/mail');
+
+  // Mail is a full Gmail-style surface — skip the dark admin chrome.
+  if (isMail) {
+    return (
+      <div className="min-h-screen bg-[#f6f8fc] text-[#202124]">
+        {children}
+        {commandOpen ? (
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-[12vh]" onClick={() => setCommandOpen(false)}>
+            <div
+              className="w-full max-w-lg overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 border-b border-gray-200 px-3">
+                <Search className="h-4 w-4 text-gray-400" />
+                <input
+                  autoFocus
+                  value={commandQuery}
+                  onChange={(event) => setCommandQuery(event.target.value)}
+                  placeholder="Search admin commands…"
+                  className="h-12 flex-1 bg-transparent text-sm outline-none"
+                />
+                <button type="button" onClick={() => setCommandOpen(false)} aria-label="Close">
+                  <X className="h-4 w-4 text-gray-400" />
+                </button>
+              </div>
+              <ul className="max-h-80 overflow-y-auto py-2">
+                {filteredCommands.map((item) => (
+                  <li key={`${item.href}-${item.label}`}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-gray-50"
+                      onClick={() => {
+                        setCommandOpen(false);
+                        setCommandQuery('');
+                        router.push(item.href);
+                      }}
+                    >
+                      <span>{item.label}</span>
+                      <span className="text-xs text-gray-400">{item.hint}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f3f5f7] text-gray-900">
