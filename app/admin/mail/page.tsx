@@ -19,6 +19,7 @@ import {
   Search,
   Send,
   Settings,
+  Shield,
   SlidersHorizontal,
   Smile,
   SquareArrowOutUpRight,
@@ -27,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { adminFetch } from '../../components/admin/adminApi';
+import AdminsMonitor from '../../components/admin/AdminsMonitor';
 
 type Folder = 'inbox' | 'sent' | 'support' | 'reports' | 'starred' | 'archived';
 
@@ -108,6 +110,9 @@ function Mailbox() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [adminName, setAdminName] = useState('Admin');
+  const [panel, setPanel] = useState<'mail' | 'admins'>(
+    searchParams.get('view') === 'admins' ? 'admins' : 'mail'
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -291,6 +296,7 @@ function Mailbox() {
     : '0-0 of 0';
 
   const selectFolder = (id: Folder) => {
+    setPanel('mail');
     setFolder(id);
     if (id === 'support') setTab('support');
     else if (id === 'reports') setTab('reports');
@@ -400,6 +406,26 @@ function Mailbox() {
             })}
           </nav>
 
+          <div className="mt-4 space-y-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setPanel('admins');
+                closeThread();
+              }}
+              className={`flex w-full items-center gap-4 rounded-r-full py-1.5 pr-3 text-sm transition ${
+                sidebarOpen ? 'pl-6' : 'justify-center px-0'
+              } ${
+                panel === 'admins'
+                  ? 'bg-[#d3e3fd] font-bold text-[#001d35]'
+                  : 'font-medium text-[#444746] hover:bg-[#e8eaed]'
+              }`}
+            >
+              <Shield className="h-[18px] w-[18px] shrink-0" />
+              {sidebarOpen ? <span className="flex-1 truncate text-left">Admins</span> : null}
+            </button>
+          </div>
+
           {sidebarOpen ? (
             <div className="mt-6 px-4">
               <p className="mb-2 text-xs font-medium text-[#444746]">Labels</p>
@@ -425,7 +451,9 @@ function Mailbox() {
 
         {/* Main card */}
         <section className="relative mr-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)] md:mr-4 md:mb-4">
-          {!reading ? (
+          {panel === 'admins' ? (
+            <AdminsMonitor />
+          ) : !reading ? (
             <>
               {/* List toolbar */}
               <div className="flex h-12 items-center gap-1 border-b border-[#eceff1] px-2">
@@ -518,12 +546,24 @@ function Mailbox() {
                       type="button"
                       onClick={() => selectFolder(item.id)}
                       className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs ${
-                        folder === item.id ? 'bg-[#d3e3fd] font-bold text-[#001d35]' : 'bg-[#e8eaed] text-[#444746]'
+                        panel === 'mail' && folder === item.id
+                          ? 'bg-[#d3e3fd] font-bold text-[#001d35]'
+                          : 'bg-[#e8eaed] text-[#444746]'
                       }`}
                     >
                       {item.label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPanel('admins');
+                      closeThread();
+                    }}
+                    className="whitespace-nowrap rounded-full bg-[#e8eaed] px-3 py-1.5 text-xs text-[#444746]"
+                  >
+                    Admins
+                  </button>
                 </div>
               </div>
 

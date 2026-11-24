@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { decodeAuthToken } from '@/lib/sellerPayoutStore';
 import { isAdminAccount } from '@/lib/authRouting';
+import { isActiveOperatorEmail, touchAdminOperator } from '@/lib/adminOperatorsStore';
 import {
   assertAdminSameOrigin,
   enforceAdminRateLimit,
@@ -45,7 +46,10 @@ export async function resolveAdminSession(authHeader?: string | null): Promise<A
   const id = String(user._id || user.id || user.userId || payload?.id || payload?._id || payload?.sub || email);
   const name = String(user.name || payload?.name || email.split('@')[0] || 'Admin');
 
-  if (!isAdminAccount({ role, email })) return null;
+  const allowlisted = isAdminAccount({ role, email }) || (await isActiveOperatorEmail(email));
+  if (!allowlisted) return null;
+
+  touchAdminOperator(email, name).catch(() => undefined);
 
   return { id, email, name, role: role || 'admin' };
 }

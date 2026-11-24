@@ -56,7 +56,13 @@ export default function Login() {
       localStorage.removeItem('userId');
       window.dispatchEvent(new Event('eraiiz:auth-changed'));
       showAuthToast('Successfully logged in!', 'success');
-      router.push(nextPath || homePathForRole(data.user.role, data.user.email));
+
+      // Prefer explicit next (e.g. join-admin invite), else admin home when allowlisted
+      if (nextPath) {
+        router.push(nextPath);
+      } else {
+        router.push(homePathForRole(data.user.role, data.user.email));
+      }
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
       const errorData = err.response?.data;
