@@ -316,11 +316,13 @@ function Mailbox() {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <Link href="/admin" className="mr-2 flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-black/[0.03]">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1a73e8] text-sm font-bold text-white">
-            M
-          </span>
-          <span className="hidden text-[22px] font-normal tracking-tight text-[#5f6368] sm:inline">Eraiiz Mail</span>
+        <Link
+          href="/admin"
+          className="mr-2 flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm font-medium text-[#1a73e8] hover:bg-[#e8f0fe] sm:px-3"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Back to admin dashboard</span>
+          <span className="sm:hidden">Admin</span>
         </Link>
 
         <div className="mx-auto flex h-12 w-full max-w-[720px] items-center rounded-full bg-[#eaf1fb] px-4 focus-within:bg-white focus-within:shadow-[0_1px_3px_1px_rgba(60,64,67,.15)]">
