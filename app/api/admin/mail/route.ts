@@ -217,10 +217,21 @@ export async function POST(request: NextRequest) {
   const subject = String(body.subject || '').trim();
   const text = String(body.text || '').trim();
   const replyTo = String(body.replyTo || session.email || '').trim() || undefined;
+  const requestedFrom = String(body.fromEmail || '').trim().toLowerCase();
 
   if (!to.includes('@') || !subject || !text) {
     return NextResponse.json({ message: 'To, subject, and message are required' }, { status: 400 });
   }
+
+  const { formatMailFrom, getMailIdentity } = await import('@/lib/mailIdentitiesStore');
+  const identity = requestedFrom
+    ? await getMailIdentity(requestedFrom)
+    : await getMailIdentity('support');
+  const fromName = String(body.fromName || identity?.displayName || session.name || 'Eraiiz').trim();
+  const fromEmail = identity?.email || 'noreply@eraiiz.com';
+  const fromHeader = identity
+    ? formatMailFrom({ displayName: fromName, email: fromEmail })
+    : process.env.EMAIL_FROM || `Eraiiz <${fromEmail}>`;
 
   const sent = await sendEraiizEmail({
     to,
@@ -228,6 +239,7 @@ export async function POST(request: NextRequest) {
     text,
     html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#111;white-space:pre-wrap">${escapeHtml(text)}</div>`,
     replyTo,
+    from: fromHeader,
     throwOnError: false,
   });
 
@@ -246,8 +258,8 @@ export async function POST(request: NextRequest) {
 
   const message = await addAdminMail({
     folder: 'sent',
-    fromName: session.name,
-    fromEmail: session.email,
+    fromName,
+    fromEmail,
     toName: String(body.toName || to.split('@')[0]),
     toEmail: to,
     subject,

@@ -29,6 +29,7 @@ export async function sendEraiizEmail(input: {
   text: string;
   html: string;
   replyTo?: string;
+  from?: string;
   idempotencyKey?: string;
   throwOnError?: boolean;
 }): Promise<SendEmailResult> {
@@ -45,7 +46,7 @@ export async function sendEraiizEmail(input: {
   }
 
   const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || 'Eraiiz <noreply@eraiiz.com>';
+  const from = String(input.from || process.env.EMAIL_FROM || 'Eraiiz <noreply@eraiiz.com>').trim();
 
   if (resendKey) {
     const headers: Record<string, string> = {

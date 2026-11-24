@@ -29,6 +29,9 @@ import {
 } from 'lucide-react';
 import { adminFetch } from '../../components/admin/adminApi';
 import AdminsMonitor from '../../components/admin/AdminsMonitor';
+import MailIdentitySwitcher, {
+  type MailIdentity,
+} from '../../components/admin/MailIdentitySwitcher';
 
 type Folder = 'inbox' | 'sent' | 'support' | 'reports' | 'starred' | 'archived';
 
@@ -113,6 +116,7 @@ function Mailbox() {
   const [panel, setPanel] = useState<'mail' | 'admins'>(
     searchParams.get('view') === 'admins' ? 'admins' : 'mail'
   );
+  const [identity, setIdentity] = useState<MailIdentity | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -255,7 +259,11 @@ function Mailbox() {
     try {
       await adminFetch('/api/admin/mail', {
         method: 'POST',
-        body: JSON.stringify(draft),
+        body: JSON.stringify({
+          ...draft,
+          fromEmail: identity?.email,
+          fromName: identity?.displayName,
+        }),
       });
       setCompose(false);
       setReplyOpen(false);
@@ -350,12 +358,19 @@ function Mailbox() {
           <button type="button" className="hidden rounded-full p-2.5 text-[#5f6368] hover:bg-black/5 sm:inline-flex" aria-label="Settings">
             <Settings className="h-5 w-5" />
           </button>
-          <div
-            className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#1a73e8] text-xs font-medium text-white"
-            title={adminName}
-          >
-            {initials(adminName, '')}
-          </div>
+          <MailIdentitySwitcher
+            activeEmail={identity?.email}
+            adminName={adminName}
+            onChange={setIdentity}
+            onSignOut={() => {
+              localStorage.removeItem('user');
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('role');
+              window.dispatchEvent(new Event('eraiiz:auth-changed'));
+              window.location.href = '/login';
+            }}
+          />
         </div>
       </header>
 
@@ -918,6 +933,9 @@ function Mailbox() {
           <div className="flex h-10 items-center justify-between bg-[#f2f6fc] px-4">
             <p className="text-sm font-medium text-[#202124]">
               {draft.subject?.startsWith('Re:') ? draft.subject : 'New Message'}
+              {identity?.email ? (
+                <span className="ml-2 text-xs font-normal text-[#5f6368]">from {identity.email}</span>
+              ) : null}
             </p>
             <div className="flex items-center gap-1">
               <button
