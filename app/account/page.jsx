@@ -88,6 +88,9 @@ export default function AccountPage() {
         try {
           token = await getValidAccessToken();
         } catch {
+          token = null;
+        }
+        if (!token) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');
@@ -104,6 +107,7 @@ export default function AccountPage() {
           if (err.cause?.status === 401 || err.message.includes('Invalid or expired token')) {
             try {
               token = await refreshAccessToken();
+              if (!token) throw new Error('No refresh token available');
               await fetchUser(token);
               setNeedsAuth(false);
             } catch {
@@ -197,7 +201,7 @@ export default function AccountPage() {
     return (
       <AuthRequiredGate
         title="Sign in to your account"
-        description="Orders, favorites, notifications, and settings are available after you sign in. You can keep browsing products without an account."
+        description="Your session is not signed in, so orders, favorites, and settings are locked. Sign in to pick up where you left off, or keep browsing without an account."
         nextPath="/account"
       />
     );

@@ -11,12 +11,12 @@ function isTokenExpiringSoon(token, skewMs = 60_000) {
 }
 
 export const refreshAccessToken = async () => {
-  try {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    return null;
+  }
 
+  try {
     const response = await axios.post(
       process.env.NEXT_PUBLIC_API_URL + '/api/auth/refresh',
       { refreshToken },
@@ -24,6 +24,7 @@ export const refreshAccessToken = async () => {
     );
 
     const { accessToken, refreshToken: nextRefresh } = response.data;
+    if (!accessToken) return null;
     localStorage.setItem('accessToken', accessToken);
     if (nextRefresh) {
       localStorage.setItem('refreshToken', nextRefresh);
@@ -35,12 +36,31 @@ export const refreshAccessToken = async () => {
   }
 };
 
+function clearStaleSession() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('role');
+  window.dispatchEvent(new Event('eraiiz:auth-changed'));
+}
+
+/** True when the browser can act as signed in (fresh access token, or a refresh token to renew it). */
+export function hasUsableSession() {
+  const token = localStorage.getItem('accessToken');
+  if (token && !isTokenExpiringSoon(token)) return true;
+  return Boolean(localStorage.getItem('refreshToken'));
+}
+
 export async function getValidAccessToken() {
   const token = localStorage.getItem('accessToken');
-  if (!token || isTokenExpiringSoon(token)) {
-    return refreshAccessToken();
+  if (token && !isTokenExpiringSoon(token)) {
+    return token;
   }
-  return token;
+  const next = await refreshAccessToken();
+  if (!next && token) {
+    clearStaleSession();
+  }
+  return next;
 }
 
 // Function to decode JWT token and extract user ID

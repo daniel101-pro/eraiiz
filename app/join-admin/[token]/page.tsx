@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getValidAccessToken } from '../../utils/auth';
 
 type InviteInfo = {
@@ -20,31 +20,9 @@ export default function JoinAdminPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch(`/api/join-admin/${encodeURIComponent(token)}`, {
-          cache: 'no-store',
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.message || 'Invite is invalid or expired');
-        }
-        if (!cancelled) setInvite(data as InviteInfo);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Invite unavailable');
-      } finally {
-        if (!cancelled) setBusy(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  const accept = async () => {
+  const accept = useCallback(async () => {
     setAccepting(true);
     setError('');
     try {
@@ -78,7 +56,38 @@ export default function JoinAdminPage() {
     } finally {
       setAccepting(false);
     }
-  };
+  }, [router, token]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`/api/join-admin/${encodeURIComponent(token)}`, {
+          cache: 'no-store',
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.message || 'Invite is invalid or expired');
+        }
+        if (cancelled) return;
+        setInvite(data as InviteInfo);
+        const accessToken = await getValidAccessToken().catch(() => null);
+        if (cancelled) return;
+        setSignedIn(Boolean(accessToken));
+        if (accessToken) {
+          setBusy(false);
+          await accept();
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Invite unavailable');
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, accept]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc] px-4 [font-family:Roboto,Arial,Helvetica,sans-serif]">
@@ -120,7 +129,7 @@ export default function JoinAdminPage() {
               ) : null}
             </div>
             <p className="text-xs text-[#5f6368]">
-              Sign in with <strong>{invite.email}</strong>, then accept to unlock admin.
+              Use <strong>{invite.email}</strong> for this invite.
             </p>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
             <button
@@ -129,11 +138,8 @@ export default function JoinAdminPage() {
               onClick={accept}
               className="w-full rounded-full bg-[#0b57d0] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0b57d0]/90 disabled:bg-[#a8c7fa]"
             >
-              {accepting ? 'Accepting…' : 'Accept invite & open admin'}
+              {accepting ? 'Opening admin…' : signedIn ? 'Open admin' : 'Sign in to accept'}
             </button>
-            <Link href={`/login?next=${encodeURIComponent(`/join-admin/${token}`)}`} className="block text-center text-sm text-[#1a73e8] hover:underline">
-              Sign in first
-            </Link>
           </div>
         ) : null}
       </div>

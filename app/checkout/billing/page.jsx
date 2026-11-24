@@ -9,6 +9,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import DualNavbarSell from '../../components/DualNavbarSell';
 import { showError } from '../../utils/toast';
 import { getProductCurrency, getListingPrice } from '@/lib/productCurrency';
+import { hasUsableSession } from '../../utils/auth';
 
 const fields = [
   { name: 'fullName', label: 'Full Name', type: 'text', required: true },
@@ -55,8 +56,8 @@ export default function BillingPage() {
     let cancelled = false;
 
     const boot = async () => {
-      const token = localStorage.getItem('accessToken');
-      setIsSignedIn(Boolean(token));
+      const signedIn = hasUsableSession();
+      setIsSignedIn(signedIn);
 
       if (cartItems.length === 0) {
         router.push('/cart');
@@ -67,7 +68,7 @@ export default function BillingPage() {
       if (cancelled) return;
 
       // Signed-in shoppers with a full saved address can skip to payment.
-      if (token && !skippedRef.current && isBillingComplete(nextBilling)) {
+      if (signedIn && !skippedRef.current && isBillingComplete(nextBilling)) {
         skippedRef.current = true;
         router.replace('/checkout/payment');
         return;

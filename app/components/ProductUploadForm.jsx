@@ -597,9 +597,17 @@ const ProductUploadForm = () => {
   if (!session) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center px-4">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-green-950">Sign in required</h2>
-          <p className="mt-2 text-sm text-gray-600">Log in as a seller to upload a product.</p>
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
+          <h2 className="text-xl font-semibold text-green-950">Sign in to list a product</h2>
+          <p className="mt-2 text-sm leading-relaxed text-gray-600">
+            Your session is not signed in. Sign in with a seller account, then you can upload this listing.
+          </p>
+          <a
+            href={`/login?next=${encodeURIComponent('/dashboard/seller/upload')}`}
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#008C00] px-5 text-sm font-semibold text-white hover:bg-green-700"
+          >
+            Sign in
+          </a>
         </div>
       </div>
     );

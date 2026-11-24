@@ -12,6 +12,7 @@ import debounce from 'lodash/debounce';
 import { boostProductsByPlan } from '@/lib/boostProducts';
 import { clearLocalInbox, fetchNotificationFeed } from '../utils/notificationFeed';
 import { homePathForRole } from '@/lib/authRouting';
+import { hasUsableSession } from '../utils/auth';
 
 // Icons from lucide-react
 import { ShoppingCart, User, ChevronDown, Search, Filter, Menu, X, LogOut, Clock, ArrowRight, Globe, Bell, Star, RotateCcw } from 'lucide-react';
@@ -74,9 +75,8 @@ export default function DualNavbarSell({ handleLogout }) {
   // Load auth + role from localStorage only on the client
   useEffect(() => {
     const syncAuth = () => {
-      const token = localStorage.getItem('accessToken');
       const storedUser = localStorage.getItem('user');
-      const loggedIn = Boolean(token && storedUser);
+      const loggedIn = hasUsableSession() && Boolean(storedUser);
       setIsAuthenticated(loggedIn);
 
       if (!loggedIn) {

@@ -99,6 +99,9 @@ export default function MyEraiizAccount({ user, setUser }) {
       try {
         token = await getValidAccessToken();
       } catch {
+        token = null;
+      }
+      if (!token) {
         window.location.href = '/login';
         return;
       }

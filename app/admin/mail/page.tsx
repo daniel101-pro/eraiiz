@@ -86,6 +86,51 @@ function initials(name: string, email: string) {
   return source.slice(0, 2).toUpperCase();
 }
 
+function MessageMenu({
+  onReply,
+  onForward,
+  onDelete,
+  onUnread,
+  onPrint,
+  onClose,
+}: {
+  onReply: () => void;
+  onForward: () => void;
+  onDelete: () => void;
+  onUnread: () => void;
+  onPrint: () => void;
+  onClose: () => void;
+}) {
+  const items = [
+    { label: 'Reply', icon: Reply, run: onReply },
+    { label: 'Forward', icon: Send, run: onForward },
+    { label: 'Delete', icon: Trash2, run: onDelete },
+    { label: 'Mark as unread', icon: Mail, run: onUnread },
+    { label: 'Print', icon: Printer, run: onPrint },
+  ];
+  return (
+    <>
+      <button type="button" aria-label="Close menu" className="fixed inset-0 z-40 cursor-default" onClick={onClose} />
+      <div className="absolute right-0 top-9 z-50 w-52 overflow-hidden rounded-lg border border-[#dadce0] bg-white py-1 text-left shadow-lg">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={item.run}
+              className="flex w-full items-center gap-3 px-4 py-2 text-sm text-[#202124] hover:bg-[#f1f3f4]"
+            >
+              <Icon className="h-4 w-4 text-[#5f6368]" />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 function snippet(text: string) {
   return String(text || '').replace(/\s+/g, ' ').trim();
 }
@@ -117,6 +162,7 @@ function Mailbox() {
     searchParams.get('view') === 'admins' ? 'admins' : 'mail'
   );
   const [identity, setIdentity] = useState<MailIdentity | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -194,6 +240,24 @@ function Mailbox() {
     setActiveId(null);
     setThread([]);
     setReplyOpen(false);
+    setMenu(null);
+  };
+
+  const forward = () => {
+    const latest = thread[thread.length - 1];
+    if (!latest) return;
+    openCompose({
+      to: '',
+      subject: latest.subject.startsWith('Fwd:') ? latest.subject : `Fwd: ${latest.subject}`,
+      text: `\n\n---------- Forwarded message ----------\nFrom: ${latest.fromName || latest.fromEmail} <${latest.fromEmail}>\nTo: ${latest.toEmail}\n\n${latest.text}`,
+      threadId: '',
+    });
+    setMenu(null);
+  };
+
+  const printMessage = () => {
+    setMenu(null);
+    window.print();
   };
 
   const toggleStar = async (event: React.MouseEvent, item: Mail) => {
@@ -759,9 +823,37 @@ function Mailbox() {
                 >
                   <Mail className="h-5 w-5" />
                 </button>
-                <button type="button" className="rounded-full p-2 text-[#5f6368] hover:bg-black/5" aria-label="More">
-                  <MoreVertical className="h-5 w-5" />
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMenu((current) => (current === 'toolbar' ? null : 'toolbar'))}
+                    className="rounded-full p-2 text-[#5f6368] hover:bg-black/5"
+                    aria-label="More"
+                    aria-expanded={menu === 'toolbar'}
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                  {menu === 'toolbar' ? (
+                    <MessageMenu
+                      onReply={() => {
+                        setMenu(null);
+                        reply(true);
+                      }}
+                      onForward={forward}
+                      onDelete={() => {
+                        setMenu(null);
+                        archive();
+                      }}
+                      onUnread={() => {
+                        setMenu(null);
+                        markUnread();
+                        closeThread();
+                      }}
+                      onPrint={printMessage}
+                      onClose={() => setMenu(null)}
+                    />
+                  ) : null}
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4 sm:px-8">
@@ -776,7 +868,7 @@ function Mailbox() {
                     </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 text-[#5f6368]">
-                    <button type="button" className="rounded-full p-2 hover:bg-black/5" aria-label="Print">
+                    <button type="button" onClick={printMessage} className="rounded-full p-2 hover:bg-black/5" aria-label="Print">
                       <Printer className="h-4 w-4" />
                     </button>
                     <button type="button" className="rounded-full p-2 hover:bg-black/5" aria-label="Open in new">
@@ -823,9 +915,36 @@ function Mailbox() {
                             >
                               <Reply className="h-4 w-4" />
                             </button>
-                            <button type="button" className="rounded-full p-1.5 hover:bg-black/5">
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setMenu((current) => (current === item.id ? null : item.id))}
+                                className="rounded-full p-1.5 hover:bg-black/5"
+                                aria-label="More message actions"
+                                aria-expanded={menu === item.id}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                              {menu === item.id ? (
+                                <MessageMenu
+                                  onReply={() => {
+                                    setMenu(null);
+                                    reply(true);
+                                  }}
+                                  onForward={forward}
+                                  onDelete={() => {
+                                    setMenu(null);
+                                    archive(item.id);
+                                  }}
+                                  onUnread={() => {
+                                    setMenu(null);
+                                    markUnread(item.id);
+                                  }}
+                                  onPrint={printMessage}
+                                  onClose={() => setMenu(null)}
+                                />
+                              ) : null}
+                            </div>
                           </div>
                         </div>
 
