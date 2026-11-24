@@ -147,11 +147,44 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const operator = await revokeAdminOperator({ email, revokedBy: session.email });
+
+    let emailed = false;
+    if (isEmailConfigured()) {
+      const sent = await sendEraiizEmail({
+        to: email,
+        subject: 'Your Eraiiz admin access was revoked',
+        text: [
+          `Hi${operator.name ? ` ${operator.name}` : ''},`,
+          '',
+          `Your access to the Eraiiz admin panel was revoked by ${session.name || session.email}.`,
+          '',
+          'You can no longer open /admin. If this was unexpected, contact the Eraiiz team.',
+          '',
+          '— Eraiiz',
+        ].join('\n'),
+        html: renderEraiizEmailHtml({
+          eyebrow: 'Admin access',
+          title: 'Admin access revoked',
+          bodyHtml: `
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#14231a">Hi${operator.name ? ` ${escapeHtml(operator.name)}` : ''},</p>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#14231a">Your access to the Eraiiz admin panel was revoked by <strong>${escapeHtml(session.name || session.email)}</strong>.</p>
+            <p style="margin:0;font-size:14px;line-height:1.65;color:#5b6b61">You can no longer open the admin dashboard. If this was unexpected, reply to this email or contact the Eraiiz team.</p>
+          `,
+          fromLabel: 'Eraiiz Admin',
+          footerNote: 'This is an automated security notice.',
+          cta: { label: 'Go to Eraiiz', href: 'https://www.eraiiz.com' },
+        }),
+        idempotencyKey: `admin-revoke:${email}:${operator.revokedAt || Date.now()}`,
+      });
+      emailed = sent.ok;
+    }
+
     await recordAdminAudit(request, session, {
       action: 'operators.revoke',
       resource: `admin:${email}`,
+      detail: emailed ? 'emailed' : 'revoked',
     });
-    return secureAdminJson({ ok: true, operator });
+    return secureAdminJson({ ok: true, operator, emailed });
   } catch (err) {
     return NextResponse.json(
       { message: err instanceof Error ? err.message : 'Could not revoke admin' },
