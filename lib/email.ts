@@ -156,6 +156,24 @@ export async function listResendEmails(limit = 40) {
   }
 }
 
+export async function getResendEmail(id: string) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const emailId = String(id || '').trim();
+  if (!resendKey || !emailId) return null;
+
+  try {
+    const response = await fetch(`https://api.resend.com/emails/${encodeURIComponent(emailId)}`, {
+      headers: { Authorization: `Bearer ${resendKey}` },
+      signal: AbortSignal.timeout(10000),
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    return (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  } catch {
+    return null;
+  }
+}
+
 export function escapeHtml(value: string) {
   return String(value || '')
     .replace(/&/g, '&amp;')

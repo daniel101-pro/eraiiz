@@ -46,7 +46,7 @@ function Mailbox() {
   const [draft, setDraft] = useState({ to: '', subject: '', text: '', threadId: '' });
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
-  const [provider, setProvider] = useState<{ resend?: boolean; from?: string }>({});
+  const [provider, setProvider] = useState<{ resend?: boolean; from?: string; notify?: string }>({});
 
   const load = useCallback(async () => {
     const data = await adminFetch(`/api/admin/mail?folder=${folder}&q=${encodeURIComponent(query)}`);
@@ -61,8 +61,8 @@ function Mailbox() {
 
   const open = async (id: string) => {
     setActiveId(id);
-    // Resend-hydrated sent items may only exist in the list payload
-    if (String(id).startsWith('resend:')) {
+    // Resend-hydrated items may only exist in the list payload
+    if (String(id).startsWith('resend:') || String(id).startsWith('resend-in:')) {
       const local = messages.find((item) => item.id === id);
       if (local) {
         setThread([local]);
@@ -169,7 +169,9 @@ function Mailbox() {
             Compose
           </button>
           <p className={`mt-2 text-[11px] ${provider.resend ? 'text-emerald-700' : 'text-amber-700'}`}>
-            {provider.resend ? 'Resend connected' : 'Resend not configured'}
+            {provider.resend
+              ? `Resend connected · alerts → ${provider.notify || 'admin'}`
+              : 'Resend not configured — contact form cannot email Support'}
           </p>
         </div>
         {folders.map((item) => (

@@ -15,6 +15,7 @@ export default function ContactSupport() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [submitError, setSubmitError] = useState('');
 
   // Refs for scroll animations
   const heroRef = useRef(null);
@@ -50,14 +51,19 @@ export default function ContactSupport() {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitStatus(null);
+    setSubmitError('');
 
     try {
-      // Replace with your actual API endpoint
       await axios.post('/api/contact', formData);
       setSubmitStatus('success');
       setFormData({ name: '', email: '', subject: '', message: '' });
     } catch (error) {
       setSubmitStatus('error');
+      setSubmitError(
+        error?.response?.data?.error ||
+          error?.message ||
+          'Failed to send message. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -159,10 +165,12 @@ export default function ContactSupport() {
                 )}
               </button>
               {submitStatus === 'success' && (
-                <p className="text-green-600 text-center">Message sent successfully!</p>
+                <p className="text-center text-green-600">
+                  Message sent — our team will see it in Support and reply soon.
+                </p>
               )}
               {submitStatus === 'error' && (
-                <p className="text-red-600 text-center">Failed to send message. Please try again.</p>
+                <p className="text-center text-red-600">{submitError || 'Failed to send message.'}</p>
               )}
             </form>
           </div>
@@ -181,8 +189,8 @@ export default function ContactSupport() {
                   </div>
                   <div>
                     <h3 className="font-medium">Email</h3>
-                    <p className="text-gray-600">support@eraiiz.com</p>
-                    <p className="text-sm text-gray-500">We'll respond within 24 hours</p>
+                    <p className="text-gray-600">projecterraiz@gmail.com</p>
+                    <p className="text-sm text-gray-500">Messages also land in Admin → Mail → Support</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">

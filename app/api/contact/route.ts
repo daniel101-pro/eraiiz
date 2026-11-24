@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAdminMail } from '@/lib/adminMailStore';
-import { adminNotifyEmail, escapeHtml, notifyAdminInbox, sendEraiizEmail } from '@/lib/email';
+import { adminNotifyEmail, escapeHtml, isEmailConfigured, notifyAdminInbox, sendEraiizEmail } from '@/lib/email';
 import { clientIp, rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many messages. Try again later.' }, { status: 429 });
     }
 
-    const data = await request.json();
+    const data = await request.json().catch(() => ({}));
     const name = String(data.name || '').trim();
     const email = String(data.email || '').trim().toLowerCase();
     const subject = String(data.subject || '').trim();
@@ -22,19 +22,22 @@ export async function POST(request: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
+    if (message.length > 5000) {
+      return NextResponse.json({ error: 'Message is too long' }, { status: 400 });
+    }
 
-    await addAdminMail({
+    // Durable admin desk copy (survives Vercel cold starts via Stripe-backed store)
+    const saved = await addAdminMail({
       folder: 'support',
       fromName: name,
       fromEmail: email,
-      toName: 'Eraiiz',
+      toName: 'Eraiiz Support',
       toEmail: adminNotifyEmail(),
       subject,
       text: message,
     });
 
-    // Durable path: deliver to admin inbox via Resend
-    await notifyAdminInbox({
+    const notify = await notifyAdminInbox({
       subject: `[Support] ${subject}`,
       text: `From: ${name} <${email}>\n\n${message}`,
       html: `<p><strong>From:</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;</p><p style="white-space:pre-wrap">${escapeHtml(message)}</p>`,
@@ -42,20 +45,37 @@ export async function POST(request: NextRequest) {
       idempotencyKey: `support:${email}:${subject}:${message.slice(0, 40)}`,
     });
 
-    // Receipt to the sender
+    // Best-effort receipt to the sender
+    let receiptOk = false;
     try {
-      await sendEraiizEmail({
+      const receipt = await sendEraiizEmail({
         to: email,
         subject: `We got your message: ${subject}`,
-        text: `Hi ${name},\n\nWe received your message and will reply from this thread.\n\n${message}`,
-        html: `<p>Hi ${escapeHtml(name)},</p><p>We received your message.</p><blockquote style="border-left:3px solid #ddd;padding-left:12px;color:#555">${escapeHtml(message)}</blockquote>`,
+        text: `Hi ${name},\n\nWe received your message and will reply soon.\n\n— Eraiiz Support`,
+        html: `<p>Hi ${escapeHtml(name)},</p><p>We received your message and will reply soon.</p><blockquote style="border-left:3px solid #ddd;padding-left:12px;color:#555">${escapeHtml(message)}</blockquote><p>— Eraiiz Support</p>`,
       });
+      receiptOk = receipt.ok;
     } catch {
-      // inbound mail is stored/notified even if the receipt send fails
+      receiptOk = false;
     }
 
-    return NextResponse.json({ message: 'Message sent successfully' });
-  } catch {
-    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+    return NextResponse.json({
+      message: 'Message sent successfully',
+      id: saved.id,
+      emailed: Boolean(notify.ok),
+      receipt: receiptOk,
+      resendConfigured: isEmailConfigured(),
+    });
+  } catch (error) {
+    console.error('contact POST failed', error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to send message. Please try again or email support@eraiiz.com.',
+      },
+      { status: 500 }
+    );
   }
 }
