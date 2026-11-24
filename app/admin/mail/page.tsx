@@ -483,6 +483,25 @@ function Mailbox() {
                 >
                   <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 </button>
+                {folder === 'sent' ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!window.confirm('Clear all Sent history from Eraiiz Mail?')) return;
+                      try {
+                        await adminFetch('/api/admin/mail?folder=sent', { method: 'DELETE' });
+                        closeThread();
+                        setMessages([]);
+                        await load();
+                      } catch (err) {
+                        setSendError(err instanceof Error ? err.message : 'Could not clear Sent');
+                      }
+                    }}
+                    className="rounded-full px-3 py-1.5 text-xs font-medium text-[#c5221f] hover:bg-[#fce8e6]"
+                  >
+                    Clear sent
+                  </button>
+                ) : null}
                 <button type="button" className="rounded-full p-2 text-[#5f6368] hover:bg-black/5" aria-label="More">
                   <MoreVertical className="h-4 w-4" />
                 </button>

@@ -3,6 +3,8 @@ import { requireAdmin } from '@/lib/adminAuth';
 import {
   addAdminMail,
   adminMailCounts,
+  clearSentMail,
+  getSentClearedAt,
   listAdminMail,
   rememberRemoteMail,
   type AdminMailFolder,
@@ -120,13 +122,16 @@ async function hydrateFromResend(folder: AdminMailFolder) {
   }
 
   if (folder === 'sent' || folder === 'inbox') {
+    const clearedAt = await getSentClearedAt();
+    const clearedMs = clearedAt ? new Date(clearedAt).getTime() : 0;
     for (const item of remote) {
       const row = item as Record<string, unknown>;
       const subject = String(row.subject || '');
       if (subject.startsWith('[Support]') || subject.startsWith('[Report]')) continue;
-      // Skip auto receipts to customers in Sent noise if needed — keep them for now
       const outbound = mapResendOutbound(row);
-      if (outbound) mapped.push(outbound);
+      if (!outbound) continue;
+      if (clearedMs && new Date(outbound.createdAt).getTime() <= clearedMs) continue;
+      mapped.push(outbound);
     }
   }
 
@@ -258,4 +263,27 @@ export async function POST(request: NextRequest) {
   });
 
   return secureAdminJson({ ...message, providerId: sent.id, provider: sent.provider });
+}
+
+export async function DELETE(request: NextRequest) {
+  const { session, error } = await requireAdmin(request);
+  if (error) return error;
+
+  const folder = (request.nextUrl.searchParams.get('folder') || '').trim().toLowerCase();
+  if (folder !== 'sent') {
+    return NextResponse.json({ message: 'Only Sent history can be cleared' }, { status: 400 });
+  }
+
+  const result = await clearSentMail();
+  await recordAdminAudit(request, session, {
+    action: 'mail.clear_sent',
+    resource: 'folder:sent',
+    detail: `removed:${result.removed}`,
+  });
+
+  return secureAdminJson({
+    ok: true,
+    removed: result.removed,
+    clearedAt: result.clearedAt,
+  });
 }
